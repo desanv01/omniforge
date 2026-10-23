@@ -748,13 +748,14 @@ a3ce89c677dd35fc95fe05a83c6cf134693d08a393c7fc79f67b7c0dc3ad41f2  web/package.js
 ab4805b77935e8d8a2036e5de3d3a15d6e21229e8e3a1a4aea10b09327709460  web/postcss.config.mjs
 30fcea978f7cef5a3b6d00df2d16b943091e043497901dc90f941d1713aed42c  web/public/logo.png
 44ff4525c2b1778f0e7a3582d1ee3942a008551096d8f4e827344a8b6c2ce373  web/public/logo.svg
+f7e0c6401d692e880578576cce66d515574d0a88d92b24a286189a3fd2b5f495  web/public/omniforge.svg
 a57c7a6bad15755c00ea658b57ff4bf74a903b458f740698b66dc18d0c8b137d  web/src/app/(auth)/layout.tsx
-d64d410a873c2ef53e82075ce452e71381a1de164981359f0974950f1aeacf2d  web/src/app/(auth)/login/page.tsx
-32fb9e19820a378d9cd335a1b75eddc97db2d4553d9aa76824fba5658517fb71  web/src/app/(auth)/setup/page.tsx
+6fe9aa131663640f401ef8cace4a1ae654f4a21adfd433ff443a080b3b37a7c5  web/src/app/(auth)/login/page.tsx
+1dcf44233e5d9dd340c2f3bc81df374408fcdf3c5477a67a30a7186479a2acf5  web/src/app/(auth)/setup/page.tsx
 ca5f54834930eddbb38d645e924a5f4e64a1c82a06c7952a0e67ce8212cfa9e4  web/src/app/(external)/page.tsx
 53726eebdc2299e49a03ca5a86b86f36e6bb78464769a9379f9cf833f41c711f  web/src/app/(main)/_components/main-content.tsx
 ded574e8acc75fe2544841ecad4ab36a589126bdfddb1d465b40b4c71461fbf3  web/src/app/(main)/_components/sidebar/account-switcher.tsx
-0bc024470785b04b532767e5c0af91326a99bc0c23d8678a8383f7c3f9d7b034  web/src/app/(main)/_components/sidebar/app-sidebar.tsx
+faf7e5832330e769a0ba99773a8a6cb55ea27d2aab686fb30571330cc6ec36f5  web/src/app/(main)/_components/sidebar/app-sidebar.tsx
 783607250667511837750857ffea5fdec02c65ea2ba0ec691453ef251d3980ab  web/src/app/(main)/_components/sidebar/change-password-dialog.tsx
 622eabd56f0f942e2b94ddf9d8b691a4e59623ac1c2ff55fe8769ab7abc248fe  web/src/app/(main)/_components/sidebar/layout-controls.tsx
 41320035b8d9250e0c6b3570865c52135696e5971f12d3b179b2ed0812d125ef  web/src/app/(main)/_components/sidebar/nav-documents.tsx
