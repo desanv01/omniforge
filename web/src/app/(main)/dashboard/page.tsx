@@ -87,7 +87,7 @@ export default function DashboardPage() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <Badge variant="outline">AegisLoop</Badge>
+          <Badge variant="outline">OmniForge</Badge>
           <h1 className="text-2xl font-semibold tracking-tight">{t("overview.title")}</h1>
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{t("overview.description")}</p>
         </div>

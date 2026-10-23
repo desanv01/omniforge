@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/closedloop"
+	"github.com/desanv01/omniforge/closedloop"
 )
 
 func closedLoopFixture() closedloop.Input {

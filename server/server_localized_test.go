@@ -9,7 +9,7 @@ import (
 )
 
 // server.go 의 사용자 노출 응답을 한국어로 유지하는 회귀 방어 테스트다(F3b-server.go +
-// F34). 한국어 판정은 F3a 의 assertKoreanError(한글 포함·중국어 한자 0)를, 응답 본문
+// F34). 한국어 판정은 F3a 의 assertEnglishError(한글 포함·중국어 한자 0)를, 응답 본문
 // 추출은 task_categories 테스트의 decodeErrorField 를 재사용한다(같은 package server).
 // 범위는 ① F3b: writeErr 24곳 + validateTaskProfileIDs 가 writeErr 로 노출하는
 // fmt.Errorf 2곳, ② F34: writeErr 를 거치지 않는 사용자 노출 5곳(chatUnavailableReason
@@ -50,7 +50,7 @@ func TestServerErrorConstantsLocalized(t *testing.T) {
 		"fallback_hint":   fallbackHintRecorded,
 	}
 	for label, msg := range plain {
-		assertKoreanError(t, label, msg)
+		assertEnglishError(t, label, msg)
 	}
 
 	formatted := map[string]string{
@@ -62,7 +62,7 @@ func TestServerErrorConstantsLocalized(t *testing.T) {
 		"fallback_status": fmt.Sprintf(fallbackChatStatus, 3, 2, 1),
 	}
 	for label, msg := range formatted {
-		assertKoreanError(t, label, msg)
+		assertEnglishError(t, label, msg)
 	}
 }
 
@@ -134,7 +134,7 @@ func TestServerHandlersResponsesLocalized(t *testing.T) {
 			req: func() *http.Request {
 				// MaxTaskSourceCount=8 → 9개는 한도 초과(루프 전에 반환).
 				r := httptest.NewRequest(http.MethodPost, "/api/tasks", strings.NewReader(
-					`{"goal":"목표","source_task_ids":["1","2","3","4","5","6","7","8","9"]}`))
+					"{\"goal\":\"Goal\",\"source_task_ids\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"]}"))
 				return r
 			},
 			handler: func(s *Server) http.HandlerFunc { return s.createTask },
@@ -146,7 +146,7 @@ func TestServerHandlersResponsesLocalized(t *testing.T) {
 			name: "createTask/source-invalid",
 			req: func() *http.Request {
 				r := httptest.NewRequest(http.MethodPost, "/api/tasks", strings.NewReader(
-					`{"goal":"목표","source_task_ids":["abc"]}`))
+					"{\"goal\":\"Objective\",\"source_task_ids\":[\"abc\"]}"))
 				return r
 			},
 			handler: func(s *Server) http.HandlerFunc { return s.createTask },
@@ -159,7 +159,7 @@ func TestServerHandlersResponsesLocalized(t *testing.T) {
 			req: func() *http.Request {
 				// 999 는 tasks 맵에 없음 → 찾을 수 없음(DB 미접근, 맵 조회).
 				r := httptest.NewRequest(http.MethodPost, "/api/tasks", strings.NewReader(
-					`{"goal":"목표","source_task_ids":["999"]}`))
+					"{\"goal\":\"Goal\",\"source_task_ids\":[\"999\"]}"))
 				return r
 			},
 			handler: func(s *Server) http.HandlerFunc { return s.createTask },
@@ -175,7 +175,7 @@ func TestServerHandlersResponsesLocalized(t *testing.T) {
 				for i := range ids {
 					ids[i] = fmt.Sprintf("%d", i+1)
 				}
-				body := `{"goal":"목표","company_ids":[` + strings.Join(ids, ",") + `]}`
+				body := "{\"goal\":\"Goal\",\"company_ids\":[" + strings.Join(ids, ",") + `]}`
 				return httptest.NewRequest(http.MethodPost, "/api/tasks", strings.NewReader(body))
 			},
 			handler: func(s *Server) http.HandlerFunc { return s.createTask },
@@ -188,7 +188,7 @@ func TestServerHandlersResponsesLocalized(t *testing.T) {
 			req: func() *http.Request {
 				// llm_profile_ids:[0] → validateTaskProfileIDs 가 loadProfileConfig(DB) 전에 반환.
 				r := httptest.NewRequest(http.MethodPost, "/api/tasks", strings.NewReader(
-					`{"goal":"목표","llm_profile_ids":[0]}`))
+					"{\"goal\":\"Goal\",\"llm_profile_ids\":[0]}"))
 				return r
 			},
 			handler: func(s *Server) http.HandlerFunc { return s.createTask },
@@ -242,13 +242,13 @@ func TestServerHandlersResponsesLocalized(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c.handler(s)(rec, c.req())
 			if rec.Code != c.code {
-				t.Fatalf("상태 코드 = %d, 기대 = %d (본문 %q)", rec.Code, c.code, rec.Body.String())
+				t.Fatalf("status code = %d, expectation = %d (body %q)", rec.Code, c.code, rec.Body.String())
 			}
 			got := decodeErrorField(t, rec.Body.Bytes())
 			if got != c.want {
-				t.Fatalf("응답 문구 = %q, 기대 = %q", got, c.want)
+				t.Fatalf("Response phrase = %q, Expectation = %q", got, c.want)
 			}
-			assertKoreanError(t, c.name, got)
+			assertEnglishError(t, c.name, got)
 		})
 	}
 }
@@ -262,9 +262,9 @@ func TestChatUnavailableReasonLocalized(t *testing.T) {
 	s := &Server{m: &Manager{}} // m.pg == nil → 세 번째 return 경로
 	got := s.chatUnavailableReason()
 	if got != errChatLLMNotReady {
-		t.Fatalf("chatUnavailableReason() = %q, 기대 = %q", got, errChatLLMNotReady)
+		t.Fatalf("chatUnavailableReason() = %q, expectation = %q", got, errChatLLMNotReady)
 	}
-	assertKoreanError(t, "chat_not_ready", got)
+	assertEnglishError(t, "chat_not_ready", got)
 }
 
 // TestFallbackCommandParsing 은 규칙 모드 채팅의 트리거 키워드 파싱(fallbackCommand)이 한국어
@@ -275,20 +275,20 @@ func TestFallbackCommandParsing(t *testing.T) {
 	cases := []struct {
 		name, in, cmd, text string
 	}{
-		{"korean-intent", "의도 SQLi 주입점 먼저 확인", "intent", "SQLi 주입점 먼저 확인"},
-		{"korean-hint", "힌트 로그인 폼부터 보라", "hint", "로그인 폼부터 보라"},
-		{"chinese-intent", "意图 扫描端口", "intent", "扫描端口"}, // 하위 호환 보존
-		{"chinese-hint", "提示 看登录", "hint", "看登录"},       // 하위 호환 보존
+		{"korean-intent", "Check intent SQLi injection point first", "intent", "Check the SQLi injection point first"},
+		{"korean-hint", "Hint: Look at the login form first.", "hint", "Look at the login form first."},
+		{"chinese-intent", "Intent to scan port", "intent", "Scan port"}, // 하위 호환 보존
+		{"chinese-hint", "Tips See login", "hint", "See login"},          // 하위 호환 보존
 		{"english-intent", "intent scan ports", "intent", "scan ports"},
 		{"english-hint", "hint try admin:admin", "hint", "try admin:admin"},
-		{"status-korean", "지금 상황 알려줘", "", "지금 상황 알려줘"},
+		{"status-korean", "Tell me what's going on now", "", "Tell me what's going on now"},
 		{"status-empty", "   ", "", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			cmd, text := fallbackCommand(c.in)
 			if cmd != c.cmd || text != c.text {
-				t.Fatalf("fallbackCommand(%q) = (%q, %q), 기대 = (%q, %q)", c.in, cmd, text, c.cmd, c.text)
+				t.Fatalf("fallbackCommand(%q) = (%q, %q), expected = (%q, %q)", c.in, cmd, text, c.cmd, c.text)
 			}
 		})
 	}

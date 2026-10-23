@@ -16,7 +16,7 @@ import (
 
 // smokeEnv 让被冒烟测试拉起的子进程直接跳过 Bootstrap。
 //
-// 严格来说不加也不会出事：子进程的 os.Executable() 是 artex.new，推导出来的
+// 严格来说不加也不会出事：子进程的 os.Executable() 是 omniforge.new，推导出来的
 // 全部路径都带 .new 前缀，碰不到真正的升级文件。但依赖这种巧合太脆弱，
 // 显式短路一目了然，也省掉子进程一次无谓的磁盘探测。
 const smokeEnv = "ARTEX_SELFUPDATE_SMOKE"
@@ -44,7 +44,7 @@ type State struct {
 //
 // 三种局面：
 //
-//	① 存在暂存件 artex.new  → 校验 + 冒烟，通过则换装并要求重启；不通过则丢弃继续跑旧版
+//	① 存在暂存件 omniforge.new  → 校验 + 冒烟，通过则换装并要求重启；不通过则丢弃继续跑旧版
 //	② 只剩标记文件          → 说明刚换装完，累计一次尝试；连续失败够多次则回滚
 //	③ 什么都没有            → 正常启动
 func Bootstrap() (Action, State) {
@@ -53,7 +53,7 @@ func Bootstrap() (Action, State) {
 	}
 	p, err := ResolvePaths()
 	if err != nil {
-		log.Printf("[update] 跳过自举：%v", err)
+		log.Printf("[update] Skip bootstrap: %v", err)
 		return Continue, State{}
 	}
 
@@ -77,17 +77,17 @@ func applyStaged(p Paths) (Action, State) {
 	m, _ := readMarker(p.Marker)
 
 	if err := verifyStaged(p); err != nil {
-		log.Printf("[update] 暂存的新版本未通过校验，已丢弃，继续运行当前版本：%v", err)
+		log.Printf("[update] The temporarily stored new version failed the verification and has been discarded. Continue to run the current version: %v", err)
 		cleanStaged(p)
 		_ = os.Remove(p.Marker)
-		return Continue, State{FailedStage: true, Detail: "새 버전 검증에 실패해 폐기했습니다: " + err.Error()}
+		return Continue, State{FailedStage: true, Detail: "The new version has been scrapped because it failed to verify: " + err.Error()}
 	}
 
 	if err := swap(p); err != nil {
-		log.Printf("[update] 换装失败，继续运行当前版本：%v", err)
+		log.Printf("[update] Replacement failed, continue to run the current version: %v", err)
 		cleanStaged(p)
 		_ = os.Remove(p.Marker)
-		return Continue, State{FailedStage: true, Detail: "버전 교체에 실패했습니다: " + err.Error()}
+		return Continue, State{FailedStage: true, Detail: "Version replacement failed: " + err.Error()}
 	}
 
 	// 换装成功。保留标记，交给下一次启动（跑的就是新版）确认是否稳定。
@@ -96,9 +96,9 @@ func applyStaged(p Paths) (Action, State) {
 		m.StagedAt = time.Now().Unix()
 	}
 	if err := writeMarker(p.Marker, m); err != nil {
-		log.Printf("[update] 写升级标记失败（失去自动回滚能力）：%v", err)
+		log.Printf("[update] Failed to write upgrade mark (lost automatic rollback capability): %v", err)
 	}
-	log.Printf("[update] 已换装到 %s，退出以重启（exit %d）", orUnknown(m.To), ExitRestart)
+	log.Printf("[update] Changed to %s, exit to restart (exit %d)", orUnknown(m.To), ExitRestart)
 	return Restart, State{Pending: true}
 }
 
@@ -113,19 +113,19 @@ func confirmOrRollback(p Paths, m marker) (Action, State) {
 		if err := rollback(p); err != nil {
 			// 回滚都失败了就别再重启了，否则会陷入无限重启。清掉标记，
 			// 让进程按当前状态起——起不来的话用户至少能在日志里看到原因。
-			log.Printf("[update] 新版本连续 %d 次启动失败，且回滚失败：%v", maxAttempts, err)
+			log.Printf("[update] The new version failed to start %d times consecutively, and the rollback failed: %v", maxAttempts, err)
 			_ = os.Remove(p.Marker)
-			return Continue, State{Detail: "새 버전 시작에 실패하고 롤백도 실패했습니다: " + err.Error()}
+			return Continue, State{Detail: "The new version failed to start and rollback also failed: " + err.Error()}
 		}
-		log.Printf("[update] 新版本连续 %d 次启动失败，已回滚到 %s，退出以重启（exit %d）",
+		log.Printf("[update] The new version failed to start %d times in a row and has been rolled back to %s. Exit to restart (exit %d)",
 			maxAttempts, orUnknown(m.From), ExitRestart)
 		_ = os.Remove(p.Marker)
-		return Restart, State{RolledBack: true, Detail: fmt.Sprintf("새 버전 시작에 실패해 이전 버전으로 롤백했습니다(%s)", orUnknown(m.From))}
+		return Restart, State{RolledBack: true, Detail: fmt.Sprintf("New version failed to start and rolled back to previous version (%s)", orUnknown(m.From))}
 	}
 	if err := writeMarker(p.Marker, m); err != nil {
-		log.Printf("[update] 更新升级标记失败：%v", err)
+		log.Printf("[update] Failed to update upgrade mark: %v", err)
 	}
-	log.Printf("[update] 新版本启动中（第 %d/%d 次尝试），稳定运行后将确认升级",
+	log.Printf("[update] The new version is starting (%d/%d attempt), the upgrade will be confirmed after stable operation",
 		m.Attempts, maxAttempts)
 	return Continue, State{Pending: true}
 }
@@ -147,10 +147,10 @@ func settle(p Paths) {
 		return // 不是升级后的启动，无事可做
 	}
 	if err := os.Remove(p.Marker); err != nil && !errors.Is(err, os.ErrNotExist) {
-		log.Printf("[update] 清除升级标记失败：%v", err)
+		log.Printf("[update] Failed to clear upgrade mark: %v", err)
 		return
 	}
-	log.Printf("[update] 新版本运行稳定，升级完成（上一版本保留为 %s）", p.Old)
+	log.Printf("[update] The new version runs stably and the upgrade is completed (the previous version remains as %s)", p.Old)
 }
 
 // SettleDelay 是判定"新版本活下来了"所需的运行时长。
@@ -160,14 +160,14 @@ const SettleDelay = 30 * time.Second
 func verifyStaged(p Paths) error {
 	want, err := os.ReadFile(p.Sum)
 	if err != nil {
-		return fmt.Errorf("체크섬 읽기 실패: %w", err)
+		return fmt.Errorf("Failed to read checksum: %w", err)
 	}
 	got, err := fileSHA256(p.New)
 	if err != nil {
-		return fmt.Errorf("체크섬 계산 실패: %w", err)
+		return fmt.Errorf("Checksum calculation failed: %w", err)
 	}
 	if !strings.EqualFold(strings.TrimSpace(string(want)), got) {
-		return errors.New("SHA256 이 일치하지 않습니다(다운로드가 손상됐거나 변조됨)")
+		return errors.New("SHA256 does not match (download is corrupted or tampered with)")
 	}
 	return smokeTest(p.New)
 }
@@ -176,7 +176,7 @@ func verifyStaged(p Paths) error {
 // 这能挡掉下载截断、架构选错（exec format error）、缺依赖等一大类问题。
 func smokeTest(bin string) error {
 	if err := os.Chmod(bin, 0o755); err != nil {
-		return fmt.Errorf("실행 권한 부여 실패: %w", err)
+		return fmt.Errorf("Failed to grant execution permission: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -185,14 +185,14 @@ func smokeTest(bin string) error {
 	cmd.Env = append(os.Environ(), smokeEnv+"=1")
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
-		return errors.New("스모크 테스트 시간 초과(새 바이너리가 응답하지 않음)")
+		return errors.New("Smoke test times out (new binary does not respond)")
 	}
 	if err != nil {
 		snippet := strings.TrimSpace(string(out))
 		if len(snippet) > 300 {
 			snippet = snippet[:300] + "…"
 		}
-		return fmt.Errorf("스모크 테스트 실패: %v: %s", err, snippet)
+		return fmt.Errorf("Smoke test failed: %v: %s", err, snippet)
 	}
 	return nil
 }
@@ -204,17 +204,17 @@ func smokeTest(bin string) error {
 func swap(p Paths) error {
 	// Windows 的 rename 不会覆盖已存在的目标，上一轮升级留下的 .old 必须先清掉。
 	if err := os.Remove(p.Old); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("이전 백업 %s 정리 실패: %w", p.Old, err)
+		return fmt.Errorf("Failed to clean up previous backup %s: %w", p.Old, err)
 	}
 	if err := os.Rename(p.Current, p.Old); err != nil {
-		return fmt.Errorf("현재 버전 백업 실패: %w", err)
+		return fmt.Errorf("Current version backup failed: %w", err)
 	}
 	if err := os.Rename(p.New, p.Current); err != nil {
 		// 换装失败但当前版本已经被挪走了，必须原样放回去，否则下次启动没有可执行文件。
 		if rerr := os.Rename(p.Old, p.Current); rerr != nil {
-			return fmt.Errorf("새 버전 설치 실패(%v), 현재 버전 복구도 실패: %w", err, rerr)
+			return fmt.Errorf("Installation of new version failed (%v), recovery of current version also failed: %w", err, rerr)
 		}
-		return fmt.Errorf("새 버전 설치 실패: %w", err)
+		return fmt.Errorf("Failed to install new version: %w", err)
 	}
 	_ = os.Remove(p.Sum)
 	return nil
@@ -223,16 +223,16 @@ func swap(p Paths) error {
 // rollback 把 swap 备份的旧版本换回来。
 func rollback(p Paths) error {
 	if _, err := os.Stat(p.Old); err != nil {
-		return fmt.Errorf("롤백할 백업이 없습니다(%s): %w", p.Old, err)
+		return fmt.Errorf("There are no backups to roll back to (%s): %w", p.Old, err)
 	}
 	// 把起不来的新版挪到 .failed 留作排查，而不是直接删掉。
 	failed := p.Current + ".failed"
 	_ = os.Remove(failed)
 	if err := os.Rename(p.Current, failed); err != nil {
-		return fmt.Errorf("실패한 버전 이동 실패: %w", err)
+		return fmt.Errorf("Failed to move failed version: %w", err)
 	}
 	if err := os.Rename(p.Old, p.Current); err != nil {
-		return fmt.Errorf("이전 버전 복구 실패: %w", err)
+		return fmt.Errorf("Previous version recovery failed: %w", err)
 	}
 	return nil
 }
@@ -245,24 +245,24 @@ func Rollback() error {
 		return err
 	}
 	if _, err := os.Stat(p.Old); err != nil {
-		return errors.New("롤백할 이전 버전이 없습니다(" + p.Old + " 없음)")
+		return errors.New("There are no previous versions to roll back to (" + p.Old + " doesn't exist)")
 	}
 	cleanStaged(p)
 	if err := smokeTest(p.Old); err != nil {
-		return fmt.Errorf("이전 버전을 실행할 수 없어 롤백을 거부합니다: %w", err)
+		return fmt.Errorf("Rollback refused because previous version cannot run: %w", err)
 	}
 	// 交换当前与备份：回滚之后还能再滚回来。
 	tmp := p.Current + ".swap"
 	_ = os.Remove(tmp)
 	if err := os.Rename(p.Current, tmp); err != nil {
-		return fmt.Errorf("현재 버전 이동 실패: %w", err)
+		return fmt.Errorf("Failed to move current version: %w", err)
 	}
 	if err := os.Rename(p.Old, p.Current); err != nil {
 		_ = os.Rename(tmp, p.Current)
-		return fmt.Errorf("이전 버전 설치 실패: %w", err)
+		return fmt.Errorf("Previous version installation failed: %w", err)
 	}
 	if err := os.Rename(tmp, p.Old); err != nil {
-		log.Printf("[update] 回滚后整理备份失败（不影响运行）：%v", err)
+		log.Printf("[update] Failed to organize backup after rollback (does not affect operation): %v", err)
 	}
 	_ = os.Remove(p.Marker)
 	return nil
@@ -293,7 +293,7 @@ func fileSHA256(path string) (string, error) {
 
 func orUnknown(s string) string {
 	if strings.TrimSpace(s) == "" {
-		return "알 수 없는 버전"
+		return "unknown version"
 	}
 	return s
 }

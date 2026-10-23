@@ -1,6 +1,6 @@
 # Security Policy
 
-[한국어](SECURITY.md) · English
+[Korean](SECURITY.md) · English
 
 This document explains how to report security vulnerabilities in the **ARTEX Korean edition (`artex-ko`) code itself**. ARTEX is an offensive-security tool that performs penetration testing, but what this document covers is not the results of attacking something with the tool; it is **vulnerabilities that arise when you operate or deploy this software**.
 

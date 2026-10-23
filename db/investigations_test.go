@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func investigationFixture(t *testing.T, d *DB, id int64) FindingInvestigation {

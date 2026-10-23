@@ -9,7 +9,7 @@ import (
 )
 
 // intent_intervention.go 의 Worker 개입 API 에러 응답을 한국어로 유지하는 회귀 방어
-// 테스트다. 한국어 판정은 F3a 가 만든 assertKoreanError(한글 포함·중국어 한자 0)를 재사용한다.
+// 테스트다. 한국어 판정은 F3a 가 만든 assertEnglishError(한글 포함·중국어 한자 0)를 재사용한다.
 
 // TestIntentInterventionErrorConstantsLocalized 는 응답 상수 11종이 전부 한국어임을 단언한다.
 // 수명주기·의도 상태 경로는 s.engine·Store 설정이 필요해 DB 없는 이 호스트에서 끝까지 못
@@ -33,7 +33,7 @@ func TestIntentInterventionErrorConstantsLocalized(t *testing.T) {
 		{"not_paused", errIntentNotPaused},
 	}
 	for _, c := range cases {
-		assertKoreanError(t, c.name, c.msg)
+		assertEnglishError(t, c.name, c.msg)
 	}
 }
 
@@ -58,7 +58,7 @@ func TestSendWorkerMessageInputValidationLocalized(t *testing.T) {
 			Error string `json:"error"`
 		}
 		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("응답 JSON 파싱 실패: %v (본문 %q)", err, rec.Body.String())
+			t.Fatalf("Response JSON parsing failed: %v (body %q)", err, rec.Body.String())
 		}
 		return resp.Error
 	}
@@ -72,19 +72,19 @@ func TestSendWorkerMessageInputValidationLocalized(t *testing.T) {
 		// 64KB 한도를 넘기는 유효 JSON 본문. MaxBytesReader 가 읽기 도중 한도 초과를 돌려준다.
 		{"request_too_large", `{"message":"` + strings.Repeat("a", maxWorkerMessageBytes+1024) + `"}`, http.StatusRequestEntityTooLarge, errIntentRequestTooLarge},
 		{"message_empty", `{"message":"  "}`, http.StatusBadRequest, errIntentMessageEmpty},
-		{"message_too_long", `{"message":"` + strings.Repeat("가", 4001) + `"}`, http.StatusBadRequest, errIntentMessageTooLong},
-		{"bad_request_id", `{"message":"안녕","request_id":"공백 포함"}`, http.StatusBadRequest, errIntentBadRequestID},
+		{"message_too_long", `{"message":"` + strings.Repeat("go", 4001) + `"}`, http.StatusBadRequest, errIntentMessageTooLong},
+		{"bad_request_id", "{\"message\":\"Hello\",\"request_id\":\"With spaces\"}", http.StatusBadRequest, errIntentBadRequestID},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			rec := call(c.body)
 			if rec.Code != c.code {
-				t.Fatalf("상태 코드 = %d, 기대 = %d (본문 %q)", rec.Code, c.code, rec.Body.String())
+				t.Fatalf("status code = %d, expectation = %d (body %q)", rec.Code, c.code, rec.Body.String())
 			}
 			if got := errBody(t, rec); got != c.want {
-				t.Fatalf("응답 문구 = %q, 기대 = %q", got, c.want)
+				t.Fatalf("Response phrase = %q, Expectation = %q", got, c.want)
 			}
-			assertKoreanError(t, c.name, errBody(t, rec))
+			assertEnglishError(t, c.name, errBody(t, rec))
 		})
 	}
 }

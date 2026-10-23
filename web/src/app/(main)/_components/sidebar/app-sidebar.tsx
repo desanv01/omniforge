@@ -44,7 +44,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton asChild>
               <Link prefetch={false} href="/dashboard">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.png" alt="ARTEX" width={40} height={40} className="shrink-0" />
+                <img src="/logo.png" alt="OmniForge" width={40} height={40} className="shrink-0" />
                 <span className="flex flex-col">
                   <span className="font-semibold text-base">{APP_CONFIG.name}</span>
                   <span className="text-[10px] text-muted-foreground">{t("attribution")}</span>

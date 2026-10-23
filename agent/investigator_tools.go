@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Autumn-27/artex/investigation"
 	actool "github.com/Autumn-27/norma/tool"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 type investigatorPlanInput struct {
@@ -47,53 +47,53 @@ func certObject(props map[string]any, required ...string) map[string]any {
 }
 func (r *investigatorRun) validateRefs(refs []string, require bool) error {
 	if (require && len(refs) == 0) || len(refs) > 10 {
-		return fmt.Errorf("1~10개의 실제 근거 ref가 필요합니다")
+		return fmt.Errorf("Requires 1-10 real-world refs")
 	}
 	for _, ref := range refs {
 		if !r.seen[ref] {
-			return fmt.Errorf("이번 실행에서 읽지 않은 근거 ref입니다")
+			return fmt.Errorf("This is a reference ref that I did not read in this run")
 		}
 	}
 	return nil
 }
 
 func (r *investigatorRun) planTool() actool.CoreTool {
-	return writeTool("plan_investigation", "조사 가설과 다음 작업 하나를 결정하거나 증거 부족·조사 완료로 중단합니다. 근거가 바뀌면 재계획하고 기존 작업은 반복하지 마세요.", certObject(map[string]any{
-		"action": map[string]any{"type": "string", "enum": []string{"investigate", "complete", "insufficient_data"}}, "reason": str("현재 증거로 이 결정을 내린 이유"), "hypothesis": str("아직 확인되지 않은 조건부 가설"), "objective": str("작업자가 로그로 확인할 구체적인 행동"), "evidence_refs": certArray("이미 확인한 원본 근거 ref; 첫 계획에는 비워두세요"), "needed_logs": certArray("부족한 로그와 필요한 필드"), "next_steps": certArray("남은 조사 및 탐지 개선 제안"),
+	return writeTool("plan_investigation", "Decide on your investigation hypothesis and next action, or stop due to lack of evidence or completion of investigation. Re-plan when the rationale changes and don't repeat existing work.", certObject(map[string]any{
+		"action": map[string]any{"type": "string", "enum": []string{"investigate", "complete", "insufficient_data"}}, "reason": str("Reasons for making this decision based on current evidence"), "hypothesis": str("Conditional hypothesis not yet confirmed"), "objective": str("Specific actions that workers can check in logs"), "evidence_refs": certArray("Already verified original evidence ref; Leave empty in the initial plan"), "needed_logs": certArray("Insufficient logs and required fields"), "next_steps": certArray("Remaining investigation and detection improvement suggestions"),
 	}, "action", "reason"), func(ctx context.Context, in json.RawMessage) (actool.Result, error) {
 		if err := ctx.Err(); err != nil {
-			return actool.Errorf("조사가 종료되었습니다"), nil
+			return actool.Errorf("Investigation is closed"), nil
 		}
 		var a investigatorPlanInput
 		if err := certDecode(in, &a); err != nil {
-			return actool.Errorf("계획 입력 형식이 올바르지 않습니다"), nil
+			return actool.Errorf("Plan input format is incorrect"), nil
 		}
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		if r.decision != nil {
-			return actool.Errorf("이번 회차의 계획은 이미 제출되었습니다. 새 계획은 다음 회차에서 제출하세요"), nil
+			return actool.Errorf("The plan for this round has already been submitted. Please submit your new plan in the next round."), nil
 		}
 		if a.Action != "investigate" && a.Action != "complete" && a.Action != "insufficient_data" {
-			return actool.Errorf("지원하지 않는 계획 상태입니다"), nil
+			return actool.Errorf("The plan status is not supported"), nil
 		}
 		if strings.TrimSpace(a.Reason) == "" || len(a.Reason) > 1600 || len(a.Hypothesis) > 1200 || len(a.Objective) > 1200 || certStrings(a.NeededLogs, 8, 500) != nil || certStrings(a.NextSteps, 8, 500) != nil {
-			return actool.Errorf("계획 내용이 비어 있거나 한도를 초과했습니다"), nil
+			return actool.Errorf("Plan contents are empty or limit exceeded"), nil
 		}
 		if err := r.validateRefs(a.EvidenceRefs, false); err != nil {
 			return actool.Errorf(err.Error()), nil
 		}
 		if a.Action == "investigate" {
 			if strings.TrimSpace(a.Hypothesis) == "" || strings.TrimSpace(a.Objective) == "" {
-				return actool.Errorf("가설과 구체적 조사 작업이 필요합니다"), nil
+				return actool.Errorf("Requires hypothesis and specific research work"), nil
 			}
 			for _, intent := range r.report.Intents {
 				if strings.EqualFold(strings.TrimSpace(intent.Objective), strings.TrimSpace(a.Objective)) {
-					return actool.Errorf("이미 실행한 작업입니다. 새 증거를 따라가거나 필요한 로그를 남기고 중단하세요"), nil
+					return actool.Errorf("This operation has already been performed. Follow new evidence or leave necessary logs and stop"), nil
 				}
 			}
 		}
 		if a.Action == "complete" && (len(r.report.Intents) == 0 || len(r.report.Observations) == 0) {
-			return actool.Errorf("로그를 조사하기 전에는 완료할 수 없습니다. 조사하거나 자료 부족으로 중단하세요"), nil
+			return actool.Errorf("This cannot be completed until the logs have been examined. Research or stop due to lack of data"), nil
 		}
 		r.decision = &a
 		d := InvestigatorDecision{Round: r.round, Action: a.Action, Reason: a.Reason, EvidenceRefs: a.EvidenceRefs}
@@ -101,7 +101,7 @@ func (r *investigatorRun) planTool() actool.CoreTool {
 		r.report.Gaps = certUniqueStrings(append(r.report.Gaps, a.NeededLogs...))
 		r.report.NextSteps = certUniqueStrings(append(r.report.NextSteps, a.NextSteps...))
 		r.emitLocked(InvestigatorProgress{Kind: "decision", Summary: a.Reason, Decision: &d, EvidenceRefs: a.EvidenceRefs})
-		return jsonResult(map[string]any{"saved": true, "action": a.Action, "instruction": "이번 회차의 계획이 저장되었습니다. 간단히 종료하세요. 호스트가 작업자를 실행합니다."})
+		return jsonResult(map[string]any{"saved": true, "action": a.Action, "instruction": "The plan for this episode has been saved. Simply quit. The host runs the worker."})
 	})
 }
 
@@ -113,10 +113,10 @@ func ValidateInvestigationSearch(base investigation.Scope, q InvestigationSearch
 		return err
 	}
 	if !strings.EqualFold(q.Scope.Target, base.Target) || q.Scope.Start.Before(base.Start) || q.Scope.End.After(base.End) || !q.Scope.Start.Before(q.Scope.End) {
-		return fmt.Errorf("조회는 최초 대상과 시간 범위를 벗어날 수 없습니다")
+		return fmt.Errorf("Hits cannot go beyond the initial target and time range")
 	}
 	if base.PathPrefix != "" && (q.Scope.PathPrefix == "" || !investigation.MatchPath(q.Scope.PathPrefix, base.PathPrefix)) {
-		return fmt.Errorf("조회 경로는 최초 경로 범위 안에 있어야 합니다")
+		return fmt.Errorf("The query path must be within the range of the original path")
 	}
 	if q.Offset < 0 || q.Offset > investigation.MaxEvents || q.Remote && q.Offset != 0 {
 		return investigation.ErrInvalid
@@ -130,13 +130,13 @@ func ValidateInvestigationSearch(base investigation.Scope, q InvestigationSearch
 }
 
 func (r *investigatorRun) searchTool() actool.CoreTool {
-	scopeSchema := certObject(map[string]any{"target": str("최초 대상 유지"), "path_prefix": str("최초 범위 안의 경로 접두어"), "start": str("RFC3339; 최초 시작 이후"), "end": str("RFC3339; 최초 종료 이전")})
-	return readTool("search_evidence", "구조화된 조건으로 로그를 조회합니다. 기본은 수집된 파일/로그에서 검색합니다. remote=true일 때만 연결된 Splunk에 읽기 전용 추가 조회합니다. 결과는 20개씩, 원문은 read_evidence로 확인하세요. 같은 조건 반복 대신 offset으로 다음 페이지를 요청하세요.", certObject(map[string]any{
-		"scope": scopeSchema, "source_ip": str("정확히 일치하는 출발 IP"), "user": str("정확히 일치하는 계정"), "session": str("정확히 일치하는 세션"), "event_kind": str("정확히 일치하는 이벤트 종류"), "path_contains": str("경로에 포함될 리터럴 문자열"), "remote": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 0},
+	scopeSchema := certObject(map[string]any{"target": str("Maintain initial target"), "path_prefix": str("Path prefix within the initial range"), "start": str("RFC3339; After initial startup"), "end": str("RFC3339; Before initial termination")})
+	return readTool("search_evidence", "Search logs using structured conditions. The default is to search in collected files/logs. Read-only addition query to connected Splunk only when remote=true. Check the 20 results each and the original text with read_evidence. Instead of repeating the same condition, request the next page with an offset.", certObject(map[string]any{
+		"scope": scopeSchema, "source_ip": str("Source IP matching exactly"), "user": str("exact match account"), "session": str("exact match session"), "event_kind": str("Exact match event type"), "path_contains": str("Literal string to be included in the path"), "remote": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 0},
 	}), func(ctx context.Context, in json.RawMessage) (actool.Result, error) {
 		var q InvestigationSearch
 		if err := certDecode(in, &q); err != nil {
-			return actool.Errorf("조회 입력 형식이 올바르지 않습니다"), nil
+			return actool.Errorf("The query input format is incorrect"), nil
 		}
 		base := r.report.Scope
 		if q.Scope.Target == "" {
@@ -155,12 +155,12 @@ func (r *investigatorRun) searchTool() actool.CoreTool {
 			return actool.Errorf(err.Error()), nil
 		}
 		if err := ctx.Err(); err != nil {
-			return actool.Errorf("조사가 종료되었습니다"), nil
+			return actool.Errorf("Investigation is closed"), nil
 		}
 		r.mu.Lock()
 		if r.emptyCompleteScope && len(r.events) == 0 {
 			r.mu.Unlock()
-			return actool.Errorf("전체 조사 범위에서 수집된 이벤트가 없습니다. 필터를 바꿔 반복하지 말고 record_observation으로 자료 부족과 매핑·수집 상태 확인을 기록하세요"), nil
+			return actool.Errorf("No events were collected across the entire scope of the investigation. Rather than repeating changes by changing filters, record data shortages and check mapping/collection status with record_observation."), nil
 		}
 		// Event kinds are normalized values, not guessed product/sourcetype
 		// names. Do not disguise a misspelled kind as a meaningful zero result.
@@ -174,7 +174,7 @@ func (r *investigatorRun) searchTool() actool.CoreTool {
 			if len(kinds) > 0 && kinds[q.EventKind] == 0 {
 				available, _ := json.Marshal(certCounts(kinds))
 				r.mu.Unlock()
-				return actool.Errorf(fmt.Sprintf("저장된 로그에 이 event_kind 값이 없습니다. 실제 종류는 %s입니다. 유형 필터를 제거하거나 실제 값을 사용하세요", string(available))), nil
+				return actool.Errorf(fmt.Sprintf("This event_kind value does not exist in the saved log. The actual type is %s. Remove type filter or use actual value", string(available))), nil
 			}
 		}
 		page := q
@@ -182,16 +182,16 @@ func (r *investigatorRun) searchTool() actool.CoreTool {
 		pageKey, _ := json.Marshal(page)
 		if total, ok := r.queryTotals[string(pageKey)]; ok && q.Offset >= total {
 			r.mu.Unlock()
-			return actool.Errorf("이 조회에는 다음 페이지가 없습니다. 확보한 근거를 기록하거나 필요한 로그를 남기세요"), nil
+			return actool.Errorf("There is no next page for this query. Record the evidence obtained or leave necessary logs"), nil
 		}
 		key, _ := json.Marshal(q)
 		if r.queryKeys[string(key)] {
 			r.mu.Unlock()
-			return actool.Errorf("동일한 조회는 이미 수행했습니다. 기존 근거나 다음 페이지를 확인하세요"), nil
+			return actool.Errorf("You have already performed the same query. Check the existing evidence or the next page"), nil
 		}
 		if q.Remote && (r.opts.Search == nil || r.remoteQueries >= 3) {
 			r.mu.Unlock()
-			return actool.Errorf("Splunk 추가 조회를 사용할 수 없거나 3회 한도를 소진했습니다. 필요한 로그를 기록하세요"), nil
+			return actool.Errorf("Splunk additional hits are not available or the limit of 3 has been exhausted. Record the logs you need"), nil
 		}
 		if err := r.provider.query(); err != nil {
 			r.mu.Unlock()
@@ -207,30 +207,30 @@ func (r *investigatorRun) searchTool() actool.CoreTool {
 		if q.Remote {
 			c, err := r.opts.Search(ctx, q)
 			if err != nil {
-				return actool.Errorf("Splunk 조회에 실패했습니다. 연결 상태·로그 필드·허용 범위를 확인하세요"), nil
+				return actool.Errorf("Splunk query failed. Check connection status, log fields, and allowable range."), nil
 			}
 			body, err := json.Marshal(c)
 			r.mu.Lock()
 			defer r.mu.Unlock()
 			if err != nil || len(c.Events) > investigation.MaxEvents || len(body)+r.evidenceBytes > 24<<20 {
-				return actool.Errorf("추가 증거 저장 한도를 초과했습니다. 더 좁은 범위가 필요합니다"), nil
+				return actool.Errorf("The additional evidence storage limit has been exceeded. A narrower scope is needed"), nil
 			}
 			if err := ValidateInvestigationSearch(q.Scope, InvestigationSearch{Scope: c.Scope}); err != nil {
-				return actool.Errorf("조회 응답이 요청 범위를 벗어났습니다"), nil
+				return actool.Errorf("The query response was outside the scope of the request"), nil
 			}
 			for _, e := range c.Events {
 				if e.Ref == "" || !r.inScope(e, q.Scope) {
 					continue
 				}
 				if old, ok := r.events[e.Ref]; ok && (old.Raw != e.Raw || old.FileName != e.FileName || old.Line != e.Line) {
-					return actool.Errorf("추가 증거의 근거 식별자가 기존 증거와 충돌합니다"), nil
+					return actool.Errorf("The basis identifier for the additional evidence conflicts with existing evidence"), nil
 				}
 			}
 			r.report.Collections = append(r.report.Collections, c)
 			r.evidenceBytes += len(body)
 			r.report.Gaps = certUniqueStrings(append(r.report.Gaps, c.Warnings...))
 			if !c.Complete {
-				r.report.Gaps = certUniqueStrings(append(r.report.Gaps, "추가 Splunk 조회 결과에 수집 범위 또는 절단 경고가 있습니다."))
+				r.report.Gaps = certUniqueStrings(append(r.report.Gaps, "Additional Splunk query results contain collection scope or truncation warnings."))
 			}
 			for _, e := range c.Events {
 				if e.Ref != "" && r.inScope(e, q.Scope) {
@@ -288,20 +288,20 @@ func (r *investigatorRun) searchResultLocked(q InvestigationSearch, selected []i
 		e.Action = certClip(e.Action, 160)
 		rows = append(rows, e)
 	}
-	r.emitLocked(InvestigatorProgress{Kind: "query", Summary: fmt.Sprintf("조회 결과 %d개 중 %d개를 확인했습니다.", total, len(rows)), EvidenceRefs: refs})
-	return jsonResult(map[string]any{"events": rows, "total_matches": total, "next_offset": end, "has_more": end < total, "scope": q.Scope, "all_scope_empty": r.emptyCompleteScope, "instruction": "결과를 확보했으면 원문을 확인하고 record_observation으로 먼저 저장하세요. 0건이며 has_more=false이면 offset을 바꿔 반복하지 마세요.", "warning": "조회한 증거의 일부분입니다. 관측 없음은 침해 없음이 아닙니다. raw는 read_evidence로 확인하세요."})
+	r.emitLocked(InvestigatorProgress{Kind: "query", Summary: fmt.Sprintf("As a result of the search, %[2]d out of %[1]d was confirmed.", total, len(rows)), EvidenceRefs: refs})
+	return jsonResult(map[string]any{"events": rows, "total_matches": total, "next_offset": end, "has_more": end < total, "scope": q.Scope, "all_scope_empty": r.emptyCompleteScope, "instruction": "Once you have the results, check the original text and save it as record_observation first. If there are 0 cases and has_more=false, do not repeat by changing the offset.", "warning": "This is part of the evidence viewed. No observation does not mean no infringement. Check raw with read_evidence."})
 }
 
 func (r *investigatorRun) readTool() actool.CoreTool {
-	return readTool("read_evidence", "원본 근거 최대 5개를 확인합니다. ref는 search_evidence에서 제공된 실제 식별자여야 합니다. 원문이 길면 4096바이트까지만 표시하며 전체 원문은 로컬 증거에 보존됩니다.", certObject(map[string]any{"refs": certArray("확인할 근거 ref 목록")}, "refs"), func(ctx context.Context, in json.RawMessage) (actool.Result, error) {
+	return readTool("read_evidence", "View up to 5 original sources of evidence. ref must be the actual identifier provided in search_evidence. If the original text is long, only up to 4096 bytes are displayed, and the entire original text is preserved in local evidence.", certObject(map[string]any{"refs": certArray("List of refs to check")}, "refs"), func(ctx context.Context, in json.RawMessage) (actool.Result, error) {
 		if ctx.Err() != nil {
-			return actool.Errorf("조사가 종료되었습니다"), nil
+			return actool.Errorf("Investigation is closed"), nil
 		}
 		var a struct {
 			Refs []string `json:"refs"`
 		}
 		if certDecode(in, &a) != nil || len(a.Refs) == 0 || len(a.Refs) > 5 {
-			return actool.Errorf("1~5개의 ref가 필요합니다"), nil
+			return actool.Errorf("Requires 1-5 refs"), nil
 		}
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -319,9 +319,9 @@ func (r *investigatorRun) readTool() actool.CoreTool {
 }
 
 func (r *investigatorRun) observationTool() actool.CoreTool {
-	return writeTool("record_observation", "AI 관측·추론·자료 부족을 기록합니다. observed는 제공된 raw_previews 또는 read_evidence 원문에 직접 기록된 행동에만 사용하세요. inferred는 정상 대안과 검증 방법이 필요합니다. 존재하지 않거나 이번 실행에서 읽지 않은 근거를 인용할 수 없습니다.", certObject(map[string]any{"kind": map[string]any{"type": "string", "enum": []string{"observed", "inferred", "insufficient_data"}}, "summary": str("근거가 직접 말하는 내용과 해석 범위"), "evidence_refs": certArray("실제로 확인한 이벤트 ref"), "alternatives": certArray("정상 행위·다른 해석 및 반증 가능성"), "next_steps": certArray("부족한 로그 및 다음 조사·탐지 개선")}, "kind", "summary"), func(ctx context.Context, in json.RawMessage) (actool.Result, error) {
+	return writeTool("record_observation", "Record AI observations, inferences, and data shortages. Use observed only for actions recorded directly in the raw_previews or read_evidence provided. inferred requires normal alternatives and verification methods. You cannot cite evidence that does not exist or has not been read in this exercise.", certObject(map[string]any{"kind": map[string]any{"type": "string", "enum": []string{"observed", "inferred", "insufficient_data"}}, "summary": str("What the evidence directly says and the scope of interpretation"), "evidence_refs": certArray("Actually confirmed event ref"), "alternatives": certArray("Normal behavior/other interpretation and possibility of falsification"), "next_steps": certArray("Improvement of insufficient logs and next investigation/detection")}, "kind", "summary"), func(ctx context.Context, in json.RawMessage) (actool.Result, error) {
 		if ctx.Err() != nil {
-			return actool.Errorf("조사가 종료되었습니다"), nil
+			return actool.Errorf("Investigation is closed"), nil
 		}
 		var a struct {
 			Kind         string   `json:"kind"`
@@ -331,37 +331,37 @@ func (r *investigatorRun) observationTool() actool.CoreTool {
 			NextSteps    []string `json:"next_steps"`
 		}
 		if certDecode(in, &a) != nil {
-			return actool.Errorf("관측 입력 형식이 올바르지 않습니다"), nil
+			return actool.Errorf("Observation input format is incorrect"), nil
 		}
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		if len(r.report.Observations) >= 24 {
-			return actool.Errorf("관측 기록 한도에 도달했습니다"), nil
+			return actool.Errorf("Observation record limit has been reached"), nil
 		}
 		if a.Kind != "observed" && a.Kind != "inferred" && a.Kind != "insufficient_data" {
-			return actool.Errorf("지원하지 않는 관측 유형입니다"), nil
+			return actool.Errorf("Observation type not supported"), nil
 		}
 		if strings.TrimSpace(a.Summary) == "" || len(a.Summary) > 1600 || certStrings(a.Alternatives, 6, 500) != nil || certStrings(a.NextSteps, 6, 500) != nil {
-			return actool.Errorf("관측 내용이 비어 있거나 한도를 초과했습니다"), nil
+			return actool.Errorf("Observation is empty or exceeds limit"), nil
 		}
 		if err := r.validateRefs(a.EvidenceRefs, a.Kind != "insufficient_data"); err != nil {
 			return actool.Errorf(err.Error()), nil
 		}
 		if a.Kind == "inferred" && len(a.Alternatives) == 0 {
-			return actool.Errorf("추론에는 정상 대안이나 다른 해석을 남겨야 합니다"), nil
+			return actool.Errorf("Inferences must leave normal alternatives or alternative interpretations"), nil
 		}
 		if a.Kind == "insufficient_data" && len(a.NextSteps) == 0 {
-			return actool.Errorf("자료 부족에는 필요한 로그 또는 다음 조사 항목을 남겨야 합니다"), nil
+			return actool.Errorf("In case of lack of data, you must leave the necessary log or next investigation item."), nil
 		}
 		known := false
 		for _, ref := range a.EvidenceRefs {
 			if a.Kind == "observed" && !r.rawSeen[ref] {
-				return actool.Errorf("관측 근거 원문을 read_evidence로 먼저 확인하세요"), nil
+				return actool.Errorf("Check the original text of the observation evidence first with read_evidence"), nil
 			}
 			known = known || r.events[ref].KnownARTEX
 		}
 		if known {
-			a.Alternatives = append(a.Alternatives, "인용한 근거에 ARTEX 재현 트래픽이 포함됩니다. 이 요청 자체를 외부 침해로 분류할 수 없습니다.")
+			a.Alternatives = append(a.Alternatives, "The cited evidence includes ARTEX reproduction traffic. This request itself cannot be classified as an external infringement.")
 		}
 		o := InvestigatorObservation{ID: fmt.Sprintf("observation-%d", len(r.report.Observations)+1), IntentID: r.intentID, Kind: a.Kind, Summary: a.Summary, EvidenceRefs: a.EvidenceRefs, Alternatives: a.Alternatives, NextSteps: a.NextSteps, KnownARTEX: known}
 		r.report.Observations = append(r.report.Observations, o)

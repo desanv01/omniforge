@@ -19,32 +19,32 @@ import (
 	"unicode/utf8"
 )
 
-var ErrInvalid = errors.New("침해 조사 입력이 올바르지 않습니다")
+var ErrInvalid = errors.New("Breach investigation input is incorrect")
 var fieldName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]{0,127}$`)
 var hostName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$`)
 
 func invalid(s string) error { return fmt.Errorf("%w: %s", ErrInvalid, s) }
 func ValidateScope(s Scope, now time.Time) error {
 	if s.Target != strings.TrimSpace(s.Target) || strings.ContainsAny(s.Target, "/?#@\\\r\n\t ") {
-		return invalid("대상은 URL 경로 없이 호스트 이름 또는 호스트:포트로 입력하세요")
+		return invalid("Enter the destination as a hostname or host:port without a URL path.")
 	}
 	if _, _, ok := targetParts(s.Target); !ok {
-		return invalid("대상 호스트·포트를 확인하세요")
+		return invalid("Check the target host/port")
 	}
 	if len(s.PathPrefix) > 2048 || (s.PathPrefix != "" && (!strings.HasPrefix(s.PathPrefix, "/") || strings.ContainsAny(s.PathPrefix, "?#%\\\r\n\t\x00"))) {
-		return invalid("경로 범위는 /로 시작하는 디코딩된 경로로 입력하세요 (쿼리·프래그먼트 제외)")
+		return invalid("Enter the path range as a decoded path starting with / (excluding queries and fragments)")
 	}
 	if !utf8.ValidString(s.PathPrefix) {
-		return invalid("경로는 UTF-8이어야 합니다")
+		return invalid("Path must be UTF-8")
 	}
 	if s.Start.IsZero() || !s.End.After(s.Start) || s.End.Sub(s.Start) > 31*24*time.Hour || s.End.After(now) {
-		return invalid("조사 구간은 과거의 시작·종료 시각으로 최대 31일입니다")
+		return invalid("The survey period is up to 31 days from the past start and end time.")
 	}
 	return nil
 }
 func ValidateMapping(m Mapping) error {
 	if m.Timestamp == "" {
-		return invalid("시각 필드 매핑이 필요합니다")
+		return invalid("Visual field mapping is required")
 	}
 	seen := map[string]bool{}
 	for _, f := range []string{m.Timestamp, m.EventID, m.Target, m.Path, m.SourceIP, m.User, m.Session, m.Action, m.Status, m.Bytes, m.VerificationID, m.EventKind, m.ResponseComplete} {
@@ -52,10 +52,10 @@ func ValidateMapping(m Mapping) error {
 			continue
 		}
 		if !fieldName.MatchString(f) {
-			return invalid("필드 이름은 영문·숫자·밑줄·점·하이픈으로 128자 이내여야 합니다")
+			return invalid("Field names must be less than 128 characters including letters, numbers, underscores, dots, and hyphens.")
 		}
 		if seen[f] {
-			return invalid("서로 다른 의미의 필드를 같은 원본 필드에 매핑할 수 없습니다")
+			return invalid("Fields with different meanings cannot be mapped to the same source field")
 		}
 		seen[f] = true
 	}
@@ -158,12 +158,12 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 		return out, err
 	}
 	if len(files) < 1 || len(files) > 20 {
-		return out, invalid("파일은 1~20개를 선택하세요")
+		return out, invalid("Select 1 to 20 files")
 	}
 	if !coverageConfirmed {
-		out.Warnings = append(out.Warnings, "조사 시간·대상의 전체 조회 결과를 빠짐없이 수집했다는 확인이 없습니다.")
+		out.Warnings = append(out.Warnings, "There is no confirmation that all search results for the investigation time and target were collected without exception.")
 	}
-	out.Warnings = append(out.Warnings, "파일의 출처·조회 범위는 업로더의 확인에 의존합니다. 원본 시스템의 검색 조건과 파일을 보관하세요.")
+	out.Warnings = append(out.Warnings, "The source and scope of the file are dependent on the uploader's confirmation. Keep the search conditions and files from the original system.")
 	known := map[string]bool{}
 	for _, id := range knownVerificationIDs {
 		if id != "" {
@@ -187,22 +187,22 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 	for _, f := range files {
 		total += len(f.Content)
 		if total > MaxUploadBytes {
-			return out, invalid("파일 원문 합계는 8 MiB 이하여야 합니다")
+			return out, invalid("Total file text must be less than 8 MiB")
 		}
 		if strings.TrimSpace(f.Name) == "" || len(f.Name) > 255 || !utf8.ValidString(f.Name) || strings.ContainsAny(f.Name, "\x00\r\n") {
-			return out, invalid("파일 이름을 확인하세요")
+			return out, invalid("Check the file name")
 		}
 		if names[f.Name] {
-			return out, invalid("같은 이름의 파일을 중복 선택할 수 없습니다")
+			return out, invalid("You cannot select duplicate files with the same name")
 		}
 		names[f.Name] = true
 		if !utf8.ValidString(f.Content) || strings.ContainsRune(f.Content, 0) {
-			return out, invalid("파일은 NUL 문자가 없는 UTF-8 텍스트여야 합니다")
+			return out, invalid("The file must be UTF-8 text with no NUL characters")
 		}
 		sum := sha256.Sum256([]byte(f.Content))
 		hash := hex.EncodeToString(sum[:])
 		if hashes[hash] && strings.TrimSpace(f.Content) != "" {
-			return out, invalid("동일한 원문 파일이 중복되었습니다")
+			return out, invalid("The same source file is duplicated")
 		}
 		hashes[hash] = true
 		fe := FileEvidence{Name: f.Name, SHA256: hash, Bytes: len(f.Content), Content: f.Content}
@@ -210,7 +210,7 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 			fe.Rows++
 			out.Stats.TotalRows++
 			if out.Stats.TotalRows > MaxRows {
-				return invalid("파일 이벤트 합계는 10000개 이하여야 합니다")
+				return invalid("Total file events must be less than 10000")
 			}
 			// Splunk _raw is evidence, never instructions. A JSON object inside it
 			// can supply missing extracted fields, with the same strict parser.
@@ -219,7 +219,7 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 				var er error
 				fallback, er = decodeObject(rawValue)
 				if er != nil {
-					bad(f.Name, line, "_raw JSON을 해석할 수 없습니다: "+er.Error())
+					bad(f.Name, line, "Unable to parse _raw JSON: "+er.Error())
 					return nil
 				}
 			}
@@ -235,7 +235,7 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 			}
 			when, er := parseTime(get(m.Timestamp))
 			if er != nil {
-				bad(f.Name, line, "시각 필드를 RFC 3339 또는 Unix 초로 해석할 수 없습니다")
+				bad(f.Name, line, "Time field cannot be interpreted as RFC 3339 or Unix seconds")
 				return nil
 			}
 			if when.Before(s.Start) || !when.Before(s.End) {
@@ -244,18 +244,18 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 			}
 			target, ok := textField(get(m.Target))
 			if !ok {
-				bad(f.Name, line, "대상 필드가 문자열이 아닙니다")
+				bad(f.Name, line, "Target field is not a string")
 				return nil
 			}
 			if target == "" {
 				out.Stats.MissingTarget++
 				if !targetScopeConfirmed {
-					bad(f.Name, line, "대상 필드가 없으며 해당 자산만 내보냈다는 확인이 없습니다")
+					bad(f.Name, line, "There are no target fields and no confirmation that only those assets were exported")
 					return nil
 				}
 			} else {
 				if _, _, valid := eventTargetParts(target); !valid {
-					bad(f.Name, line, "대상 호스트·URL 형식을 해석할 수 없습니다")
+					bad(f.Name, line, "Target host/URL format cannot be interpreted")
 					return nil
 				}
 				if !MatchTarget(target, s.Target) {
@@ -265,16 +265,16 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 			}
 			path, ok := textField(get(m.Path))
 			if !ok {
-				bad(f.Name, line, "요청 경로가 문자열이 아닙니다")
+				bad(f.Name, line, "Request path is not a string")
 				return nil
 			}
 			if path == "" && s.PathPrefix != "" {
-				bad(f.Name, line, "경로 범위 확인에 필요한 요청 경로가 없습니다")
+				bad(f.Name, line, "No request path required for path range resolution")
 				return nil
 			}
 			if path != "" {
 				if _, valid := normalizedPath(path); !valid {
-					bad(f.Name, line, "요청 경로를 해석할 수 없습니다")
+					bad(f.Name, line, "Request path could not be resolved")
 					return nil
 				}
 				if !MatchPath(path, s.PathPrefix) {
@@ -287,7 +287,7 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 			for i, key := range fieldsText {
 				values[i], ok = scalar(get(key))
 				if !ok || len(values[i]) > 4096 {
-					bad(f.Name, line, "선택 필드 "+key+" 값을 해석할 수 없습니다")
+					bad(f.Name, line, "selection field "+key+" value cannot be interpreted")
 					return nil
 				}
 			}
@@ -301,7 +301,7 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 			host, hostOK := textField(fields["host"])
 			index, indexOK := textField(fields["index"])
 			if !stOK || !srcOK || !hostOK || !indexOK {
-				bad(f.Name, line, "로그 출처 메타데이터가 문자열이 아닙니다")
+				bad(f.Name, line, "Log origin metadata is not a string")
 				return nil
 			}
 			sourceKey, _ := json.Marshal([]string{f.Name, st, src, host, index})
@@ -318,7 +318,7 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 				bv, valid := scalar(b)
 				n, er := strconv.ParseInt(bv, 10, 64)
 				if !valid || er != nil || n < 0 {
-					bad(f.Name, line, "전송 바이트 필드가 음이 아닌 정수가 아닙니다")
+					bad(f.Name, line, "Transmit bytes field is not a non-negative integer")
 					return nil
 				}
 				e.Bytes = &n
@@ -332,11 +332,11 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 					var er error
 					val, er = strconv.ParseBool(v)
 					if er != nil {
-						bad(f.Name, line, "응답 완료 필드를 불리언으로 해석할 수 없습니다")
+						bad(f.Name, line, "Response completion field cannot be interpreted as boolean")
 						return nil
 					}
 				default:
-					bad(f.Name, line, "응답 완료 필드를 불리언으로 해석할 수 없습니다")
+					bad(f.Name, line, "Response completion field cannot be interpreted as boolean")
 					return nil
 				}
 				e.ResponseComplete = &val
@@ -367,17 +367,17 @@ func ParseFiles(files []InputFile, s Scope, m Mapping, coverageConfirmed, target
 		out.Files = append(out.Files, fe)
 	}
 	if out.Stats.Truncated > 0 {
-		warn(fmt.Sprintf("선택 이벤트 한도 2000건을 초과해 %d건은 분석에 포함되지 않았습니다. 기간·경로를 좁혀 다시 수집하세요.", out.Stats.Truncated))
+		warn(fmt.Sprintf("Case %d was not included in the analysis because it exceeded the selection event limit of 2000. Narrow down the period and route and collect again.", out.Stats.Truncated))
 	}
 	if ambiguousSources > 0 {
 		out.Complete = false
-		out.Warnings = append(out.Warnings, fmt.Sprintf("이벤트 %d건의 source 필드에 서로 다른 출처 값이 있습니다. 원본과 개별 행동은 보존했으며 동일 출처의 요청 흐름 연결에서는 제외했습니다. Splunk 메타데이터와 JSON 내부 source 필드를 구분해 확인하세요.", ambiguousSources))
+		out.Warnings = append(out.Warnings, fmt.Sprintf("Event %d has different source values ​​in the source field. Original and individual actions were preserved and excluded from request flow connections from the same origin. Check Splunk metadata and JSON internal source fields separately.", ambiguousSources))
 	}
 	if out.Stats.MissingTarget > 0 && targetScopeConfirmed {
-		out.Warnings = append(out.Warnings, "대상 필드가 없는 이벤트는 업로더가 확인한 자산 범위를 사용합니다. 이벤트 자체로 자산이 검증된 것은 아닙니다.")
+		out.Warnings = append(out.Warnings, "Events without a target field will use the asset range confirmed by the uploader. The event itself does not verify the asset.")
 	}
 	if out.Stats.UnrecognizedMarkers > 0 {
-		out.Warnings = append(out.Warnings, "알려진 ARTEX 실행과 일치하지 않는 검증 표식이 있습니다. 표식만으로 점검 트래픽에서 제외하지 않았습니다.")
+		out.Warnings = append(out.Warnings, "There is a verification marker that does not match any known ARTEX implementation. The marker alone did not exclude it from inspection traffic.")
 	}
 	return out, nil
 }
@@ -478,12 +478,12 @@ func readRows(f InputFile, visit func(map[string]any, string, int) error) error 
 			return nil
 		}
 		if e != nil {
-			return invalid("CSV 헤더를 읽을 수 없습니다")
+			return invalid("Unable to read CSV header")
 		}
 		seen := map[string]bool{}
 		for _, h := range header {
 			if h == "" || seen[h] {
-				return invalid("CSV 헤더에 빈 필드 또는 중복 필드가 있습니다")
+				return invalid("CSV header contains empty or duplicate fields")
 			}
 			seen[h] = true
 		}
@@ -494,11 +494,11 @@ func readRows(f InputFile, visit func(map[string]any, string, int) error) error 
 				return nil
 			}
 			if e != nil {
-				return invalid("CSV 행 형식이 올바르지 않습니다")
+				return invalid("CSV row format is incorrect")
 			}
 			end := r.InputOffset()
 			if end-start > MaxRecordBytes {
-				return invalid("이벤트 하나는 128 KiB 이하여야 합니다")
+				return invalid("An event must be less than 128 KiB")
 			}
 			line, _ := r.FieldPos(0)
 			fields := map[string]any{}
@@ -514,16 +514,16 @@ func readRows(f InputFile, visit func(map[string]any, string, int) error) error 
 		d := json.NewDecoder(strings.NewReader(content))
 		d.UseNumber()
 		if _, e := d.Token(); e != nil {
-			return invalid("JSON 배열을 읽을 수 없습니다")
+			return invalid("Can't read JSON array")
 		}
 		for d.More() {
 			start := d.InputOffset()
 			var raw json.RawMessage
 			if e := d.Decode(&raw); e != nil {
-				return invalid("JSON 배열 항목이 올바르지 않습니다")
+				return invalid("JSON array entry is invalid")
 			}
 			if len(raw) > MaxRecordBytes {
-				return invalid("이벤트 하나는 128 KiB 이하여야 합니다")
+				return invalid("An event must be less than 128 KiB")
 			}
 			fields, e := decodeObject(string(raw))
 			if e != nil {
@@ -541,11 +541,11 @@ func readRows(f InputFile, visit func(map[string]any, string, int) error) error 
 			}
 		}
 		if _, e := d.Token(); e != nil {
-			return invalid("JSON 배열이 끝나지 않았습니다")
+			return invalid("JSON array is not finished")
 		}
 		var extra any
 		if e := d.Decode(&extra); e != io.EOF {
-			return invalid("JSON 배열 뒤에 추가 내용이 있습니다")
+			return invalid("There is additional content after the JSON array")
 		}
 		return nil
 	}
@@ -554,7 +554,7 @@ func readRows(f InputFile, visit func(map[string]any, string, int) error) error 
 	if strings.HasPrefix(trim, "{") {
 		if fields, e := decodeObject(trim); e == nil {
 			if len(trim) > MaxRecordBytes {
-				return invalid("이벤트 하나는 128 KiB 이하여야 합니다")
+				return invalid("An event must be less than 128 KiB")
 			}
 			line := strings.Count(content[:strings.Index(content, "{")], "\n") + 1
 			return visit(fields, trim, line)
@@ -570,18 +570,18 @@ func readRows(f InputFile, visit func(map[string]any, string, int) error) error 
 			continue
 		}
 		if len(raw) > MaxRecordBytes {
-			return invalid("이벤트 하나는 128 KiB 이하여야 합니다")
+			return invalid("An event must be less than 128 KiB")
 		}
 		fields, e := decodeObject(raw)
 		if e != nil {
-			return invalid(fmt.Sprintf("%d행 JSON 형식 오류: %s", line, e.Error()))
+			return invalid(fmt.Sprintf("JSON format error on line %d: %s", line, e.Error()))
 		}
 		if e = visit(fields, raw, line); e != nil {
 			return e
 		}
 	}
 	if scan.Err() != nil {
-		return invalid("이벤트 하나는 128 KiB 이하여야 합니다")
+		return invalid("An event must be less than 128 KiB")
 	}
 	return nil
 }
@@ -594,20 +594,20 @@ func decodeObject(s string) (map[string]any, error) {
 	}
 	m, ok := v.(map[string]any)
 	if !ok {
-		return nil, errors.New("이벤트는 JSON 객체여야 합니다")
+		return nil, errors.New("Events must be JSON objects")
 	}
 	if _, e = d.Token(); e != io.EOF {
-		return nil, errors.New("JSON 객체 뒤에 추가 내용이 있습니다")
+		return nil, errors.New("There is additional content behind the JSON object")
 	}
 	return m, nil
 }
 func decodeValue(d *json.Decoder, depth int) (any, error) {
 	if depth > 64 {
-		return nil, errors.New("JSON 중첩 깊이는 64단계 이하여야 합니다")
+		return nil, errors.New("JSON nesting depth must be less than 64 levels")
 	}
 	t, e := d.Token()
 	if e != nil {
-		return nil, errors.New("JSON 구문을 해석할 수 없습니다")
+		return nil, errors.New("Unable to parse JSON syntax")
 	}
 	delim, ok := t.(json.Delim)
 	if !ok {
@@ -623,10 +623,10 @@ func decodeValue(d *json.Decoder, depth int) (any, error) {
 			}
 			key, ok := kt.(string)
 			if !ok {
-				return nil, errors.New("JSON 필드 이름이 올바르지 않습니다")
+				return nil, errors.New("JSON field name is incorrect")
 			}
 			if _, exists := m[key]; exists {
-				return nil, errors.New("중복 JSON 필드가 있습니다: " + key)
+				return nil, errors.New("There are duplicate JSON fields: " + key)
 			}
 			v, e := decodeValue(d, depth+1)
 			if e != nil {
@@ -648,6 +648,6 @@ func decodeValue(d *json.Decoder, depth int) (any, error) {
 		_, e = d.Token()
 		return a, e
 	default:
-		return nil, errors.New("JSON 구분자가 올바르지 않습니다")
+		return nil, errors.New("JSON delimiter is incorrect")
 	}
 }

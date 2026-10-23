@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/defenseeval"
+	"github.com/desanv01/omniforge/defenseeval"
 )
 
 func purpleReplayPlan() DefensePlanInput {

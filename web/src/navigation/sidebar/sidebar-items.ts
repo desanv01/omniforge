@@ -66,7 +66,7 @@ export interface NavGroup {
 export const sidebarItems: NavGroup[] = [
   {
     id: 1,
-    label: "AegisLoop",
+    label: "OmniForge",
     items: [
       { id: "dashboard", title: "Overview", url: "/dashboard", icon: LayoutDashboard },
       {

@@ -1,6 +1,6 @@
 # Upstream Sync and Preventing Translation Drift (Maintainer Guide)
 
-[한국어](MAINTAINING.md) · English
+[Korean](MAINTAINING.md) · English
 
 This document lays out the procedure a **maintainer** follows to keep up with changes in the
 upstream repository [Autumn-27/ARTEX](https://github.com/Autumn-27/ARTEX) while maintaining the

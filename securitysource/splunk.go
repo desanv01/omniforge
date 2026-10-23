@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-var ErrInvalid = errors.New("보안 로그 연결 설정이 올바르지 않습니다")
+var ErrInvalid = errors.New("Security log connection settings are incorrect")
 
 type Config struct {
 	BaseURL          string `json:"base_url"`
@@ -100,19 +100,19 @@ func Validate(c Config) (Config, error) {
 	c.BaseURL = strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
 	u, e := url.Parse(c.BaseURL)
 	if e != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
-		return c, fmt.Errorf("%w: HTTPS 관리 주소만 입력해 주세요 (경로·계정·쿼리 제외)", ErrInvalid)
+		return c, fmt.Errorf("%w: Please enter only the HTTPS management address (excluding path/account/query)", ErrInvalid)
 	}
 	if !sourceName.MatchString(c.Index) || !sourceName.MatchString(c.AuditSourcetype) || !sourceName.MatchString(c.AlertSourcetype) || c.AuditSourcetype == c.AlertSourcetype {
-		return c, fmt.Errorf("%w: 인덱스와 서로 다른 감사·경보 sourcetype이 필요합니다", ErrInvalid)
+		return c, fmt.Errorf("%w: A different audit/alert sourcetype from the index is required.", ErrInvalid)
 	}
 	if !fieldName.MatchString(c.CorrelationField) || !fieldName.MatchString(c.ActionField) {
-		return c, fmt.Errorf("%w: 상관 ID·조치 필드 이름을 확인해 주세요", ErrInvalid)
+		return c, fmt.Errorf("%w: Please check the correlation ID and action field name.", ErrInvalid)
 	}
 	c.TLSFingerprint = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(c.TLSFingerprint), ":", ""))
 	if c.TLSFingerprint != "" {
 		b, e := hex.DecodeString(c.TLSFingerprint)
 		if e != nil || len(b) != 32 {
-			return c, fmt.Errorf("%w: 인증서 SHA-256은 64자리 16진수여야 합니다", ErrInvalid)
+			return c, fmt.Errorf("%w: Certificate SHA-256 must be 64 hexadecimal digits", ErrInvalid)
 		}
 	}
 	return c, nil
@@ -120,12 +120,12 @@ func Validate(c Config) (Config, error) {
 func ValidateCredentials(c Credentials) error {
 	if c.Token != "" {
 		if c.Username != "" || c.Password != "" || len(c.Token) > 8192 || strings.ContainsAny(c.Token, "\r\n\x00") {
-			return fmt.Errorf("%w: 토큰 또는 계정 인증 중 하나를 사용해 주세요", ErrInvalid)
+			return fmt.Errorf("%w: Please use either token or account verification", ErrInvalid)
 		}
 		return nil
 	}
 	if c.Username == "" || c.Password == "" || len(c.Username) > 256 || len(c.Password) > 8192 || strings.ContainsAny(c.Username, ":\r\n\x00") || strings.ContainsRune(c.Password, 0) {
-		return fmt.Errorf("%w: 연결 계정과 비밀번호가 필요합니다", ErrInvalid)
+		return fmt.Errorf("%w: A connection account and password are required", ErrInvalid)
 	}
 	return nil
 }
@@ -139,13 +139,13 @@ func client(c Config) *http.Client {
 		tc.InsecureSkipVerify = true
 		tc.VerifyConnection = func(cs tls.ConnectionState) error {
 			if len(cs.PeerCertificates) == 0 {
-				return errors.New("인증서가 없습니다")
+				return errors.New("There is no certificate")
 			}
 			cert := cs.PeerCertificates[0]
 			sum := sha256.Sum256(cert.Raw)
 			now := time.Now()
 			if subtle.ConstantTimeCompare(sum[:], pin) != 1 || now.Before(cert.NotBefore) || now.After(cert.NotAfter) {
-				return errors.New("서버 인증서가 저장된 핀과 일치하지 않거나 만료됐습니다")
+				return errors.New("The server certificate does not match a saved pin or has expired")
 			}
 			return nil
 		}
@@ -161,7 +161,7 @@ func request(ctx context.Context, c Config, auth Credentials, path string, form 
 	}
 	r, e := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
 	if e != nil {
-		return nil, errors.New("보안 로그 조회 요청을 만들지 못했습니다")
+		return nil, errors.New("Failed to create security log query request")
 	}
 	if auth.Token != "" {
 		r.Header.Set("Authorization", "Bearer "+auth.Token)
@@ -179,18 +179,18 @@ func request(ctx context.Context, c Config, auth Credentials, path string, form 
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, errors.New("Splunk 연결에 실패했습니다. 주소·인증서·네트워크를 확인해 주세요")
+		return nil, errors.New("Splunk connection failed. Please check address, certificate, and network.")
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Splunk 조회가 HTTP %d로 거절됐습니다. 연결 계정과 검색 권한을 확인해 주세요", res.StatusCode)
+		return nil, fmt.Errorf("Splunk hit rejected with HTTP %d. Please check your connected account and search permissions.", res.StatusCode)
 	}
 	b, e := io.ReadAll(io.LimitReader(res.Body, maxResponseBytes+1))
 	if e != nil {
-		return nil, errors.New("Splunk 응답을 끝까지 읽지 못했습니다")
+		return nil, errors.New("Failed to finish reading Splunk response")
 	}
 	if len(b) > maxResponseBytes {
-		return nil, errors.New("Splunk 응답이 4 MiB를 초과했습니다. 조회 범위를 줄여 주세요")
+		return nil, errors.New("Splunk response exceeds 4 MiB. Please reduce the search range")
 	}
 	return b, nil
 }
@@ -211,7 +211,7 @@ func Test(ctx context.Context, c Config, auth Credentials) error {
 		Entry []json.RawMessage `json:"entry"`
 	}
 	if json.Unmarshal(b, &v) != nil || len(v.Entry) == 0 {
-		return errors.New("Splunk 서버 정보 응답을 확인하지 못했습니다")
+		return errors.New("Failed to verify Splunk server information response")
 	}
 	return nil
 }
@@ -225,7 +225,7 @@ func Fetch(ctx context.Context, c Config, auth Credentials, q Query) (*Evidence,
 		return nil, e
 	}
 	if !correlationName.MatchString(q.CorrelationID) || q.Start.IsZero() || !q.End.After(q.Start) || q.End.Sub(q.Start) > 24*time.Hour || q.End.After(time.Now().Add(5*time.Second)) {
-		return nil, fmt.Errorf("%w: 실행 식별자 또는 조회 시간 범위를 확인해 주세요 (최대 24시간)", ErrInvalid)
+		return nil, fmt.Errorf("%w: Please check the execution identifier or query time range (up to 24 hours)", ErrInvalid)
 	}
 	out := &Evidence{Events: []Event{}, Complete: true, Warnings: []string{}, WindowStart: q.Start.UTC(), WindowEnd: q.End.UTC()}
 	for _, s := range []struct{ kind, st string }{{"audit", c.AuditSourcetype}, {"alert", c.AlertSourcetype}} {
@@ -269,7 +269,7 @@ func eventTime(v any) (time.Time, error) {
 	if n, e := strconv.ParseFloat(s, 64); e == nil && n > 0 && n < 1e11 {
 		return time.Unix(int64(n), int64((n-math.Floor(n))*1e9)).UTC(), nil
 	}
-	return time.Time{}, errors.New("시각이 올바르지 않습니다")
+	return time.Time{}, errors.New("The time is incorrect")
 }
 func parseExport(b []byte, kind string, c Config, q Query, out *Evidence) error {
 	scan := bufio.NewScanner(strings.NewReader(string(b)))
@@ -293,27 +293,27 @@ func parseExport(b []byte, kind string, c Config, q Query, out *Evidence) error 
 		decoder := json.NewDecoder(strings.NewReader(scan.Text()))
 		decoder.UseNumber()
 		if decoder.Decode(&row) != nil {
-			return errors.New("Splunk 검색 응답 형식이 올바르지 않습니다")
+			return errors.New("Splunk search response format is incorrect")
 		}
 		if row.Error != nil {
-			return errors.New("Splunk 검색에 실패했습니다")
+			return errors.New("Splunk search failed")
 		}
 		for _, msg := range row.Messages {
 			switch strings.ToUpper(msg.Type) {
 			case "ERROR", "FATAL":
-				return errors.New("Splunk 검색이 완료되지 않았습니다")
+				return errors.New("Splunk search is not complete")
 			case "WARN", "WARNING":
 				out.Complete = false
-				out.Warnings = append(out.Warnings, "Splunk가 검색 경고를 반환했습니다. 누락 여부를 확인해야 합니다")
+				out.Warnings = append(out.Warnings, "Splunk returned a search warning. You need to check for missing")
 			case "INFO", "DEBUG":
 			default:
 				out.Complete = false
-				out.Warnings = append(out.Warnings, "Splunk 검색 진단의 종류를 확인하지 못했습니다")
+				out.Warnings = append(out.Warnings, "Splunk Search failed to determine type of diagnostic")
 			}
 		}
 		if row.Preview {
 			out.Complete = false
-			out.Warnings = append(out.Warnings, "Splunk 미리보기 결과는 완료된 검색으로 판정하지 않습니다")
+			out.Warnings = append(out.Warnings, "Splunk preview results do not determine completed searches")
 			continue
 		}
 		if row.Result == nil {
@@ -323,7 +323,7 @@ func parseExport(b []byte, kind string, c Config, q Query, out *Evidence) error 
 				sawTerminal = true
 			} else if len(row.Messages) == 0 {
 				out.Complete = false
-				out.Warnings = append(out.Warnings, "검색 결과 형식이 확인되지 않아 판정을 보류합니다")
+				out.Warnings = append(out.Warnings, "Judgment is withheld because the search result format has not been confirmed.")
 			}
 			continue
 		}
@@ -331,7 +331,7 @@ func parseExport(b []byte, kind string, c Config, q Query, out *Evidence) error 
 		lastResultComplete, sawTerminal = row.LastRow, false
 		if count > maxRows {
 			out.Complete = false
-			out.Warnings = append(out.Warnings, kind+" 검색이 200건을 초과하여 판정을 보류합니다")
+			out.Warnings = append(out.Warnings, kind+" Judgment will be withheld as searches exceed 200")
 			continue
 		}
 		m := row.Result
@@ -348,16 +348,16 @@ func parseExport(b []byte, kind string, c Config, q Query, out *Evidence) error 
 		t, te := eventTime(m["_time"])
 		if textField(correlation) != q.CorrelationID || te != nil || t.Before(q.Start) || !t.Before(q.End) {
 			out.Complete = false
-			out.Warnings = append(out.Warnings, "실행 식별자 또는 조회 시각이 맞지 않는 이벤트가 반환됐습니다")
+			out.Warnings = append(out.Warnings, "An event was returned with an incorrect execution identifier or query time.")
 			continue
 		}
 		payload, e := json.Marshal(m)
 		if e != nil {
-			return errors.New("로그 원문을 보존하지 못했습니다")
+			return errors.New("Failed to preserve log text")
 		}
 		if len(payload) > 128<<10 || strings.Contains(string(payload), `\u0000`) {
 			out.Complete = false
-			out.Warnings = append(out.Warnings, "보존 한도를 넘거나 지원하지 않는 문자가 있는 이벤트가 제외됐습니다")
+			out.Warnings = append(out.Warnings, "Events that exceed retention limits or contain unsupported characters are excluded")
 			continue
 		}
 		id := textField(m["_cd"])
@@ -369,7 +369,7 @@ func parseExport(b []byte, kind string, c Config, q Query, out *Evidence) error 
 		if previous, exists := seen[id]; exists {
 			if previous != sum {
 				out.Complete = false
-				out.Warnings = append(out.Warnings, "같은 이벤트 ID에 서로 다른 근거가 반환되어 판정을 보류합니다")
+				out.Warnings = append(out.Warnings, "Different reasons are returned for the same event ID, withholding judgment")
 			}
 			continue
 		}
@@ -388,11 +388,11 @@ func parseExport(b []byte, kind string, c Config, q Query, out *Evidence) error 
 		out.Events = append(out.Events, Event{ID: id, Kind: kind, CorrelationID: q.CorrelationID, OccurredAt: t, Action: action, Raw: payload})
 	}
 	if scan.Err() != nil {
-		return errors.New("Splunk 검색 응답이 잘렸습니다")
+		return errors.New("Splunk search response is truncated")
 	}
 	if (count > 0 && !lastResultComplete && !sawTerminal) || (count == 0 && !sawTerminal) {
 		out.Complete = false
-		out.Warnings = append(out.Warnings, "Splunk 검색의 마지막 결과 표시가 없어 조회 완료를 확인하지 못했습니다")
+		out.Warnings = append(out.Warnings, "Splunk search does not display the last result, failing to confirm query completion")
 	}
 	return nil
 }

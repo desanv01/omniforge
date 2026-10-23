@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: documentation-links
+        name: Check local documentation links
+        entry: python -X utf8 -I scripts/check-doc-links.py
+        language: system
+        pass_filenames: false
+        files: '\.md$'

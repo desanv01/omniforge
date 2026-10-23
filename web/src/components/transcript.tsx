@@ -189,7 +189,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
   }, [step.summary]);
 
   const toolName = React.useMemo(() => {
-    const m = /도구\s+(\S+)\s+승인/.exec(step.summary);
+    const m = /(?:Tool|도구)\s+(\S+)\s+(?:Approval|승인)/.exec(step.summary);
     return m ? m[1] : step.summary;
   }, [step.summary]);
 

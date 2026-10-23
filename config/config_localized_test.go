@@ -27,13 +27,13 @@ func hasHangul(s string) bool {
 	return false
 }
 
-func assertKorean(t *testing.T, label, s string) {
+func assertEnglish(t *testing.T, label, s string) {
 	t.Helper()
 	if hasHan(s) {
 		t.Errorf("%s: Chinese Han ideograph remains: %q", label, s)
 	}
-	if !hasHangul(s) {
-		t.Errorf("%s: no Hangul found (expected Korean): %q", label, s)
+	if hasHangul(s) {
+		t.Errorf("%s: unexpected Hangul in English message: %q", label, s)
 	}
 }
 
@@ -51,7 +51,7 @@ func TestPostgresDSNErrorLocalized(t *testing.T) {
 	if err == nil {
 		t.Fatal("missing config should error")
 	}
-	assertKorean(t, "startup error", err.Error())
+	assertEnglish(t, "startup error", err.Error())
 
 	// The identifiers an operator must act on stay verbatim (not translated).
 	for _, want := range []string{"ARTEX_PG_DSN", "database", "dsn", "host/user/dbname"} {
@@ -78,7 +78,7 @@ func TestPostgresDSNSourceLocalized(t *testing.T) {
 	if _, source, err := PostgresDSN(); err != nil {
 		t.Fatalf("env source: %v", err)
 	} else {
-		assertKorean(t, "env source", source)
+		assertEnglish(t, "env source", source)
 	}
 
 	// config file dsn source
@@ -90,7 +90,7 @@ func TestPostgresDSNSourceLocalized(t *testing.T) {
 	if _, source, err := PostgresDSN(); err != nil {
 		t.Fatalf("dsn source: %v", err)
 	} else {
-		assertKorean(t, "dsn source", source)
+		assertEnglish(t, "dsn source", source)
 	}
 
 	// config file fields source
@@ -100,6 +100,6 @@ func TestPostgresDSNSourceLocalized(t *testing.T) {
 	if _, source, err := PostgresDSN(); err != nil {
 		t.Fatalf("fields source: %v", err)
 	} else {
-		assertKorean(t, "fields source", source)
+		assertEnglish(t, "fields source", source)
 	}
 }

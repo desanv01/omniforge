@@ -1,25 +1,25 @@
-# Attack Range AWS 구축 전 설정 검증
+# Attack Range Verification of settings before AWS deployment
 
-2026-10-10 23:32 KST에 [AWS 실습 준비안](../attack-range-aws-plan.md)의 비공개 Terraform 설정을 실제 로컬 Docker에서 검증했습니다. AWS 계정 인증·실제 계획 조회·서버 생성 결과가 아닙니다.
+At 2026-10-10 23:32 KST, the private Terraform setup of [AWS Lab Preparation Plan](../attack-range-aws-plan.md) was verified in local Docker. This is not the result of AWS account authentication, actual plan inquiry, or server creation.
 
-| 항목 | 확인 결과 |
+| Item | Verification result |
 | --- | --- |
-| 공식 소스 | `fc9b9e719d8835da0bbb5c20d46c52a9778d64e2`; 상류 체크아웃 변경 없음 |
-| 실행 이미지 | 기존 공식 소스로 빌드한 `aegis-attack-range-api:fc9b9e719d88` |
-| Terraform | `1.14.4` 고정 |
-| AWS 공급자 | `6.68.0` 고정, lock 파일 확인 |
-| VPC 모듈 | `6.7.3` 고정, 설치 메타데이터 확인 |
-| 실제 `init -backend=false` | 종료 코드 0 |
-| 실제 `validate` | 종료 코드 0 |
-| 준비 이후 무결성 | 소스·변수 해시와 공급자·모듈 버전 확인 통과 |
-| 단위 검증 | 관리 도구 15개, 계획 검토 22개, 종료 장치 17개: 총 54개 통과 |
-| AWS 인증 사용·plan·apply | 수행하지 않음 |
-| 원격 IAM·Lambda·예약 설치 | 수행하지 않음 |
+| Official Source | `fc9b9e719d8835da0bbb5c20d46c52a9778d64e2`; No change to upstream checkout |
+| launch image | `aegis-attack-range-api:fc9b9e719d88` built from existing official sources |
+| Terraform | `1.14.4` fixed |
+| AWS Provider | `6.68.0` fixed, check lock file |
+| VPC module | Fixed `6.7.3`, check installation metadata |
+| Real `init -backend=false` | exit code 0 |
+| Real `validate` | exit code 0 |
+| Integrity after preparation | Source/variable hash and supplier/module version verification passed |
+| unit verification | 15 management tools, 22 plan reviews, 17 exit devices: 54 total passed |
+| Use AWS Authentication·plan·apply | Not done |
+| Remote IAM·Lambda·Scheduled installation | Not done |
 
-공급자 lock 파일 SHA-256: `9f622bef5bc604bdf62031c114aa905713d8d479e3f9d52e48bb3bb076a3a65a`.
+Provider lock file SHA-256: `9f622bef5bc604bdf62031c114aa905713d8d479e3f9d52e48bb3bb076a3a65a`.
 
-처음 실제 init에서 공급자 선언의 HCL 문법 오류를 발견해 수정한 뒤 새 개인 설정으로 재검증했습니다. 기존 개인 폴더를 덮어쓰지 않았으며 모든 설정·암호·로그·계획 자료는 Git에서 제외되는 `.local-runtime/`에만 보관했습니다. 현재 공인 IP는 공식 AWS 확인 서비스로 조회해 `/32` 제한에 사용했고 공개 증적에 포함하지 않았습니다. 해당 컨테이너에는 AWS 인증 폴더를 연결하지 않았습니다.
+In the first real init, I found and corrected an HCL syntax error in the provider declaration and then revalidated it with the new personal settings. Existing personal folders were not overwritten, and all settings, passwords, logs, and planning materials were stored only in `.local-runtime/`, which is excluded from Git. The current public IP was checked with the official AWS verification service and used for the `/32` limit and was not included in the public record. I have not attached the AWS authentication folder to that container.
 
-단위 검증은 다른 계정·세션·만료 태그, 공개 수신, 추가 자원, 디스크 조건, EC2 종료 보호, 미확정 계획, 비동기 삭제·부분 실패·삭제 상한을 확인합니다. Lambda 입력·IAM/예약 자료는 정적으로 검토했지만, **단위 검사와 Terraform 설정 검증만으로 실제 자원 삭제·IAM 권한·비용 상한을 보장하지 않습니다.** 실제 계정 인증 후 읽기 전용 plan, 원격 종료 장치 점검, 동일 saved plan 적용과 호스트 구성·로그 수집을 진행해야 합니다.
+Unit validation checks for other accounts, sessions, expiration tags, public reception, additional resources, disk conditions, EC2 termination protection, indeterminate plans, asynchronous deletes, partial failures, and delete upper bounds. Lambda input/IAM/reservation data were reviewed statically, but **unit inspection and Terraform configuration verification alone do not guarantee actual resource deletion, IAM permissions, or cost caps.** After authenticating the actual account, you must proceed with read-only plan, check remote termination device, apply the same saved plan, and configure host and collect logs.
 
-관련 코드: [계획 준비·검토](../../lab/attack-range/aws_plan.py), [종료 자료 생성](../../lab/attack-range/aws_ttl.py), [종료 Lambda](../../lab/attack-range/aws_cleanup.py).
+Related codes: [Plan Preparation/Review](../../lab/attack-range/aws_plan.py), [Create Closing Materials](../../lab/attack-range/aws_ttl.py), [Termination Lambda](../../lab/attack-range/aws_cleanup.py).

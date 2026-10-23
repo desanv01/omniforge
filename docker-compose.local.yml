@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
 
   artex:
-    image: ${ARTEX_LOCAL_IMAGE:-artex-ko-local:dev}
+    image: ${ARTEX_LOCAL_IMAGE:-omniforge-local:dev}
     build:
       context: .
       dockerfile: Dockerfile.local

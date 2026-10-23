@@ -12,7 +12,7 @@ import (
 // require domain-specific evidence and remain manual review in this version.
 func Analyze(plan Plan, scope Scope, c Collection) Analysis {
 	a := Analysis{EngineVersion: EngineVersion, Hypotheses: []HypothesisResult{}, Timeline: []TimelineEntry{}, Signals: []Signal{}, Limitations: append([]string{}, c.Warnings...), NextSteps: []string{}}
-	a.Limitations = append(a.Limitations, "관측된 이벤트는 침해 확정이 아닙니다. 검색 결과가 없어도 조사 범위 밖의 공격을 배제할 수 없습니다.", "HTTP 상태 코드·허용 조치만으로 파일 전달, 코드 실행, 계정 탈취 또는 차단 성공을 판정하지 않습니다.")
+	a.Limitations = append(a.Limitations, "An observed event is not a confirmation of a breach. Even if there are no search results, we cannot rule out attacks outside the scope of our investigation.", "HTTP status codes and permission actions alone do not determine successful file delivery, code execution, account takeover, or blocking.")
 	events := append([]Event{}, c.Events...)
 	sort.SliceStable(events, func(i, j int) bool {
 		if events[i].Timestamp.Equal(events[j].Timestamp) {
@@ -24,12 +24,12 @@ func Analyze(plan Plan, scope Scope, c Collection) Analysis {
 	groups := map[string][]Event{}
 	missingIdentity, missingCompletion := 0, 0
 	for _, e := range events {
-		label := "기록된 경로: " + e.Path
+		label := "Recorded Path: " + e.Path
 		if e.Path == "" {
-			label = "경로가 없는 대상 관련 이벤트 — 추가 필드 검토 필요"
+			label = "Target-related events without a path — additional fields need review"
 		}
 		if e.KnownARTEX {
-			label = "알려진 ARTEX 검증 표식 · " + label
+			label = "Known ARTEX verification marks · " + label
 			a.KnownARTEXCount++
 		}
 		a.Timeline = append(a.Timeline, TimelineEntry{Timestamp: e.Timestamp, EvidenceRef: e.Ref, EventID: e.ID, Summary: label, KnownARTEX: e.KnownARTEX})
@@ -47,7 +47,7 @@ func Analyze(plan Plan, scope Scope, c Collection) Analysis {
 			continue
 		}
 		pathRefs = append(pathRefs, e.Ref)
-		if e.EventKind == "alert" || e.EventKind == "경보" || e.SourceAmbiguous {
+		if e.EventKind == "alert" || e.EventKind == "alarm" || e.SourceAmbiguous {
 			continue
 		}
 		identity := ""
@@ -74,13 +74,13 @@ func Analyze(plan Plan, scope Scope, c Collection) Analysis {
 		groups[key] = append(groups[key], e)
 	}
 	if missingIdentity > 0 {
-		a.Limitations = append(a.Limitations, fmt.Sprintf("이벤트 %d건에 세션·출발지가 없어 요청 흐름을 묶을 수 없습니다.", missingIdentity))
+		a.Limitations = append(a.Limitations, fmt.Sprintf("The request flow cannot be bundled because event %d does not have a session or source.", missingIdentity))
 	}
 	if missingCompletion > 0 {
-		a.Limitations = append(a.Limitations, fmt.Sprintf("이벤트 %d건에 응답 완료·전송 바이트 자료가 모두 갖춰지지 않아 실제 전달 범위를 판단할 수 없습니다.", missingCompletion))
+		a.Limitations = append(a.Limitations, fmt.Sprintf("Event %d does not have all response completed and transmitted byte data, so the actual delivery range cannot be determined.", missingCompletion))
 	}
 	if a.KnownARTEXCount > 0 {
-		a.Limitations = append(a.Limitations, "저장된 ARTEX 실행 UUID와 일치한 표식은 타임라인에 별도 표시하고 의심 흐름에서 제외했습니다. 헤더 표식 자체는 요청자의 신원을 인증하지 않습니다.")
+		a.Limitations = append(a.Limitations, "Markers that matched the saved ARTEX execution UUID were marked separately in the timeline and excluded from the suspect flow. The header marker itself does not authenticate the identity of the requester.")
 	}
 	keys := make([]string, 0, len(groups))
 	for k := range groups {
@@ -119,59 +119,59 @@ func Analyze(plan Plan, scope Scope, c Collection) Analysis {
 				var keyParts []string
 				_ = json.Unmarshal([]byte(key), &keyParts)
 				shownKey := strings.Join(keyParts, " · ")
-				a.Signals = append(a.Signals, Signal{Kind: "multi_path_requests", Key: shownKey, Summary: fmt.Sprintf("동일 로그 출처·대상·세션 또는 출발지에서 10분 이내 서로 다른 경로 %d개에 대한 이벤트가 관측됐습니다. 정상 리소스 로딩·공유 IP도 가능한 설명입니다.", len(paths)), EvidenceRefs: refs})
+				a.Signals = append(a.Signals, Signal{Kind: "multi_path_requests", Key: shownKey, Summary: fmt.Sprintf("%d events were observed on different routes within 10 minutes from the same log source/destination/session or origin. Normal resource loading/shared IP are also possible explanations.", len(paths)), EvidenceRefs: refs})
 				sequenceRefs = append(sequenceRefs, refs...)
 				found = true
 			}
 		}
 	}
 	if signalOverflow {
-		a.Limitations = append(a.Limitations, "요청 흐름 표시 한도 50개를 초과했습니다. 기간·경로를 좁혀 추가 조사하세요.")
+		a.Limitations = append(a.Limitations, "The 50 request flow display limit has been exceeded. Narrow down the period and route and conduct further research.")
 	}
 	for _, h := range plan.Hypotheses {
-		r := HypothesisResult{HypothesisID: h.ID, Status: "manual_review", Summary: "이 후속 가설은 별도 로그와 성립 조건을 확인해야 합니다. 현재 자동 분석으로 검증하지 않았습니다.", EvidenceRefs: []string{}, NextSteps: append([]string{}, h.NextSteps...)}
+		r := HypothesisResult{HypothesisID: h.ID, Status: "manual_review", Summary: "This follow-up hypothesis requires separate logarithms and validation conditions. Currently not verified by automated analysis.", EvidenceRefs: []string{}, NextSteps: append([]string{}, h.NextSteps...)}
 		switch h.ID {
 		case "path_access":
 			if len(pathRefs) > 0 {
 				r.Status = "observed"
-				r.Summary = fmt.Sprintf("선택한 자산·기간·경로 범위에서 이벤트 %d건을 관측했습니다. 경로 기록만으로 악용 성공을 판단하지 않습니다.", len(pathRefs))
+				r.Summary = fmt.Sprintf("Event %d was observed in the selected asset/period/path range. We do not determine the success of an exploit based on path history alone.", len(pathRefs))
 				r.EvidenceRefs = pathRefs
 			} else if !c.Complete {
 				r.Status = "insufficient_data"
-				r.Summary = "수집 범위 또는 파싱에 공백이 있어 미관측 결론을 내릴 수 없습니다."
+				r.Summary = "There are gaps in collection or parsing that make it impossible to draw conclusions about unobserved observations."
 			} else if a.ObservedCount > 0 {
 				r.Status = "insufficient_data"
-				r.Summary = "대상 이벤트는 있으나 요청 경로가 없어 취약 경로 접근 여부를 확인할 수 없습니다."
+				r.Summary = "There is a target event, but there is no request path, so it is not possible to check whether the vulnerable path is accessed."
 			} else {
 				r.Status = "not_observed"
-				r.Summary = "확인된 조사 범위에서 알려진 ARTEX 표식을 제외한 관련 경로 이벤트를 관측하지 못했습니다. 침해가 없었다는 뜻은 아닙니다."
+				r.Summary = "No relevant pathway events other than known ARTEX markers were observed in the identified survey range. This does not mean that there was no infringement."
 			}
 		case "multi_path":
 			if len(sequenceRefs) > 0 {
 				r.Status = "suspicious"
-				r.Summary = "짧은 시간의 여러 경로 요청 흐름이 있어 검토가 필요합니다. 파일 수집 성공이나 동일 공격자를 확인한 것은 아닙니다."
+				r.Summary = "There are multiple short-duration route request flows that require review. This does not indicate successful file collection or confirmation of the same attacker."
 				r.EvidenceRefs = sequenceRefs
 			} else if !c.Complete || missingIdentity > 0 || a.ObservedCount > len(pathRefs) {
 				r.Status = "insufficient_data"
-				r.Summary = "수집 공백 또는 세션·출발지·경로 부족으로 다중 경로 요청 흐름을 충분히 평가할 수 없습니다."
+				r.Summary = "Multi-path request flows cannot be fully evaluated due to collection gaps or lack of sessions, origins, or paths."
 			} else {
 				r.Status = "not_observed"
-				r.Summary = "현재 범위에서 동일 로그 출처·대상·세션 또는 출발지의 10분 내 다중 경로 흐름을 관측하지 못했습니다."
+				r.Summary = "We have not observed multi-path flows within 10 minutes of the same log source/destination/session or origin in the current range."
 			}
 		}
 		a.Hypotheses = append(a.Hypotheses, r)
 	}
 	if scope.PathPrefix == "" || scope.PathPrefix == "/" {
-		a.Limitations = append(a.Limitations, "특정 취약 경로가 지정되지 않았습니다. 자산 전체의 경로 관측이며 취약점과의 관련성은 별도 확인해야 합니다.")
+		a.Limitations = append(a.Limitations, "No specific vulnerable path is specified. This is a path observation of the entire asset, and its relevance to vulnerabilities must be confirmed separately.")
 	}
-	a.Summary = fmt.Sprintf("조사 범위의 이벤트 %d건과 알려진 ARTEX 검증 표식 %d건을 분리했습니다. 침해 여부는 관측 근거와 추가 조사로 판단합니다.", a.ObservedCount, a.KnownARTEXCount)
+	a.Summary = fmt.Sprintf("Isolated event %d in scope and known ARTEX verification marker %d. Infringement is determined based on observation and additional investigation.", a.ObservedCount, a.KnownARTEXCount)
 	if !c.Complete {
-		a.Summary += " 수집에 공백이 있어 미관측을 확정할 수 없습니다."
-		a.NextSteps = append(a.NextSteps, "수집 경고를 해결하고 같은 자산·기간의 증거를 다시 제출하세요.")
+		a.Summary += " Due to gaps in collection, unobserved observations cannot be confirmed."
+		a.NextSteps = append(a.NextSteps, "Resolve the collection warning and resubmit evidence for the same asset/period.")
 	}
 	if len(a.Signals) > 0 {
-		a.NextSteps = append(a.NextSteps, "다중 경로 흐름의 정상 사용·승인된 점검 여부를 원본 로그와 운영 이력으로 대조하세요.")
+		a.NextSteps = append(a.NextSteps, "Check whether the multi-path flow is normally used or inspected with the original log and operation history.")
 	}
-	a.NextSteps = append(a.NextSteps, "가설별 성립 조건과 필요한 추가 로그를 확인하세요.", "확인된 행동에 맞는 탐지 규칙을 검토한 뒤 기존 방어 검증에서 효과를 확인하세요.")
+	a.NextSteps = append(a.NextSteps, "Check the conditions for each hypothesis and any additional logs required.", "Review detection rules that match the identified behavior and verify their effectiveness against existing defense verification.")
 	return a
 }

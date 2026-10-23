@@ -29,15 +29,15 @@ func hanFreeItems(n int) []Item {
 func TestMarkdownTitleLocalized(t *testing.T) {
 	// 다건(汇总): "취약점 요약 · 총 N건"
 	got := markdownTitle(Message{Batch: true, Items: hanFreeItems(3)})
-	assertKorean(t, "markdownTitle(batch)", got)
-	if !strings.Contains(got, "취약점 요약") || !strings.Contains(got, "총 3건") {
-		t.Errorf("다건 제목이 '취약점 요약 · 총 3건' 형태여야 합니다, 받은 값 %q", got)
+	assertEnglish(t, "markdownTitle(batch)", got)
+	if !strings.Contains(got, "Vulnerability Summary") || !strings.Contains(got, "Total 3 cases") {
+		t.Errorf("The title of all cases must be in the form of ‘Vulnerability Summary · Total 3’, received value %q", got)
 	}
 	// 항목 없음: "취약점 알림"
 	empty := markdownTitle(Message{})
-	assertKorean(t, "markdownTitle(empty)", empty)
-	if empty != "취약점 알림" {
-		t.Errorf("빈 메시지 제목은 '취약점 알림' 이어야 합니다, 받은 값 %q", empty)
+	assertEnglish(t, "markdownTitle(empty)", empty)
+	if empty != "Vulnerability Notification" {
+		t.Errorf("Empty message subject should be 'Vulnerability Notification', received value %q", empty)
 	}
 }
 
@@ -50,29 +50,29 @@ func TestMarkdownBatchIntroLocalized(t *testing.T) {
 	// 시간창 있음: "최근 N분간 신규 취약점 N건"
 	win := markdownBatchIntro(Message{Batch: true, WindowMinutes: 30}, items, 3)
 	if hasHan(win) {
-		t.Errorf("시간창 머리말에 중국어 한자가 남았습니다: %q", win)
+		t.Errorf("Chinese character left in time window header: %q", win)
 	}
-	if !strings.Contains(win, "최근 30분간") || !strings.Contains(win, "신규 취약점 3건") {
-		t.Errorf("시간창 머리말이 '최근 30분간 신규 취약점 3건' 형태여야 합니다, 받은 값 %q", win)
+	if !strings.Contains(win, "Last 30 minutes") || !strings.Contains(win, "3 new vulnerabilities") {
+		t.Errorf("The time window header must be in the form of ‘3 new vulnerabilities in the last 30 minutes’, received value %q", win)
 	}
 
 	// 시간창 없음: "신규 취약점 N건"(분간 표기 없음)
 	noWin := markdownBatchIntro(Message{Batch: true}, items, 3)
 	if hasHan(noWin) {
-		t.Errorf("머리말에 중국어 한자가 남았습니다: %q", noWin)
+		t.Errorf("Chinese characters left in the header: %q", noWin)
 	}
-	if !strings.Contains(noWin, "신규 취약점 3건") || strings.Contains(noWin, "분간") {
-		t.Errorf("시간창 없는 머리말은 '신규 취약점 3건'(분간 표기 없음)이어야 합니다, 받은 값 %q", noWin)
+	if !strings.Contains(noWin, "3 new vulnerabilities") || strings.Contains(noWin, "minutes") {
+		t.Errorf("Header without time window should be '3 new vulnerabilities' (no minute notation), received value %q", noWin)
 	}
 
 	// 일부만 담겼을 때: "(이 메시지에는 앞 N건만 … 나머지 N건은 다음 메시지에서 …)"
 	trunc := markdownBatchIntro(Message{Batch: true, WindowMinutes: 30}, items, 5)
 	if hasHan(trunc) {
-		t.Errorf("초과 안내에 중국어 한자가 남았습니다: %q", trunc)
+		t.Errorf("Chinese character left in excess notice: %q", trunc)
 	}
-	for _, want := range []string{"앞 3건만", "나머지 2건", "다음 메시지에서"} {
+	for _, want := range []string{"Only the first 3 items", "the remaining 2 items", "in the next message"} {
 		if !strings.Contains(trunc, want) {
-			t.Errorf("초과 안내에 %q 가 있어야 합니다, 받은 값 %q", want, trunc)
+			t.Errorf("There should be %q in the exceedance notice, the received value is %q", want, trunc)
 		}
 	}
 }
@@ -94,16 +94,16 @@ func TestWriteItemLabelsLocalized(t *testing.T) {
 	writeItem(&b, it, "", true)
 	got := b.String()
 
-	assertKorean(t, "writeItem(single)", got)
+	assertEnglish(t, "writeItem(single)", got)
 	for _, want := range []string{
-		"**상태 변경**: 처리 대기 → 수정됨",
-		"**유형**: SQLi",
-		"**자산**: a.example.com",
-		"**개요**: SQL injection via q param",
-		"[상세 보기](https://platform.example/finding/1)",
+		"**Status change**: Pending → Fixed",
+		"**Type**: SQLi",
+		"**Asset**: a.example.com",
+		"**Overview**: SQL injection via q param",
+		"[View details](https://platform.example/finding/1)",
 	} {
 		if !strings.Contains(got, want) {
-			t.Errorf("단건 렌더에 %q 가 있어야 합니다:\n%s", want, got)
+			t.Errorf("You should have %q in your single render:\n%s", want, got)
 		}
 	}
 }
@@ -114,9 +114,9 @@ func TestMarkdownBodyFooterLocalized(t *testing.T) {
 	m := Message{Batch: true, HomeURL: "https://platform.example", Items: hanFreeItems(2)}
 	body, kept := markdownBody(m, 0)
 	if kept != 2 {
-		t.Fatalf("한도 없음(0)이면 2건 모두 담겨야 합니다, 받은 값 %d", kept)
+		t.Fatalf("If there is no limit (0), both items must be included. The received value is %d.", kept)
 	}
-	if !strings.Contains(body, "[플랫폼에서 전체 보기](https://platform.example)") {
-		t.Errorf("본문 끝에 '플랫폼에서 전체 보기' 링크가 있어야 합니다:\n%s", body)
+	if !strings.Contains(body, "[View all on platform](https://platform.example)") {
+		t.Errorf("There should be a 'View full on platform' link at the end of the text:\n%s", body)
 	}
 }

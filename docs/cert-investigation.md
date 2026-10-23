@@ -1,169 +1,169 @@
-# 취약점 기반 침해 조사
+# Vulnerability-based breach investigation
 
-취약점 상세의 **침해 조사**에서 과거 로그를 **파일 업로드** 또는 **Splunk 직접 조회**로 준비하고, **AI 조사 시작**을 누르면 ARTEX 에이전트가 증거에 따라 조사 계획과 후속 조회를 반복합니다. 새 취약점 점검을 실행하지 않으며 과거 로그에 ARTEX 검증 UUID가 없어도 사용할 수 있습니다.
+In the **Breach Investigation** of the vulnerability details, prepare historical logs by **file upload** or **Splunk direct query**, press **Start AI Investigation**, and the ARTEX agent will iterate the investigation plan and follow-up queries based on the evidence. It does not run new vulnerability checks and can be used even if there are no ARTEX validation UUIDs in past logs.
 
-기존 [방어 검증](purple-validation.md)은 지금 수행한 재검증이 탐지·차단됐는지 확인합니다. 침해 조사는 선택한 자산·기간의 기존 기록에서 관련 행동을 찾습니다. 두 기능의 파일 형식과 조회 범위는 서로 다르므로, 방어 검증용 UUID 필터로 내보낸 파일만으로 과거 전체 활동을 조사하지 마세요.
+The existing [Defense Verification](purple-validation.md) checks whether the re-verification performed now has been detected and blocked. Breach investigations look for relevant activity in existing records for selected assets/periods. Because the file formats and lookup scopes of the two features are different, do not examine the entire past activity solely from files exported by the UUID Filter for Defense Validation.
 
-## 근거 준비와 에이전트 조사
+## Preparing evidence and investigating agents
 
-취약점 이름·분류·설명에 따라 정보 노출, 인증, 코드 실행, SSRF 또는 일반 조사 템플릿을 선택합니다. 가설마다 성립 조건, 필요한 로그·필드, 조회 방법, 정상 행위 대안, 다음 조치를 제공합니다.
+Select an Information Exposure, Authentication, Code Execution, SSRF, or General Investigation template based on the vulnerability name, classification, and description. For each hypothesis, it provides conditions for validation, necessary logs/fields, search methods, normal behavior alternatives, and next actions.
 
-첫 화면의 계획은 코드로 관리하는 **조건부 조사 템플릿**입니다. 파일 파싱·Splunk 최초 조회·기초 분석과 저장에는 LLM 연결이 필요하지 않습니다. 조사 질문은 기록에 보관하고 이후 AI 조사의 기본 질문으로 사용합니다.
+The plan on the first screen is a **conditional survey template** managed by code. An LLM connection is not required for file parsing, Splunk initial viewing, basic analysis and storage. Keep your survey questions in your records and use them as base questions for future AI surveys.
 
-저장된 근거에서 별도로 시작하는 **ARTEX 에이전트 침해 조사**는 기존 ARTEX의 `agentcore` 실행 기반과 현재 활성 LLM 연결을 재사용합니다. 계획자가 취약점과 조사 질문으로 가설·작업을 정하고, 작업자가 전용 로그 조회 도구로 증거를 확인하며, 계획자가 관측 결과를 받아 후속 조사 또는 중단을 결정합니다. 일반 침투 점검의 셸·공격·웹 접속 도구는 제공하지 않습니다.
+**ARTEX Agent Breach Investigation**, launched separately from stored grounds, reuses the existing `agentcore` execution base of ARTEX and the currently active LLM connection. Planners determine hypotheses/tasks based on vulnerabilities and investigation questions, workers check evidence with a dedicated log query tool, and planners receive observation results and decide whether to follow up or stop the investigation. We do not provide shell, attack, or web access tools for general penetration inspection.
 
-계획자와 작업자는 저장된 사건 이름·질문, 실제 이벤트 유형·조치·경로 분포, 필드 매핑과 최대 8개 정규화 샘플을 먼저 확인합니다. 작업자에게는 최대 3개의 원문 발췌(각 1,200바이트)를 제공하고 해당 근거 참조를 진행 이력에 남깁니다. 이미 확보한 로그부터 관측을 기록하며, 제한시간에 도달해도 기록된 관측과 미확인 항목을 보존합니다. 느린 모델이나 추가 조회 때문에 한도 안에 전체 조사가 끝나지 않을 수 있습니다.
+Planners and operators first check stored incident names/questions, actual event types/actions/path distributions, field mappings, and up to eight normalized samples. Operators are provided with up to three full-text excerpts (1,200 bytes each) and their supporting references are included in the progress history. Observations are recorded from logs already obtained, and recorded observations and unconfirmed items are preserved even when the time limit is reached. The entire investigation may not be completed in time due to slow models or additional queries.
 
-Splunk의 `source` 메타데이터와 JSON 내부의 같은 이름 필드가 충돌하면 서로 다른 문자열이 배열로 반환될 수 있습니다. 이 경우 하나를 임의 선택하지 않고 개별 이벤트·원문을 보존하며, 출처가 모호한 이벤트를 동일 출처의 요청 흐름 연결에서 제외합니다. 출처 확인 경고와 불완전 상태를 유지합니다. 대상·시각·경로 등 조사 범위 필드의 모호한 값은 계속 엄격하게 거부합니다.
+Conflicts between Splunk's `source` metadata and fields with the same name inside JSON can result in different strings being returned as arrays. In this case, individual events/original text are preserved without randomly selecting one, and events with ambiguous origins are excluded from the request flow connection of the same origin. Please note that source verification warnings and incompleteness remain. Ambiguous values ​​in investigation scope fields such as target, time, and route will continue to be strictly rejected.
 
-기초 분석의 자동 규칙은 자산·경로 접근과 제한적인 다중 경로 요청 흐름을 다룹니다. 노출 자격증명의 사용, 계정 탈취, 서버 프로세스 실행, 서버 송신 등 후속 가설은 필요한 별도 증거를 안내합니다. AI 조사는 확보한 로그에서 추가 연결을 검토할 수 있지만, 없는 인증·호스트·송신 로그를 만들어 내거나 침해를 자동 확정하지 않습니다.
+Automated rules from fundamental analysis address asset/path access and limited multi-path request flows. Subsequent hypotheses such as use of exposed credentials, account takeover, server process execution, server egress, etc. lead to additional evidence needed. AI investigation can review additional connections in the obtained logs, but does not create non-existent authentication, host, or transmission logs or automatically confirm infringement.
 
-## 공통 조사 범위
+## Common investigation scope
 
-1. 취약점 상세에서 **침해 조사**를 엽니다.
-2. 조사 제목과 질문을 입력하고 로그 연결 방식을 선택합니다.
-3. 원본 로그의 **대상 호스트 또는 호스트:포트**, 선택적인 경로, 과거 시작·종료 시각을 지정합니다.
-4. 필드 매핑을 원본 로그에 맞춘 뒤 아래 연결 방식에 따라 분석합니다.
+1. Open **Investigation of Breach** from the vulnerability details.
+2. Enter your investigation title and questions, and choose how you want to connect your logs.
+3. Specify **target host or host:port**, optional path, and past start/end time of the source log.
+4. Match the field mapping to the original log and then analyze it according to the connection method below.
 
-대상 칸에는 `juice-shop:3000`처럼 호스트를 입력합니다. 이벤트의 대상 값은 호스트 또는 HTTP(S) URL을 사용할 수 있습니다. 호스트는 정확히 일치해야 하며, 포트를 지정하면 해당 포트까지 일치해야 합니다. HTTP·HTTPS URL에 생략된 기본 포트는 각각 80·443으로 해석합니다.
+In the target field, enter a host like `juice-shop:3000`. The event's target value can be a host or HTTP(S) URL. The hosts must match exactly, and if you specify a port, that port must also match. Default ports omitted in HTTP and HTTPS URLs are interpreted as 80 and 443, respectively.
 
-`/ftp` 경로는 `/ftp`와 `/ftp/` 아래를 포함하고 `/ftp-backup`은 포함하지 않습니다. 경로를 비우거나 `/`로 지정하면 자산 전체 경로를 조사하며, 각 이벤트가 취약점과 관련 있는지는 별도 확인이 필요합니다. 시간은 화면의 현지 시각으로 입력하고 시작 시각을 포함하되 종료 시각은 제외합니다. 보존되지 않은 과거 로그는 복원하지 않습니다.
+`/ftp` path includes below `/ftp` and `/ftp/`, but does not include `/ftp-backup`. If you leave the path empty or specify it as `/`, the entire asset path will be examined, and you will need to check separately whether each event is related to a vulnerability. Enter the time in your screen's local time, including the start time but excluding the end time. Past logs that are not preserved will not be restored.
 
-**AI 조사도 처음 저장한 대상·시간·경로 안에서만 조회합니다.** 예를 들어 `/ftp` 접근 뒤 같은 자산의 `/login` 요청까지 확인하려면, 근거 수집 전에 경로를 비우고 두 경로를 포함하는 로그를 준비하세요. 이미 `/ftp`로 제한한 조사에서 에이전트가 스스로 `/login`으로 범위를 넓히지는 않습니다. 다른 자산·기간·로그 출처가 필요하면 새로운 범위의 근거를 별도로 준비합니다.
+**AI research is also searched only within the first saved target, time, and path.** For example, if you want to access `/ftp` and then check the request for `/login` for the same asset, clear the path before collecting evidence and prepare a log containing both paths. In an investigation that has already been limited to `/ftp`, the agent does not expand the scope to `/login` on its own. If other assets, periods, or log sources are needed, separate evidence for a new scope is prepared.
 
-## 파일 업로드
+## file upload
 
-1. **파일 업로드**를 선택하고 로그 출처 이름을 입력합니다.
-2. 같은 조사에 필요한 UTF-8 JSON·JSONL·CSV 파일을 선택합니다.
-3. **시각·대상·경로**를 우선 매핑합니다. 기본 필드는 `timestamp`, `target`, `path`입니다. 세션·출발지·이벤트 유형 등은 자료에 맞춰 추가합니다.
-4. 원본 시스템에서 해당 대상·경로·기간의 관련 결과를 빠짐없이 내보냈는지 확인한 경우에만 **전체 내보내기 확인**을 체크합니다.
-5. 대상 필드가 없는 행을 포함하려면, 실제로 해당 자산에서 내보낸 파일인지 확인한 뒤 **대상 호스트 필드가 없는 행도 위 대상에서 수집됐다는 확인**을 체크합니다.
-6. **파일 근거 준비·저장**을 누릅니다.
+1. Select **Upload File** and enter a log source name.
+2. Select the UTF-8 JSON·JSONL·CSV file needed for the same investigation.
+3. Map **time, target, and path** first. The default fields are `timestamp`, `target`, `path`. Session, departure point, event type, etc. are added according to the data.
+4. Check **Check full export** only if you have confirmed that all relevant results for the target, path, and period have been exported from the source system.
+5. To include rows without target fields, verify that the file was actually exported from that asset and then check **Confirm that rows without target host fields were also collected from the above target**.
+6. Press **Prepare/Save File Basis**.
 
-두 확인은 서로 다른 의미입니다. 전체 내보내기 확인이 없으면 수집 공백으로 표시합니다. 대상 확인은 대상 필드가 없는 행에만 적용하며, 다른 대상이 명시된 행까지 포함하지 않습니다. 사용자의 확인은 원본 수집 시스템을 독립적으로 검증했다는 뜻이 아닙니다.
+The two confirmations have different meanings. If there is no full export confirmation, the collection will be marked as blank. Target validation applies only to rows without a target field, not including rows where a different target is specified. User verification does not imply independent verification of the original collection system.
 
-JSON은 객체 하나·객체 배열·JSONL을 지원하며 CSV 첫 행은 중복 없는 필드 이름이어야 합니다. 시각은 RFC 3339 또는 Unix 초를 사용합니다. 필드 이름은 실제 값의 이름이며, `request.path`처럼 점으로 구분된 필드도 사용할 수 있습니다. 같은 이름의 직접 필드가 있으면 중첩 객체보다 우선합니다. Splunk 내보내기처럼 `_raw`에 JSON 객체 문자열이 있으면 최상위에 없는 값을 그 안에서 찾습니다.
+JSON supports single object, array of objects, and JSONL, and the first row of CSV must be a field name without duplicates. Time uses RFC 3339 or Unix seconds. The field name is the name of the actual value; dotted fields can also be used, such as `request.path`. If there is a direct field with the same name, it takes precedence over the nested object. Like the Splunk export, if you have a JSON object string in `_raw`, it will look for values ​​in it that are not at the top level.
 
-감사·경보를 함께 분석한다면 이벤트 유형을 `event_kind` 등에 매핑해 경보 행이 `alert` 또는 `경보`로 구분되도록 합니다. 경보는 관측 근거로 표시하지만 다중 요청 흐름의 요청 수에는 넣지 않습니다. UUID 필드는 선택 사항이며, 없다는 이유로 일반 과거 이벤트를 제외하지 않습니다.
+If you analyze audits and alarms together, map the event type to `event_kind`, etc. so that the alarm rows are divided into `alert` or `경보`. Alerts are flagged as observations, but do not count towards the request count for multi-request flows. The UUID field is optional, and its absence does not exclude regular past events.
 
-## Splunk 직접 조회
+## Splunk direct query
 
-1. **Splunk 직접 조회**를 선택합니다. 연결이 없으면 **연결 관리**에서 기존 Splunk HTTPS 관리 주소와 검색 계정 또는 토큰을 저장합니다.
-2. 인증 정보가 저장된 활성 연결을 선택합니다. 계정은 조회할 인덱스에 대한 검색 권한이 있어야 합니다. ARTEX가 계정·인덱스·탐지 규칙을 생성하지 않습니다.
-3. 조사할 sourcetype을 선택합니다. 기본값은 연결에 저장된 감사·경보 sourcetype이며 최대 8개까지 지정할 수 있습니다.
-4. 원본에 맞는 대상·경로 등 필드를 매핑합니다. Splunk 조사의 시각은 검색 시간 기준인 **`_time`**을 사용합니다.
-5. **Splunk 조회 조건 미리보기**로 자동 생성한 검색식과 범위를 확인합니다. 미리보기는 원격 검색을 실행하지 않습니다.
-6. **Splunk 근거 조회·저장**을 누릅니다.
+1. Select **Splunk Direct Query**. If there is no connection, **Connection Management** saves the existing Splunk HTTPS management address and search account or token.
+2. Select the active connection where your authentication information is stored. Your account must have search permissions on the index you want to query. ARTEX does not create accounts, indexes, or detection rules.
+3. Select the sourcetype you want to investigate. The default value is the audit/alarm sourcetype stored in the connection, and up to 8 can be specified.
+4. Map fields such as destination and path that match the source. Splunk surveys use **`_time`**, which is the search time reference.
+5. Check the automatically created search expression and range with **Splunk query condition preview**. Preview does not run remote searches.
+6. Click **View/Save Splunk Evidence**.
 
-조회는 저장된 인덱스 하나와 선택한 sourcetype, 대상, 시간, 선택적인 경로로 제한합니다. 사용자가 임의의 SPL 명령을 입력해 실행하는 기능은 없습니다. 대상 값은 정확한 호스트 조건으로, 경로는 문자 그대로의 경계 조건으로 처리합니다. 검증 UUID를 검색 조건으로 요구하지 않습니다.
+The query is limited to one stored index and the selected sourcetype, destination, time, and optional path. There is no function for users to enter and execute arbitrary SPL commands. Treat target values ​​as exact host conditions and paths as literal boundary conditions. Does not require validation UUID as a search condition.
 
-HTTPS 인증서 검증 또는 저장된 인증서 핀을 사용하고 리다이렉트를 따라 인증 정보를 보내지 않습니다. 기존 연결의 암호화된 인증 정보를 재사용합니다. Docker 환경에서는 ARTEX 컨테이너에서 Splunk 관리 API에 도달할 수 있어야 합니다.
+Use HTTPS certificate validation or a saved certificate pin and do not send authentication information following a redirect. Reuse encrypted credentials from an existing connection. In a Docker environment, the Splunk management API must be reachable from an ARTEX container.
 
-Splunk 오류는 성공 결과로 저장하지 않습니다. 경고·미리보기·완료 표시 누락·이벤트 한도 초과는 전체 수집을 확인할 수 없는 결과로 다룹니다. 정상적으로 끝난 0건 검색도 저장할 수 있지만, 원본 로그 보존 기간이나 수집기 범위까지 증명하지는 않습니다.
+Splunk errors are not saved as success results. Warnings, previews, missing completion marks, and exceeding event limits are treated as results in the entire collection being unconfirmable. You can also store 0 searches that end successfully, but this does not verify the original log retention period or collector coverage.
 
-로컬 Purple 실습 로그의 대상 필드는 `target`입니다. Splunk의 `host`는 수집기 이름이므로 `purple-lab-target:8080`을 찾는 대상 조건으로 사용하지 않습니다. Splunk로 전환하면 기본 시각·이벤트 ID만 `_time`·`_cd`로 바꾸며, 대상 필드와 사용자가 수정한 매핑은 유지합니다. 저장된 근거가 0건이면 AI 조사 앞에 대상 필드·기간·경로·sourcetype 확인 안내가 표시됩니다. 잘못 저장한 조건은 새 근거를 준비해 수정해야 하며, 같은 사건에서 AI만 재실행해도 저장된 범위는 바뀌지 않습니다.
+The destination field in the local Purple lab log is `target`. Splunk's `host` is the collector name, so we don't use `purple-lab-target:8080` as a search target condition. When switching to Splunk, only the default time/event IDs are changed to `_time`·`_cd`, while retaining target fields and user-modified mappings. If the number of stored evidence is 0, a guide to confirm the target field, period, path, and source type is displayed in front of the AI ​​investigation. Incorrectly saved conditions must be corrected by preparing a new basis, and the saved range will not change even if only the AI ​​is re-run in the same event.
 
-## AI 조사 실행
+## Run AI research
 
-1. 파일 또는 Splunk로 로그 근거를 저장한 뒤 **ARTEX 에이전트 침해 조사**를 엽니다.
-2. 조사 질문과 저장된 범위를 확인합니다. LLM이 연결되지 않았다면 **시스템 → LLM 설정**에서 사용할 연결을 활성화합니다.
-3. **AI 조사 시작**을 누릅니다. 근거 저장이나 페이지 열기만으로 모델을 호출하지 않습니다.
-4. 진행 화면에서 가설·조사 작업·조회·근거를 인용한 관측·후속 결정을 확인합니다. 필요하면 실행을 중지합니다.
-5. 결과의 근거 참조를 원문과 대조하고, 자료 부족과 다음 조사를 검토합니다. **새 AI 조사 실행**은 별도 이력과 새로운 모델 사용량을 만듭니다.
+1. Save the log evidence to a file or Splunk and open **ARTEX Agent Breach Investigation**.
+2. Check your research question and saved scope. If LLM is not connected, enable the connection you want to use in **System → LLM Settings**.
+3. Tap **Start AI Survey**. We don't call the model just by saving the rationale or opening the page.
+4. On the progress screen, check hypotheses, research tasks, inquiries, observations citing evidence, and follow-up decisions. Stop execution if necessary.
+5. Compare the supporting references of the results with the original text, review data deficiencies and follow-up research. **Running a new AI survey** creates a separate history and new model usage.
 
-계획자는 한 번에 조사 작업 하나를 제시합니다. 작업자는 구조화된 대상·시간·경로·출발 IP·계정·세션·이벤트 유형 조건으로 조회하고, 중요한 이벤트의 원문을 읽은 뒤 관측을 남깁니다. 계획자는 그 결과로 다음 작업을 정합니다. 화면의 진행 과정은 작업·도구 사용·명시적 조사 결정을 보여주며 모델의 내부 사고 과정은 표시하지 않습니다.
+The planner presents one research task at a time. Workers search using structured target, time, route, origin IP, account, session, and event type conditions, read the original text of important events, and leave observations. The planner determines the next task based on the results. The progress on the screen shows tasks, tool use, and explicit investigative decisions; it does not show the model's internal thought processes.
 
-파일 모드에서는 저장된 이벤트만 조회합니다. 파일에 없는 과거 활동이나 다른 로그 시스템에 접속할 수 없습니다. Splunk 모드에서는 저장된 이벤트를 조회하거나 같은 연결·인덱스·sourcetype·매핑으로 추가 검색할 수 있습니다. 추가 검색마다 연결 활성 상태와 변경 여부를 다시 확인하며, 대상·기간·경로는 처음 범위에서 좁힐 수만 있습니다. 검색식은 서버가 생성하므로 모델이 임의 SPL을 실행하지 않습니다. 기존 기록에 사용자 지정 sourcetype 범위가 보존되지 않았거나 연결이 바뀌었다면 새 근거 수집이 필요합니다.
+In file mode, only saved events are searched. You cannot access past activity that is not on file or in other log systems. In Splunk mode, you can query stored events or search further with the same connection, index, sourcetype, and mapping. Each additional search rechecks whether the connection is active and has changed, and the target, period, and path can only be narrowed from the initial scope. Since the search expression is generated by the server, the model does not run arbitrary SPLs. If custom sourcetype scopes are not preserved in existing records or their associations have changed, new evidence collection is required.
 
-AI 조사는 취약점 설명·근거의 일부, 조사 질문, 선택된 로그 필드와 원문 발췌를 **설정된 LLM 공급자에 전송**하며 해당 연결의 사용량·요금이 발생할 수 있습니다. 전체 업로드 파일은 로컬 DB에 보존하고 통째로 프롬프트에 넣지 않습니다. Splunk 연결 인증 정보는 모델에 전달하지 않지만, 로그 자체에 포함된 계정·세션·토큰 등의 민감한 값은 발췌에 남을 수 있으므로 전송 가능한 자료를 사용하세요.
+AI investigations transmit a portion of the vulnerability description/evidence, investigation questions, selected log fields, and text excerpts to **the established LLM provider** and may incur usage/fees for that connection. The entire uploaded file is preserved in the local DB and is not put in its entirety in the prompt. Splunk connection credentials are not passed to the model, but sensitive values ​​such as accounts, sessions, and tokens contained in the log itself may remain in the excerpt, so use data that can be transmitted.
 
-### AI 결과의 의미
+### What AI Results Mean
 
-| 표시 | 의미 |
+| display | Meaning |
 |---|---|
-| `observed` | 에이전트가 조회하고 원문을 읽은 이벤트에 대한 AI 해석. 인용의 존재를 검증하며, 해석의 정확성이나 침해 성공을 보증하지 않음 |
-| `inferred` | 읽은 근거를 연결한 가설. 정상 행위 등 다른 설명을 함께 기록 |
-| `insufficient_data` | 필요한 로그·필드·범위가 부족함. 추가 자료 또는 다음 조사 항목을 기록 |
+| `observed` | AI interpretation of events viewed by agents and read the original text. We verify the existence of citations and do not guarantee the accuracy of interpretation or success of infringement |
+| `inferred` | A hypothesis that connects the evidence read. Record other explanations such as normal behavior |
+| `insufficient_data` | Required logs, fields, and ranges are lacking. Additional information or next research item |
 
-관측은 실제 조회로 확인한 근거 참조만 인용할 수 있으며, `observed`는 해당 원문을 먼저 읽어야 저장됩니다. 알려진 ARTEX 재현 요청이 포함되면 이를 별도로 표시합니다. 근거 검증은 AI가 지어낸 이벤트 식별자를 막기 위한 것으로, 같은 IP를 같은 공격자로 보거나 HTTP 200을 유출 성공으로 해석해도 된다는 뜻은 아닙니다.
+Observations can only cite supporting references confirmed by actual inquiries, and `observed` must be read in the original text first to be saved. If known ARTEX reproduction requests are included, these are marked separately. Evidence verification is intended to prevent event identifiers created by AI, and does not mean that the same IP can be viewed as the same attacker or that HTTP 200 can be interpreted as a successful leak.
 
-| 실행 상태 | 의미 |
+| running status | Meaning |
 |---|---|
-| `queued` / `running` | 시작 대기 / 조사 중 |
-| `completed` | 계획자가 조사 작업을 마침. 침해 확정 또는 안전 판정이 아님 |
-| `insufficient_data` | 충분한 근거를 확보하지 못해 종료 |
-| `budget_exhausted` | 회차·호출·토큰·시간 등 실행 예산 소진 |
-| `cancelled` | 사용자가 중지한 실행 |
-| `model_error` | 모델 호출 오류로 종료. 저장된 관측이 있으면 함께 보존 |
-| `interrupted` | 서비스 재시작·종료 또는 결과 보존 문제로 중단 |
+| `queued` / `running` | Waiting to start / Investigating |
+| `completed` | Planner completes research work. Not a confirmed infringement or safety determination |
+| `insufficient_data` | Terminated due to lack of sufficient evidence |
+| `budget_exhausted` | Exhaustion of execution budget such as rounds, calls, tokens, time, etc. |
+| `cancelled` | Execution stopped by user |
+| `model_error` | Ended with model call error. If you have saved observations, keep them together |
+| `interrupted` | Interruption due to service restart/termination or result preservation issues |
 
-취소·실패·재시작 전까지 저장된 진행 과정과 근거는 남습니다. 종료된 실행을 자동 재개하거나 결과를 덮어쓰지 않습니다. 다시 조사하려면 사용자가 새 실행을 시작합니다. 한 서버에서 AI 조사 한 개를 실행하며, 실행 중인 조사가 있는 작업은 조사를 종료한 뒤 보관할 수 있습니다.
+Saved progress and evidence remain until cancellation, failure, or restart. Does not automatically resume terminated runs or overwrite results. To investigate again, the user starts a new run. You run one AI investigation on one server, and jobs with running investigations can be archived after the investigation ends.
 
-## 기초 분석 결과 읽기
+## Read fundamental analysis results
 
-| 표시 | 의미 |
+| display | Meaning |
 |---|---|
-| `observed` | 해당 범위의 관련 경로 이벤트를 실제로 관측함 |
-| `suspicious` | 확인이 필요한 요청 흐름을 관측함. 공격자·악용 성공을 확정하지 않음 |
-| `not_observed` | 확인된 조사 범위에서 해당 패턴을 관측하지 못함. 침해가 없었다는 뜻은 아님 |
-| `insufficient_data` | 수집 범위·필드·파싱 등에 공백이 있어 충분히 평가하지 못함 |
-| `manual_review` | 후속 가설에 필요한 증거와 조건을 사람이 추가로 확인해야 함 |
+| `observed` | Actually observing relevant path events in that range |
+| `suspicious` | Observe the request flow that requires confirmation. Attacker/exploit success not confirmed |
+| `not_observed` | No such pattern was observed in the identified survey range. This does not mean there was no infringement |
+| `insufficient_data` | Unable to evaluate sufficiently due to gaps in collection scope, fields, parsing, etc. |
+| `manual_review` | The evidence and conditions required for subsequent hypotheses must be additionally verified by humans |
 
-정보 노출의 다중 경로 분석은 같은 로그 출처·대상·세션(없으면 출발지)에서 10분 이내 서로 다른 하위 경로가 2개 이상 나타나는지 찾습니다. 파일, sourcetype, source, host, index를 구분해 출처가 다른 기록을 같은 요청 흐름으로 합치지 않습니다. 같은 IP라는 이유만으로 동일 공격자라고 판단하지 않으며, 정상 리소스 로딩이나 공유 IP도 가능한 설명으로 제시합니다.
+Multi-path analysis of information exposure looks for two or more different sub-paths within 10 minutes of the same log source, destination, or session (or origin, if none exist). By distinguishing file, sourcetype, source, host, and index, records from different sources are not merged into the same request flow. We do not determine that they are the same attacker just because they have the same IP, and normal resource loading or shared IP are also suggested as possible explanations.
 
-HTTP 200·403, 허용·차단 값, 경로 접근만으로 파일 전달·계정 탈취·코드 실행·차단 성공을 판정하지 않습니다. 실제 전달 범위를 조사하려면 전송 바이트·응답 완료·당시 파일 내용 등 추가 자료가 필요합니다.
+HTTP 200·403, allow/block values, and path access alone do not determine success in file transfer, account hijacking, code execution, or blocking. Investigating the actual scope of delivery requires additional data, including bytes transmitted, completed responses, and file contents at the time.
 
-알려진 ARTEX 검증 요청은 같은 취약점에 등록된 UUID와 실제 재검증 시간 범위가 함께 맞을 때 구분합니다. 범위는 재검증 시작 30초 전부터 종료 60초 후까지이며 종료 경계는 제외합니다. 해당 이벤트는 타임라인에 남기고 의심 흐름에서는 제외합니다. 알 수 없는 UUID나 시간 밖의 같은 UUID는 자동 제외하지 않습니다. 헤더 표식은 인증 수단이 아니므로 원본 요청·점검 일정과 대조해야 합니다.
+Known ARTEX verification requests are distinguished when the UUID registered for the same vulnerability and the actual revalidation time range match together. The range is from 30 seconds before revalidation starts to 60 seconds after it ends, excluding the end boundary. Leave the event in the timeline and exclude it from the suspect flow. Unknown UUIDs or UUIDs that are out of time are not automatically excluded. Since the header mark is not a means of authentication, it must be compared with the original request and inspection schedule.
 
-## 근거·이력과 내보내기
+## Basis/History and Export
 
-각 근거 수집과 AI 실행은 별도 기록으로 저장됩니다. 새로운 파일이나 다른 범위를 조사하면 이전 결과를 덮어쓰지 않고 새 이력을 만듭니다. AI 실행은 원래 파일·기초 분석을 변경하지 않습니다. 취약점 근거가 변경되면 기존 기록은 이전 근거로 만든 결과임을 표시하며, 새 AI 실행에는 최신 취약점을 기준으로 로그 근거를 다시 준비해야 합니다. 근거 이력과 해당 근거의 AI 실행 이력은 각각 최근 30건을 표시하며 이전 원본도 계속 보관합니다.
+Each evidence collection and AI execution is stored as a separate record. Examining a new file or different range creates a new history without overwriting previous results. AI execution does not change the original file or underlying analysis. If the vulnerability basis changes, existing records will show that they are the result of the previous basis, and new AI executions will require the log basis to be re-prepared based on the latest vulnerability. The evidence history and the AI ​​execution history of the evidence each display the most recent 30 cases, and previous originals are also kept.
 
-**근거 JSON 내보내기**에는 취약점·조사 계획·연결 설정의 당시 상태, 필드 매핑, 조회 구간, 수집 경고, 이벤트 원문, 파일명·행·근거 참조, 파일 해시와 원문이 포함됩니다. Splunk는 실제 검색식과 반환된 export 원문도 보존합니다. 인증 정보는 내보내지 않습니다. 해시는 보존한 바이트를 식별하며 원본 시스템의 진실성을 보증하는 서명은 아닙니다.
+**Evidence JSON export** includes the current status of vulnerability, investigation plan, and connection settings, field mapping, inquiry section, collection warning, event text, file name, line, and basis reference, file hash, and text. Splunk also preserves the actual search expression and the text of the returned export. Authentication information is not exported. A hash identifies the preserved bytes and is not a signature that guarantees the authenticity of the original system.
 
-로그는 로컬 DB에 보존됩니다. 파일 전체 원문은 일반 이력·상세 응답에서 제외하고 명시적 내보내기에 포함합니다. 선택된 이벤트의 원문은 상세 근거 확인에 사용합니다. 필요한 추가 자료를 확보한 뒤 다시 조사하거나, 확인한 행동에 맞는 탐지·방어 조치를 별도로 적용하고 기존 방어 검증으로 효과를 확인합니다.
+Logs are preserved in the local DB. The entire original text of the file is excluded from the general history/detailed response and included in the explicit export. The original text of the selected event is used to check detailed evidence. After obtaining the necessary additional data, investigate again, or separately apply detection and defense measures appropriate for the identified behavior and verify the effectiveness by verifying the existing defenses.
 
-**AI 조사 기록 내보내기**는 원래 조사 근거와 해당 실행의 설정·사용량·진행 이벤트·AI 결과를 함께 저장합니다. Splunk 후속 조회의 조건·반환 원문·파일 해시·근거 참조도 진행 이벤트에 보존합니다. 결과에서 같은 원문을 중복 저장하지 않고 참조하며, 종료된 실행의 결과와 근거는 이후 실행과 분리됩니다.
+**Export AI investigation history** saves the original investigation basis along with the settings, usage, progress events, and AI results of that run. Splunk's subsequent query conditions, return text, file hashes, and supporting references are also preserved in progress events. The same original text is referenced in the results without being stored redundantly, and the results and basis of the terminated execution are separated from subsequent executions.
 
-## 현재 한도와 개발 구조
+## Current limits and development structure
 
-| 항목 | 한도 |
+| Item | limit |
 |---|---|
-| 한 번의 조사 기간 | 과거 구간 최대 31일 |
-| 업로드 파일 수 | 1~20개 |
-| 업로드 원문 합계 | 8 MiB |
-| 입력 이벤트 수 | 10,000개 |
-| 이벤트 한 개 | 128 KiB |
-| 분석에 포함하는 관련 이벤트 | 2,000개; 초과하면 불완전한 수집으로 표시 |
-| 표시하는 요청 흐름 | 50개; 초과 시 추가 조사 안내 |
-| Splunk sourcetype | 최대 8개, 인덱스는 저장된 연결의 1개 |
-| Splunk 응답 본문 | 4 MiB; 초과하면 조회 실패로 반환 |
-| Splunk 원문 아티팩트 | export 본문과 이벤트 JSONL을 함께 보존하며 합계 8 MiB 이내 |
+| One survey period | Past section up to 31 days |
+| Number of uploaded files | 1~20 |
+| Upload original text total | 8 MiB |
+| Number of input events | 10,000 |
+| 1 event | 128 KiB |
+| Related events to include in analysis | 2,000; If exceeded, mark as incomplete collection |
+| request flow showing | 50; Additional investigation information when exceeded |
+| Splunk sourcetype | Up to 8, index 1 of the saved connection |
+| Splunk response body | 4 MiB; If exceeded, return as query failure |
+| Splunk original artifact | The export body and event JSONL are preserved together and are less than 8 MiB in total |
 
-Splunk 검색은 10,001번째 행을 한도 초과 확인용으로 요청하고 초과가 확인되면 전체 수집으로 표시하지 않습니다. 큰 조사에서는 기간·경로를 좁혀 나누어 조회합니다. 관련 이벤트 2,000개를 넘겼을 때 원문에 추가 행이 남아 있어도 그 행까지 자동 분석한 것으로 표시하지 않습니다.
+Splunk Search requests the 10,001st row to check for exceeding the limit, and if it does, it does not mark the entire collection. In large surveys, the search is conducted by narrowing down the period and route. When the number of related events exceeds 2,000, even if additional lines remain in the original text, those lines are not automatically displayed as analyzed.
 
-AI 실행에는 다음 고정 상한이 추가로 적용됩니다.
+AI execution is additionally subject to the following fixed caps:
 
-| 항목 | 한도 |
+| Item | limit |
 |---|---|
-| 계획·조사 반복 | 최대 3회차 |
-| 모델 호출 | 최대 18회 |
-| 로그 조회 도구 호출 | 최대 12회, 그중 원격 Splunk 추가 조회 최대 3회 |
-| 실행 시간 | 최대 4분 |
-| 모델 응답 상한 | 호출당 최대 2,048 토큰; 활성 LLM의 설정이 더 작으면 그 값 적용 |
-| 보수적 토큰 예약 예산 | 180,000 단위 |
-| 조회 결과 전달 | 한 번에 최대 20개, 이후 페이지는 추가 조회로 확인 |
-| 원문 읽기 | 한 번에 최대 5개, 이벤트당 최대 4,096바이트 발췌 |
-| AI 관측 기록 | 최대 24개 |
-| 진행 과정·추가 근거 저장 | 서버가 합계 약 20 MiB에서 추가 수집 중단; DB의 설정·이벤트·최종 결과 합계 상한 24 MiB |
+| Repeat planning and research | Up to 3 times |
+| model call | Up to 18 times |
+| Call log inquiry tool | Up to 12 times, of which up to 3 additional remote Splunk views |
+| Running time | Up to 4 minutes |
+| upper model response bound | Up to 2,048 tokens per call; If the active LLM has a smaller setting, apply that value |
+| Conservative Token Reservation Budget | 180,000 units |
+| Delivery of search results | Up to 20 at a time, subsequent pages can be confirmed with additional views |
+| Read original text | Up to 5 excerpts at a time, up to 4,096 bytes per event |
+| AI observation record | Up to 24 |
+| Save progress/additional evidence | Server stops collecting more at about 20 MiB in total; DB settings, events, and final results total upper limit 24 MiB |
 
-토큰 예약 예산은 매 호출 전에 **직렬화한 요청의 UTF-8 바이트 수 + 응답 토큰 상한 + 여유분**을 더해 제한하는 보수적 계산입니다. 180,000은 실제 청구 토큰 수나 공급자의 분당 토큰 한도가 아닙니다. 실제 공급자 사용량은 별도로 기록하며, 연결의 속도 제한·인증·요금 설정은 그대로 적용됩니다. 시간·저장·조회 한도에 도달하면 확보한 근거와 남은 조사 항목을 보존하고 종료합니다.
+The token reservation budget is a conservative calculation limited by adding the number of UTF-8 bytes of the serialized request + the response token cap + margin before each call. 180,000 is not the actual number of billing tokens or the provider's token per minute limit. Actual provider usage is recorded separately, and connection speed limits, authentication, and rate settings are still applied. When the time, storage, and inquiry limits are reached, the obtained evidence and remaining investigation items are preserved and terminated.
 
-- [기초 조사 엔진](../investigation/): 조건부 계획, 공통 파싱, 범위 필터, 타임라인과 요청 흐름 분석.
-- [에이전트 실행](../agent/investigator.go), [전용 도구](../agent/investigator_tools.go), [호출 예산](../agent/investigator_provider.go): 기존 실행 기반을 사용하는 계획·조사·재계획과 근거 참조 검증.
-- [Splunk 조회](../securitysource/investigation.go): 생성된 읽기 전용 검색, 실제 응답 수집, 완료·한도 검증.
-- [조사 API](../server/investigations.go)와 [저장 계층](../db/investigations.go): 인증, 취약점·연결 변경 검사, 원문 보존, 이력·내보내기.
-- [실행 API](../server/investigation_runs.go)와 [실행 저장](../db/investigation_runs.go): 명시적 시작·중지, 비동기 실행, 추가 근거 보존, 재시작 복구, 이력·내보내기.
-- [로컬 실행·테스트](local-development.md): 실제 운영 데이터와 분리된 테스트 DB 및 목업 Splunk 서버 사용.
+- [Basic Research Engine](../investigation/): Conditional planning, common parsing, range filters, timeline and request flow analysis.
+- [Agent Execution](../agent/investigator.go), [Dedicated Tool](../agent/investigator_tools.go), [Call Budget](../agent/investigator_provider.go): Planning, investigation, re-planning and ground-reference verification using existing execution base.
+- [Splunk Query](../securitysource/investigation.go): Created read-only search, collect actual responses, verify completion/limits.
+- [Investigation API](../server/investigations.go) and [Storage Layer](../db/investigations.go): Authentication, vulnerability/connection change checking, original text preservation, history/export.
+- [Execution API](../server/investigation_runs.go) and [Execution Storage](../db/investigation_runs.go): explicit start/stop, asynchronous execution, additional basis preservation, restart recovery, history/export.
+- [Local Execution·Test](local-development.md): Use of test DB and mockup Splunk server separated from actual operational data.
 
-이 버전은 증거 중심의 조사 보조 기능입니다. AI는 가설과 후속 조사를 제안하지만 자동 격리·차단, 임의 SPL 실행, 로그에 없는 사실의 복원, 인증·호스트 로그의 자동 침해 확정은 구현 범위에 포함되지 않습니다. 모의 모델·Splunk와 격리된 DB 테스트는 실행 제어와 증거 보존을 검증하며, 실제 공급자 호출의 성공이나 탐지 정확도를 대신 입증하지 않습니다.
+This version is an evidence-based investigative aid. AI suggests hypotheses and follow-up investigations, but automatic isolation/blocking, random SPL execution, restoration of facts not in logs, and automatic confirmation of infringement from authentication/host logs are not included in the scope of implementation. Mock models/DB tests isolated from Splunk verify execution control and evidence preservation and do not instead prove the success or detection accuracy of actual provider calls.

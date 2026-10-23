@@ -19,7 +19,7 @@ ARTEX 가 돌았는가"를 빠르고 근거 있게 답해야 하는 사람을 �
 침해지표 행과 동일한 한계를 함께 적습니다.
 
 - **리슨 포트**: `:8787`(관리 UI)과 `127.0.0.1:8788`(기록 프록시)을 확인합니다. 두 값은
-  [`cmd/artex/main.go`](../../cmd/artex/main.go) 의 `--addr`·`--proxy` 플래그 기본값입니다. 실행 중인
+  [`cmd/artex/main.go`](../../cmd/omniforge/main.go) 의 `--addr`·`--proxy` 플래그 기본값입니다. 실행 중인
   호스트에서는 `ss`·`netstat`·`lsof` 출력을 파싱하고, `--ports-from` 으로 넘긴 파일에서 읽을 수도 있습니다.
 - **기록 프록시 아티팩트**: 기록기가 첫 실행 때 만드는 중간자(MITM) CA 파일
   `<데이터 디렉터리>/traffic/_ca/mitmproxy-ca-cert.pem` 과, 그 옆의 `_index/index.sqlite`·`_blobs/` 를

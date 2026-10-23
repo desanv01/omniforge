@@ -1,146 +1,146 @@
-# AWS Windows 실습과 Closed-loop 연결
+# AWS Windows Lab and Closed-loop Connection
 
-AWS 실습 환경은 **실제 Windows 행위 → 로그 수집 → 탐지 규칙 개선 → 새 실행의 경보 비교**를 확인하기 위한 별도 환경입니다. 우리 웹의 `/closed-loop/?tab=range`에서 기존 Windows·Splunk 실습 환경에 연결하는 선택형 브리지를 사용합니다. ARTEX·PostgreSQL만 사용하는 기본 설치와 HTTP 취약점 재검증·파일 평가 기능은 그대로 유지합니다.
+The AWS lab environment is a separate environment to check **actual Windows behavior → log collection → detection rule improvement → alarm comparison of new execution**. We use an optional bridge at `/closed-loop/?tab=range` on the web to connect to your existing Windows/Splunk lab environment. The default installation using only ARTEX and PostgreSQL and the HTTP vulnerability re-verification and file evaluation functions are maintained.
 
-이 문서는 연결 구조와 실행 절차를 설명합니다. 기존 AWS Windows에서 세 Atomic 기법의 실행 → 실제 Splunk 경보 수집 → 후보 규칙 배포 → 새 실행을 검증했습니다. 해당 실습의 탐지 결과는 **1/3 → 3/3**이었으며, 범위와 근거는 [실제 검증 기록](evidence/aws-windows-loop-2026-10-11.md)에 정리했습니다.
+This document describes the connection structure and implementation procedures. We verified the execution of three Atomic techniques on existing AWS Windows → Collect real Splunk alerts → Deploy candidate rules → New execution. The detection result of this exercise was **1/3 → 3/3**, and the scope and basis are summarized in [Actual Verification Record](evidence/aws-windows-loop-2026-10-11.md).
 
-## 두 웹 화면의 역할
+## Role of the two web screens
 
-| 화면 | 용도 | 연결 범위 |
+| screen | Use | Connection range |
 |---|---|---|
-| AegisLoop의 `/closed-loop/?tab=range` | 고정 Windows 실습 시나리오 실행, 기준·후보 규칙 배포, 실제 로그·경보 비교 | 별도 브리지에 설정한 기존 실습 Windows·Splunk |
-| 공식 Attack Range의 `http://localhost:4321` | 공식 도구의 범위 생성·상태·시뮬레이션 관리 | 공식 API가 관리하는 설정·클라우드 인증·접속 준비가 필요 |
+| `/closed-loop/?tab=range` by AegisLoop | Running fixed Windows lab scenarios, deploying baseline and candidate rules, and comparing actual logs and alarms | Existing practice set up on a separate bridge Windows·Splunk |
+| `http://localhost:4321` by Official Attack Range | Scope creation/status/simulation management of formal tools | Settings, cloud authentication, and connection preparation managed by the official API are required |
 
-4321 관리 화면과 이번 브리지 연결은 별개입니다. 호스트에서 별도로 만든 Terraform 상태가 공식 API에 자동 등록되지는 않습니다. 공식 UI의 시뮬레이션은 해당 API의 range 설정, 실행 가능한 상태와 대상 서버가 갖춰진 경우에만 사용할 수 있습니다. AegisLoop의 AWS Windows 탭을 사용하기 위해 공식 UI에 클라우드 인증을 연결하거나 새 range를 만들 필요는 없습니다.
+4321 The management screen and this bridge connection are separate. Terraform states created separately on the host are not automatically registered with the official API. Simulation of the official UI can only be used if the corresponding API's range settings, executable state, and target server are in place. To use AegisLoop's AWS Windows tab, you do not need to create a new range or connect cloud authentication to the official UI.
 
-## 준비와 연결 설정
+## Preparation and connection setup
 
-브리지는 이미 소유하고 준비한 Windows·Splunk에만 연결합니다. Windows에는 Sysmon과 Windows 감사·PowerShell 로그 수집, Splunk Universal Forwarder, Atomic Red Team의 실행 모듈과 원본 테스트 YAML이 준비되어 있어야 합니다. 정상 수집 확인과 탐지 경보 발화 확인은 각각의 근거로 구분합니다.
+The bridge connects only to Windows and Splunk that you already own and prepare. Windows requires Sysmon, Windows Audit/PowerShell log collection, Splunk Universal Forwarder, Atomic Red Team's execution modules, and the original test YAML. Confirmation of normal collection and confirmation of detection alarm ignition are differentiated on their own basis.
 
-별도 브리지 설정에는 고정 실습 대상, 접속 방식, 원본 Atomic YAML 해시, Splunk 인증 및 전용 규칙 정보를 보관합니다. 비공개 설정과 접속 키는 Git에서 제외합니다. Docker와 이미 설치한 Attack Range API 이미지, 기존 배포의 비공개 세션 디렉터리를 준비한 뒤 다음 공개 setup 도구를 사용합니다.
+A separate bridge configuration holds static exercise target, connection method, original Atomic YAML hash, Splunk authentication, and dedicated rules information. Private settings and access keys are excluded from Git. Prepare Docker, the Attack Range API image you already have installed, and a private session directory from your existing deployment, then use the following public setup tool:
 
 ```sh
 python3 lab/attack-range/bridge_setup.py --session /path/to/your/existing-session
 ./scripts/local-start.sh
 ```
 
-setup 도구는 기존 Terraform 상태의 소유 태그를 확인하고 고정 SSH 접속으로 Windows의 설치된 세 Atomic 원본을 읽습니다. 암호화된 WinRM 연결, Atomic GUID·명령·원본 파일 해시, Splunk 인증서 pin을 확인해 비공개 브리지 설정과 Compose 환경 파일을 만듭니다. 기존 인증서 pin이 다르면 자동 교체하지 않으며, 기존 브리지 토큰을 재사용합니다. 설정 준비를 위해 잠시 사용하는 SSH 터널은 setup 종료 시 정리합니다. 이 명령은 Atomic 공격을 실행하거나 AWS 생성 API를 호출하지 않습니다.
+The setup tool checks the ownership tags of the existing Terraform state and reads the three installed Atomic sources on Windows over a static SSH connection. Create private bridge configuration and Compose environment files by verifying the encrypted WinRM connection, Atomic GUID/command/original file hash, and Splunk certificate pin. If the existing certificate pin is different, it is not automatically replaced and the existing bridge token is reused. SSH tunnels that are used briefly to prepare for setup are cleaned up when setup is completed. This command does not launch atomic attacks or call AWS-generated APIs.
 
-선택형 [`docker-compose.range-bridge.yml`](../docker-compose.range-bridge.yml)은 다음을 연결합니다.
+Optional [`docker-compose.range-bridge.yml`](../docker-compose.range-bridge.yml) connects:
 
-- ARTEX 서버의 `ARTEX_RANGE_BRIDGE_URL`과 `ARTEX_RANGE_BRIDGE_TOKEN_FILE`.
-- 브리지의 비공개 설정 파일·토큰 파일, 고정 SSH 접속 키·호스트 확인 자료, 실행 이력 저장 폴더.
-- Docker 내부의 브리지 서비스. 별도 공개 포트, Docker 소켓, 클라우드 생성 API는 사용하지 않습니다.
+- `ARTEX_RANGE_BRIDGE_URL` and `ARTEX_RANGE_BRIDGE_TOKEN_FILE` on the ARTEX server.
+- Bridge's private configuration file/token file, fixed SSH access key/host confirmation data, and execution history storage folder.
+- Bridge service inside Docker. No separate public ports, Docker sockets, or cloud creation APIs are used.
 
-프로젝트별 비공개 브리지 설정의 `compose.env`가 준비되어 있으면 `scripts/local-start.sh`가 선택형 Compose를 함께 읽습니다. 설정이 없는 기본 설치에서는 AWS Windows 연결 상태가 미설정으로 표시되며 다른 기능을 사용할 수 있습니다.
+If `compose.env` with project-specific private bridge settings is ready, `scripts/local-start.sh` will read the optional Compose together. In a default installation with no settings, the AWS Windows connection status displays as unset and other features are available.
 
-브라우저는 ARTEX에 로그인한 뒤 고정 API를 호출합니다. 브리지 토큰은 ARTEX 서버가 파일에서 읽어 내부 요청에만 사용합니다. AWS 프로필·관리 자격·SSH 키·Splunk 비밀번호를 브라우저 응답에 포함하지 않습니다. 연결 상태가 준비됨으로 표시되는 것만으로 특정 테스트 실행 또는 탐지 성공이 입증되지는 않습니다.
+The browser logs into ARTEX and calls the static API. Bridge tokens are read from the file by the ARTEX server and used only for internal requests. Don't include your AWS profile, administrative credentials, SSH keys, or Splunk passwords in the browser response. Merely showing a connection status as Ready does not verify successful execution or detection of a particular test.
 
-## 권장: PowerShell → 예약 작업 → 지연 실행
+## Recommended: PowerShell → Scheduled Tasks → Delayed Execution
 
-실제 AWS 검증에서는 공통 공격 탐지를 유지하면서 정상 표본 오탐이 **1건 → 0건**으로 줄었고 별도 변형 공격도 탐지됐습니다. [웹 화면과 실제 검증 기록](evidence/windows-task-chain-2026-10-11.md)에서 표본 범위와 근거를 확인할 수 있습니다.
+In actual AWS verification, normal sample false positives were reduced from **1 → 0** while maintaining common attack detection, and a separate variant attack was also detected. You can check the sample range and basis in [Web screen and actual verification record](evidence/windows-task-chain-2026-10-11.md).
 
-웹에서 **PowerShell → 예약 작업 → 지연 실행** 묶음을 선택합니다. 이 묶음은 기존 Atomic 탐색 시나리오와 별도로 실행되며 기존 Windows 한 대에서 동작합니다. 새 AWS 서버는 필요하지 않습니다.
+On the web, select **PowerShell → Scheduled Tasks → Delayed Execution** Bundle. This bundle runs separately from existing Atomic navigation scenarios and runs on a single copy of Windows. No new AWS servers are required.
 
-| 단계 | 실행하는 표본 | 확인할 결과 |
+| steps | Running sample | Results to check |
 |---|---|---|
-| 기준 실행 | 공격 체인 1건 + 정상 관리 작업 1건 | 넓은 PowerShell 규칙의 공격 탐지와 정상 업무 오탐 |
-| 근거 검토 | 실제 Windows 감사 + 실제 Splunk 예약 검색 경보 | 명령 실행·작업 등록·지연 실행의 연결, 오탐 원인 |
-| 규칙 개선 | 고정 행위 상관 프로파일 검토·배포 | 일반 PowerShell 실행에서 의심스러운 작업 행위의 상관 조건으로 변경 |
-| 개선 재실행 | 같은 종류의 공격·정상 작업 + 별도 변형 공격 | 공통 두 표본의 전후 비교와 변형 탐지 결과 |
+| Baseline Execution | 1 attack chain + 1 normal management task | Broad PowerShell Rules for Attack Detection and Normal Business False Positives |
+| Evidence review | Real Windows Audit + Real Splunk Scheduled Scan Alerts | Connection between command execution, task registration, and delayed execution, causes of false positives |
+| Rules Improvements | Review and distribution of fixed behavior correlation profiles | Change from regular PowerShell execution to correlation criteria for suspicious activity behavior |
+| Improvement Redo | Same type of attack/normal operation + separate modified attack | Before and after comparison of two common samples and deformation detection results |
 
-실행은 일회성 작업이 무해한 결과 파일을 쓰도록 예약합니다. 실제 작업 종료 코드·결과 파일 해시를 확인하고 작업과 결과 디렉터리를 정리합니다. 로그를 만들어 주입하지 않습니다. 변형은 다른 경로와 실행 인자를 사용하며 후보 규칙 적용 후에 처음 실행합니다. 이는 미리 정의한 별도 검증 사례로, 알려지지 않은 공격 전체에 대한 일반화 성능을 뜻하지 않습니다.
+Execution schedules a one-time task to write a harmless results file. Check the actual task end code/result file hash and organize the task and result directories. No logs are created and injected. Transformations use different paths and execution arguments and are executed first after application of candidate rules. This is a predefined separate verification case and does not imply generalization performance for all unknown attacks.
 
-탐지 규칙은 테스트 UUID·작업 이름·전용 파일명을 조건으로 사용하지 않습니다. 실제 PowerShell 명령과 작업 이름, Windows 작업 등록, 스케줄러의 실행 PID, Sysmon 프로세스 근거를 연결합니다. 식별자는 평가 대상 귀속에만 사용합니다. 개선 후보는 검토 가능한 **고정 탐지 프로파일**이며 LLM이 자동 생성한 임의 규칙이 아닙니다.
+Detection rules do not use test UUID, task name, or private file name as conditions. We concatenate the actual PowerShell command with the task name, Windows task registration, the scheduler's execution PID, and the Sysmon process rationale. Identifiers are used only for attribution to the evaluation object. Candidates for improvement are reviewable **fixed detection profiles** and not random rules automatically generated by LLM.
 
-### 로그 준비
+### log preparation
 
-기존 Sysmon 1·11, Security, PowerShell 4104 로그 수집에 다음을 추가합니다.
+Adds the following to the existing Sysmon 1·11, Security, and PowerShell 4104 log collection:
 
-- TaskScheduler Operational 채널과 Splunk 전달.
-- Other Object Access Events 성공 감사: 예약 작업 등록 4698.
-- ScheduledTasks 모듈 로깅 4103: 실제 `Register-ScheduledTask`의 작업 이름과 실행한 PowerShell 프로세스 연결.
-- PowerShell이 생성하는 JSON 파일의 Sysmon 11 수집: 실행 결과를 별도 감사 로그와 대조하기 위한 것으로, 공격·정상 작업에 동일하게 적용합니다.
+- TaskScheduler Operational channel and Splunk delivery.
+- Other Object Access Events Success Audit: Scheduled Task Registration 4698.
+- ScheduledTasks module logging 4103: Associating the task name of the actual `Register-ScheduledTask` with the PowerShell process that ran it.
+- Sysmon 11 collection of JSON files generated by PowerShell: This is for comparing execution results with separate audit logs, and applies equally to attacks and normal operations.
 
-웹의 AWS 연결 상태를 먼저 확인해 브리지 터널을 준비한 뒤, 로컬 프로젝트 폴더에서 다음 명령을 실행합니다. 브리지 컨테이너 이름이 다르면 해당 이름을 사용합니다.
+First check the AWS connection status on the web to prepare the bridge tunnel, then run the following command in the local project folder. If the bridge container name is different, use that name.
 
 ```sh
 docker exec -i artex-local-range-bridge-1 python - --apply < lab/attack-range/prepare_chain_telemetry.py
 ```
 
-`--apply`를 빼면 설정만 조회합니다. 준비 도구는 기존 감사·모듈 로깅 설정과 Sysmon XML을 `C:\AegisLoop\telemetry`에 보존합니다. 활성 Sysmon 설정의 경로·SHA-256을 확인한 뒤 기존 필터를 유지한 새 XML에 JSON 파일 수집 조건을 추가하고, 별도 Splunk 입력 앱을 준비합니다. 최초 입력 추가 시 Windows의 SplunkForwarder 서비스를 재시작합니다. 이 설정은 이후 웹 검증에서도 사용할 수 있도록 유지됩니다. 이미 끝난 실행에서 빠진 로그를 소급 생성하지 않으므로, 수집 설정을 보완한 후에는 새 기준 실행을 시작합니다.
+If you leave out `--apply`, only the settings will be searched. The staging tool preserves existing audit/module logging settings and Sysmon XML in `C:\AegisLoop\telemetry`. After checking the path/SHA-256 of the active Sysmon settings, add the JSON file collection condition to a new XML retaining the existing filter and prepare a separate Splunk input app. Restarts the SplunkForwarder service on Windows when adding input for the first time. This setting will remain available for future use of web verification as well. We do not retroactively generate missing logs from runs that have already ended, so after you have supplemented your collection settings, you start a new baseline run.
 
-다른 환경의 Sysmon이 FileCreate를 제외 조건만으로 수집한다면, 이 도구는 포함 필터 추가로 기존 수집 범위를 좁히지 않도록 중단합니다. 기존 제외 조건은 우선 적용되므로 준비 명령의 성공만으로 파일 감사 수집을 확정하지 않습니다. 웹의 단계별 근거에서 실제 Sysmon 11을 확인해야 합니다.
+If Sysmon in other environments collects FileCreate as an exclusion condition only, the tool will stop adding inclusion filters to narrow the existing collection. Existing exclusion conditions take precedence, so the success of the prepare command alone does not confirm file audit collection. You should check out Sysmon 11 in action on a step-by-step basis on the web.
 
-### 웹에서 탐지 이후 진행
+### Proceeds after detection on the web
 
-1. 실행 이름을 입력하고 권장 체인을 선택해 기준 실행을 시작합니다.
-2. 실행 완료 후 **실제 Windows 로그·Splunk 경보 수집**을 누릅니다. 예약 검색 반영 대기와 수집은 비동기로 진행됩니다.
-3. 공격·정상 표본별 판정, 단계별 실제 근거, 타임라인과 원인 분석을 확인합니다. 정상 작업의 경보는 공격 탐지 성공이 아니라 **오탐**입니다.
-4. **기준 로그에서 후보 제안**을 누르고 제안 근거와 행위 프로파일을 검토합니다. 변경 이유를 적어 **후보 저장·실습 Splunk에 적용**합니다.
-5. 적용 완료 후 새 재실행을 시작합니다. 공통 공격·정상 작업과 새로운 변형 공격을 실제로 실행합니다.
-6. 다시 로그·경보를 수집하고 **개선 전후 비교**에서 공통 표본의 TP/FN/FP/TN을 비교합니다. 변형 공격은 별도 항목으로 확인합니다.
-7. 원본 근거 JSON을 내려받거나 결과 URL의 `cycle` 값을 포함해 같은 기록을 다시 엽니다. 새 검증 준비 버튼으로 다음 검증을 시작할 수 있습니다.
+1. Enter a run name and select a recommended chain to start a baseline run.
+2. After the run is complete, click **Collect Actual Windows Logs/Splunk Alerts**. Waiting for reservation search reflection and collection are performed asynchronously.
+3. Check the judgment for each attack/normal sample, actual basis for each step, timeline, and cause analysis. Alerts in normal operation are false positives, not successful attack detections.
+4. **Tap a candidate proposal in the criteria log** and review the proposal rationale and behavioral profile. Write down the reason for the change and **Save candidate and apply to practice Splunk**.
+5. After applying is complete, start a new rerun. Real-world execution of common attacks, normal operations and new variant attacks.
+6. Collect logs/alerts again and compare TP/FN/FP/TN of common samples in **Before and After Improvement**. Transformation attacks are identified as a separate item.
+7. Download the original supporting JSON or reopen the same record, including the `cycle` value in the resulting URL. The new Ready for Verification button allows you to start the next verification.
 
-실행 실패·로그 누락·상관관계 부족은 **판정 불가**입니다. 정상 무경보(TN)나 공격 미탐(FN)은 실행과 로그 범위 및 실제 예약 검색 완료가 확인된 경우에만 계산합니다. 표시된 건수는 이번 실습 표본에 대한 결과이며 정상 표본 한 건으로 운영 오탐률을 추정하지 않습니다. 경보 지연은 원본 행위와 실제 경보 생성 시각의 차이이며, 1분 주기의 검색 지연을 포함합니다.
+Execution failures, missing logs, and lack of correlation are **unable to determine**. Normal No Alarm (TN) or Attack No Detection (FN) is calculated only when execution and log coverage and actual scheduled scan completion are confirmed. The number shown is for this practice sample and does not estimate the operational false positive rate based on a single normal sample. Alarm delay is the difference between the original behavior and the actual alarm creation time, and includes a search delay of 1 minute.
 
-## 기존 Atomic 탐색 시나리오
+## Existing Atomic Exploration Scenarios
 
-기존 실습 Windows의 원본 Atomic YAML에서 확인한 다음 테스트를 고정 시나리오로 사용합니다. 숫자 순서보다 GUID와 원본 파일 SHA-256을 기준으로 동일 테스트인지 확인합니다.
+Existing Labs We'll use the following tests from the original Atomic YAML on Windows as our anchoring scenario: Verifies equality based on GUID and original file SHA-256 rather than numerical order.
 
-| 시나리오 | ATT&CK 기법 | 고정 Atomic GUID | 행위 |
+| Scenario | ATT&CK technique | Fixed Atomic GUID | act |
 |---|---|---|---|
-| 현재 사용자 탐색 | T1033 | `aab580c7-cc30-4a7c-b5a9-46a29066b022` | `whoami`를 통한 사용자 확인 |
-| 실행 프로세스 탐색 | T1057 | `c5806a4f-62b8-4900-980b-c7ec004e9908` | `tasklist`를 통한 실행 프로세스 확인 |
-| 시스템 정보 탐색 | T1082 | `66703791-c902-4560-8770-42b8a91f7667` | `systeminfo` 및 디스크 관련 레지스트리 조회 |
+| Current user navigation | T1033 | `aab580c7-cc30-4a7c-b5a9-46a29066b022` | User verification via `whoami` |
+| Explore running processes | T1057 | `c5806a4f-62b8-4900-980b-c7ec004e9908` | Check running process with `tasklist` |
+| Explore system information | T1082 | `66703791-c902-4560-8770-42b8a91f7667` | `systeminfo` and disk related registry search |
 
-웹에서 임의 명령, 다른 대상, 전체 기법 일괄 실행을 입력하는 기능이 아닙니다. 원본 파일이나 실행 전제가 달라지면 기존 고정 설정을 그대로 사용한 검증으로 간주하지 않습니다. 테스트 선택은 허가된 실습 대상에 대한 실제 실행 요청이며, 단순 화면 미리보기가 아닙니다.
+It is not the ability to type arbitrary commands, other targets, or batch execute entire techniques on the web. If the original file or execution premise changes, verification using the existing fixed settings is not considered. Test selection is an actual execution request on an authorized practice subject, not just a screen preview.
 
-## 웹에서 진행하는 순서
+## Order of progress on the web
 
-1. **Closed-loop → AWS Windows 탭**에서 브리지 연결 상태와 고정 대상·시나리오를 확인합니다.
-2. 세 고정 시나리오에서 실행할 항목을 선택해 기준 루프를 시작합니다. 브리지는 선택한 원본 Atomic만 실행하고 기준 규칙 및 작업 상태를 저장합니다. 요청이 작업 접수 상태이면 해당 루프의 진행 상태를 확인하며 동일 공격을 반복 시작하지 않습니다.
-3. 실행 종료와 로그 반영을 기다린 뒤 실제 근거를 수집합니다. Windows 실행 결과, 원본 Sysmon 이벤트, 해당 범위의 Splunk 검색 결과와 경보를 구분해 확인합니다.
-4. 기준 실행의 감사 로그를 근거로 후보 규칙을 제안하거나 허용된 관측 필드의 조건을 편집합니다. 어떤 누락을 보완하려는지, 정상 행위에도 일치할 수 있는지 검토합니다.
-5. 후보 규칙을 저장합니다. 이 실습 경로에서는 브리지가 고정한 **실습 Splunk의 전용 saved search**에 실제 후보 규칙을 적용합니다. 규칙 내용·SHA-256·원격 규칙 식별자와 적용 결과를 보관합니다.
-6. 새 실제 재실행을 시작합니다. 원본 시나리오와 대상은 유지하고 새 실행 식별자·시각·프로세스 근거를 기록합니다. 이전 실행의 로그를 새 실행 결과로 제출하지 않습니다.
-7. 새 실행의 실제 감사 이벤트 및 경보를 다시 수집합니다. 기준 규칙과 후보 규칙의 원격 경보 근거를 각각 확인합니다. 단순 조건 매칭 결과와 실제 경보를 같은 판정으로 표시하지 않습니다.
-8. 실행 전후 기록과 원본 근거 JSON을 내보내 보관합니다. 실패·수집 누락·불명확한 상관관계도 함께 남깁니다.
+1. Check the bridge connection status and fixed targets/scenarios in the **Closed-loop → AWS Windows tab**.
+2. We start the baseline loop by selecting which of the three fixed scenarios to run. The bridge only executes the selected source Atomic and saves the baseline rules and task state. If the request is in the task received state, the progress of the loop is checked and the same attack is not started repeatedly.
+3. Wait for execution to finish and log reflection to collect actual evidence. View alerts separately from Windows execution results, raw Sysmon events, and Splunk search results of that scope.
+4. Propose candidate rules based on audit logs from baseline runs or edit conditions for allowed observation fields. Consider what omissions you are trying to compensate for and whether they can also be consistent with normal behavior.
+5. Save the candidate rule. In this lab path, you will apply actual candidate rules to **practice Splunk's dedicated saved search** pinned by the bridge. Stores rule content, SHA-256, remote rule identifier, and application results.
+6. Starts a new physical rerun. Retain the original scenario and targets and record the new execution identifier, time, and process rationale. Logs from previous runs are not submitted as new run results.
+7. Re-collect actual audit events and alerts from the new run. Check the remote alarm rationale for the baseline and candidate rules, respectively. Simple condition matching results and actual alarms are not displayed with the same judgment.
+8. Export and store pre- and post-execution records and original supporting JSON. Failures, missing collections, and unclear correlations are also left behind.
 
-화면의 작업 완료는 요청 처리가 끝났다는 뜻입니다. 실제 실행의 종료 코드, 원본 로그 수집 여부, 규칙 적용 결과와 해당 규칙의 경보 발생은 별도 확인 항목입니다.
+The Task Completed screen indicates that the request has been processed. The exit code of the actual execution, whether or not the original log is collected, the result of applying the rule, and the occurrence of an alarm for the rule are separate items to be checked.
 
-## 실제 근거를 연결하는 기준
+## Criteria for linking real evidence
 
-Windows 루프의 핵심 감사 근거는 실제 Sysmon 프로세스 생성 이벤트의 **ProcessGuid**입니다. 브리지는 실행한 대상·시각·명령과 실제 프로세스 근거를 연결하고, 기준 실행과 재실행을 분리합니다. 파일에 임의 ID를 적거나 기존 확인용 이벤트를 다시 읽는 것으로 새 공격 실행을 만들지 않습니다.
+The key audit basis for Windows loops is the **ProcessGuid** of the actual Sysmon process creation event. The bridge connects the execution target, time, and command with the actual process basis and separates baseline execution and re-execution. We do not create new attack launches by writing random IDs to a file or re-reading existing verification events.
 
-Security 4688과 PowerShell 4104는 수집된 추가 로그로 확인할 수 있지만 모든 Windows 로그에 Sysmon의 ProcessGuid가 동일하게 존재한다고 가정하지 않습니다. 필드나 상관 근거가 없는 로그를 억지로 동일 프로세스에 귀속하지 않습니다.
+Security 4688 and PowerShell 4104 do not assume that Sysmon's ProcessGuid is the same in all Windows logs, although this can be verified by additional logs collected. Do not forcefully attribute logs without fields or correlations to the same process.
 
-후보가 실제로 경보를 발생시켰다는 판단에는 원격 규칙 식별자·규칙 SHA-256과 새 실행에 연결되는 **native Splunk 경보 근거**가 필요합니다. 감사 로그가 규칙에 일치했거나 다른 기존 규칙의 경보가 발생한 사실만으로 후보의 경보 발화를 확정하지 않습니다. 검색 실패·수집 지연·범위 누락·상관관계 부족은 확인 불가 또는 실패로 남겨야 합니다.
+Determining that a candidate actually raised an alert requires a remote rule identifier/rule SHA-256 and a **native Splunk alarm basis** that is associated with the new execution. The fact that the audit log matches a rule or triggers an alarm in another existing rule does not confirm a candidate's alarm is fired. Search failures, collection delays, missing coverage, or lack of correlation should be left as unconfirmed or failed.
 
-원본 파일·검색 결과·규칙·실행 근거의 해시는 이력의 출처를 확인하기 위한 값입니다. 해시만으로 로그의 완전성이나 탐지 성공을 입증하지는 않습니다. 정상 트래픽의 정답 표본이나 독립 시각 근거 없이 precision·오탐률·MTTD 같은 실측 수치를 만들지 않습니다.
+The hash of the original file, search result, rule, and execution basis is a value to confirm the source of the history. Hashes alone do not prove log completeness or detection success. We do not create actual measurement values ​​such as precision, false positive rate, or MTTD without a correct sample of normal traffic or independent visual evidence.
 
-## 관리 권한과 운영 범위
+## Management authority and scope of operation
 
-실습 Splunk의 규칙 변경 권한은 선택형 브리지의 비공개 설정 안에 한정됩니다. 기존 ARTEX의 일반 Splunk 검색 연결은 읽기 전용으로 유지합니다. 이 브리지는 기업 SIEM에 임의 SPL을 배포하거나 운영 규칙·대응 정책을 자유롭게 변경하는 인터페이스가 아닙니다.
+Lab Splunk's ability to change rules is limited to the private settings of the optional bridge. Keep the existing ARTEX's regular Splunk search connection read-only. This bridge is not an interface to deploy arbitrary SPLs or freely change operating rules and response policies in a corporate SIEM.
 
-이번 연동은 기존 실습 자원을 이용하며 새 AWS 리소스나 IAM 권한을 생성하지 않습니다. 기존 AWS 자원의 유지·종료는 실습 소유자가 별도 절차로 관리합니다. 브리지 연결이나 로컬 컨테이너 종료만으로 AWS 자원이 삭제되지는 않습니다.
+This integration uses existing lab resources and does not create new AWS resources or IAM permissions. Maintenance and termination of existing AWS resources are managed by the practice owner as a separate procedure. Simply connecting a bridge or terminating a local container does not delete AWS resources.
 
-원본 내보내기는 민감한 Windows 로그를 포함할 수 있으므로 공개 증적에는 대상 식별 정보·개인정보·인증 정보를 제거합니다. 공개 저장소에는 실제 관리 설정, 접속 키, 원본 개인 로그나 운영 데이터베이스를 포함하지 않습니다.
+Because the original export may contain sensitive Windows logs, public traces are stripped of target identifying information, personal information, and authentication information. Public repositories do not contain actual administrative settings, access keys, original private logs, or operational databases.
 
-## 고정 API
+## Fixed API
 
-다음 경로는 ARTEX의 기존 로그인 인증을 사용합니다. 브리지 접속 주소와 인증 토큰은 요청자가 지정하지 않습니다.
+The following path uses ARTEX's existing login authentication. The bridge connection address and authentication token are not specified by the requestor.
 
-| 요청 | 동작 |
+| request | Action |
 |---|---|
-| `GET /api/closed-loop/range/status` | 브리지 설정·준비 상태 |
-| `GET /api/closed-loop/range/cycles` | 실습 루프 이력 |
-| `POST /api/closed-loop/range/cycles` | 선택한 고정 시나리오의 기준 루프 접수 |
-| `GET /api/closed-loop/range/cycles/{uuid}` | 실행·작업·수집 상태 |
-| `POST /api/closed-loop/range/cycles/{uuid}/collect` | 해당 실행의 실제 로그·경보 수집 |
-| `POST /api/closed-loop/range/cycles/{uuid}/suggest` | 기준 감사 근거로 후보 제안 |
-| `POST /api/closed-loop/range/cycles/{uuid}/candidate` | 제한된 후보 규칙 저장·실습 적용 |
-| `POST /api/closed-loop/range/cycles/{uuid}/rerun` | 새 실제 재실행 접수 |
-| `GET /api/closed-loop/range/cycles/{uuid}/export` | 원본 근거와 이력 내보내기 |
+| `GET /api/closed-loop/range/status` | Bridge settings/readiness status |
+| `GET /api/closed-loop/range/cycles` | Lab Loop History |
+| `POST /api/closed-loop/range/cycles` | Baseline loop reception of selected fixed scenario |
+| `GET /api/closed-loop/range/cycles/{uuid}` | Execution/Task/Collection Status |
+| `POST /api/closed-loop/range/cycles/{uuid}/collect` | Collect actual logs/alarms of the execution |
+| `POST /api/closed-loop/range/cycles/{uuid}/suggest` | Proposal of candidates on the basis of baseline audit |
+| `POST /api/closed-loop/range/cycles/{uuid}/candidate` | Save limited candidate rules and apply practice |
+| `POST /api/closed-loop/range/cycles/{uuid}/rerun` | New Actual Redo Filed |
+| `GET /api/closed-loop/range/cycles/{uuid}/export` | Export original evidence and history |
 
-설정이 없으면 상태 조회는 `configured:false`, `ready:false`를 반환하고 실행 요청은 거절합니다. ID는 UUID만 허용하며 추가 조회 조건·자유 경로를 전달하지 않습니다. 요청·일반 응답은 1 MiB 이내이고, 원본 근거 JSON 내보내기 응답은 64 MiB까지 허용합니다. 리다이렉트·인증 정보·브라우저 쿠키를 다른 서비스로 전달하지 않습니다. 비동기 작업은 접수 결과와 이후 상태 조회로 확인합니다.
+If there is no setting, the status query returns `configured:false`, `ready:false`, and the execution request is rejected. ID only accepts UUID and does not carry additional query conditions or free paths. Requests and general responses are allowed within 1 MiB, and original JSON export responses are allowed up to 64 MiB. We do not forward redirects, authentication information, or browser cookies to other services. Asynchronous operations are confirmed through reception results and subsequent status inquiries.

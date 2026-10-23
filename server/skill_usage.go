@@ -10,8 +10,8 @@ import (
 	"github.com/Autumn-27/norma/skill"
 	actool "github.com/Autumn-27/norma/tool"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
 )
 
 // maxLedgerSkillName caps the skill name stored for a MISS — that string comes

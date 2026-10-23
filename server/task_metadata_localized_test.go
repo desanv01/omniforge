@@ -10,7 +10,7 @@ import (
 )
 
 // task_metadata.go 의 작업 메타데이터 수정 API 에러 응답을 한국어로 유지하는 회귀 방어
-// 테스트다. 한국어 판정은 F3a 가 만든 assertKoreanError(한글 포함·중국어 한자 0)를 재사용한다.
+// 테스트다. 한국어 판정은 F3a 가 만든 assertEnglishError(한글 포함·중국어 한자 0)를 재사용한다.
 
 // TestTaskMetadataErrorConstantsLocalized 는 응답 상수 4종이 전부 한국어임을 단언한다.
 // 어느 하나라도 중국어로 되돌리면 이 테스트가 실패한다.
@@ -22,7 +22,7 @@ func TestTaskMetadataErrorConstantsLocalized(t *testing.T) {
 		"errTaskMetaNameTooLongFmt":  fmt.Sprintf(errTaskMetaNameTooLongFmt, maxTaskNameRunes),
 	}
 	for label, msg := range cases {
-		assertKoreanError(t, label, msg)
+		assertEnglishError(t, label, msg)
 	}
 }
 
@@ -46,7 +46,7 @@ func TestUpdateTaskMetadataResponsesLocalized(t *testing.T) {
 			Error string `json:"error"`
 		}
 		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("응답 JSON 파싱 실패: %v (본문 %q)", err, rec.Body.String())
+			t.Fatalf("Response JSON parsing failed: %v (body %q)", err, rec.Body.String())
 		}
 		return resp.Error
 	}
@@ -62,18 +62,18 @@ func TestUpdateTaskMetadataResponsesLocalized(t *testing.T) {
 		// name·pinned 를 둘 다 빼면 수정할 필드가 없다.
 		{"no_fields", `{}`, http.StatusBadRequest, errTaskMetaNoFields},
 		{"name_empty", `{"name":"  "}`, http.StatusBadRequest, errTaskMetaNameEmpty},
-		{"name_too_long", `{"name":"` + strings.Repeat("가", maxTaskNameRunes+1) + `"}`, http.StatusBadRequest, fmt.Sprintf(errTaskMetaNameTooLongFmt, maxTaskNameRunes)},
+		{"name_too_long", `{"name":"` + strings.Repeat("go", maxTaskNameRunes+1) + `"}`, http.StatusBadRequest, fmt.Sprintf(errTaskMetaNameTooLongFmt, maxTaskNameRunes)},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			rec := call(c.body)
 			if rec.Code != c.code {
-				t.Fatalf("상태 코드 = %d, 기대 = %d (본문 %q)", rec.Code, c.code, rec.Body.String())
+				t.Fatalf("status code = %d, expectation = %d (body %q)", rec.Code, c.code, rec.Body.String())
 			}
 			if got := errBody(t, rec); got != c.want {
-				t.Fatalf("응답 문구 = %q, 기대 = %q", got, c.want)
+				t.Fatalf("Response phrase = %q, Expectation = %q", got, c.want)
 			}
-			assertKoreanError(t, c.name, errBody(t, rec))
+			assertEnglishError(t, c.name, errBody(t, rec))
 		})
 	}
 }

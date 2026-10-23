@@ -13,10 +13,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/intercept"
-	"github.com/Autumn-27/artex/sidequestion"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/intercept"
+	"github.com/desanv01/omniforge/sidequestion"
 )
 
 const (
@@ -34,18 +34,18 @@ const (
 // convRetest* 상수·transcriptErrorSummary 로 분리했다(F9). 트리거 메시지 골격은 아직
 // 이 묶음 밖이다(F10·저널 참조). 로그·주석은 BRIEF 방침상 최하위.
 const (
-	convErrRequestTooLarge = "요청 본문이 너무 큽니다"
-	convErrAgentKeyEmpty   = "agent_key 는 비어 있을 수 없습니다"
-	convErrAgentKeyTooLong = "agent_key 는 최대 %d자까지 입력할 수 있습니다"
-	convErrAgentNotFound   = "에이전트를 찾을 수 없습니다"
-	convErrLLMProfile      = "지정한 LLM 설정이 존재하지 않거나 API Key 가 설정되지 않았습니다"
-	convErrTitleTooLong    = "제목은 최대 %d자까지 입력할 수 있습니다"
-	convErrTitleOrPinned   = "title 또는 pinned 중 하나 이상을 제공해야 합니다"
-	convErrTitleEmpty      = "제목은 비어 있을 수 없습니다"
-	convErrBadConvID       = "대화 id 가 올바르지 않습니다"
-	convErrIDsCount        = "ids 개수는 1에서 %d 사이여야 합니다"
-	convErrMessageEmpty    = "메시지는 비어 있을 수 없습니다"
-	convErrBusy            = "이 대화가 이전 메시지를 처리하고 있습니다. 잠시 기다려 주세요"
+	convErrRequestTooLarge = "Request body is too large"
+	convErrAgentKeyEmpty   = "agent_key cannot be empty"
+	convErrAgentKeyTooLong = "agent_key can be entered up to %d characters."
+	convErrAgentNotFound   = "Agent not found"
+	convErrLLMProfile      = "The specified LLM setting does not exist or the API Key has not been set."
+	convErrTitleTooLong    = "The title can be entered up to %d characters."
+	convErrTitleOrPinned   = "You must provide at least one of title or pinned"
+	convErrTitleEmpty      = "Title cannot be empty"
+	convErrBadConvID       = "Conversation id is incorrect"
+	convErrIDsCount        = "The number of ids must be between 1 and %d"
+	convErrMessageEmpty    = "Message cannot be empty"
+	convErrBusy            = "This conversation is processing a previous message. Please wait a moment"
 )
 
 // 대화 기본 제목. convDefaultTitle 은 표시 문구이자 센티넬이다. 대화를 만들 때 제목으로
@@ -53,8 +53,8 @@ const (
 // (sendConversationMessage). 대입하는 쪽과 비교하는 쪽이 어긋나면 자동 제목 분기가
 // 깨지므로 한 상수로 묶는다. convAttachmentTitle 은 첨부만 보낸 첫 메시지의 기본 제목이다.
 const (
-	convDefaultTitle    = "새 대화"
-	convAttachmentTitle = "첨부 메시지"
+	convDefaultTitle    = "new conversation"
+	convAttachmentTitle = "attached message"
 )
 
 // 재검증(finding_retest) 종결 사유. runConversationTurn 이 재검증 대화를 봉인할 때 쓰고,
@@ -63,9 +63,9 @@ const (
 // 같은 컬럼·패널이라 그 파일에서 함께 한국어로 둔다. 종결 상태 값("failed"/"stopped"/
 // "completed")은 StatusLabel 로 한국어 라벨에 매핑되는 센티넬이라 ASCII 로 유지한다(F9).
 const (
-	convRetestFailedToStart    = "재검증을 시작하지 못했습니다"
-	convRetestStatusReadFailed = "재검증 상태를 읽지 못했습니다. 다시 시작해 주세요"
-	convRetestStoppedOrClosed  = "재검증이 중지되었거나 서비스가 종료되었습니다"
+	convRetestFailedToStart    = "Failed to start revalidation"
+	convRetestStatusReadFailed = "Failed to read revalidation status. Please start again"
+	convRetestStoppedOrClosed  = "Revalidation has stopped or the service has been terminated"
 )
 
 // isDefaultConversationTitle 은 대화가 아직 자동 생성된 기본 제목(빈 값 또는
@@ -551,7 +551,7 @@ func transcriptErrorSummary(label, errMsg string) string {
 	if label != "" {
 		label += " "
 	}
-	return "(" + label + "오류: " + errMsg + ")"
+	return "(" + label + "error: " + errMsg + ")"
 }
 
 func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelCauseFunc, c *db.Conversation, msg, busyKey string) {
@@ -782,9 +782,9 @@ func taskContextHeader(taskID int64, desc, goal string) string {
 		return ""
 	}
 	if goal != "" {
-		return fmt.Sprintf("【任务 #%d %s（目标：%s）】", taskID, trunc(desc, 200), trunc(goal, 500))
+		return fmt.Sprintf("[Mission #%d %s (Target: %s)]", taskID, trunc(desc, 200), trunc(goal, 500))
 	}
-	return fmt.Sprintf("【任务 #%d %s】", taskID, trunc(desc, 200))
+	return fmt.Sprintf("【Assignment #%d %s】", taskID, trunc(desc, 200))
 }
 
 // finalTriggerMessage renders the message actually sent to the agent for a single
@@ -808,16 +808,16 @@ func mergeTriggeredRuns(items []triggeredRun) triggeredRun {
 	}
 	first := items[0]
 	var b strings.Builder
-	fmt.Fprintf(&b, "【本会话合并了任务 #%d 的 %d 条触发事件，请一并处理】\n", first.taskID, len(items))
+	fmt.Fprintf(&b, "[This session merges the %[2]d trigger events of task #%[1]d, please process them together]\n", first.taskID, len(items))
 	if h := taskContextHeader(first.taskID, first.taskDesc, first.taskGoal); h != "" {
 		fmt.Fprintf(&b, "%s\n", h) // same task → task context appears once
 	}
 	for i, it := range items {
-		fmt.Fprintf(&b, "\n── 触发 %d ──\n%s\n", i+1, it.message)
+		fmt.Fprintf(&b, "\n── Trigger %d ──\n%s\n", i+1, it.message)
 	}
 	return triggeredRun{
 		agentKey:  first.agentKey,
-		title:     fmt.Sprintf("合并触发 · task#%d · %d 条", first.taskID, len(items)),
+		title:     fmt.Sprintf("Merge trigger · task#%d · %d", first.taskID, len(items)),
 		message:   b.String(),
 		taskID:    first.taskID,
 		mergeable: true,
@@ -845,7 +845,7 @@ func mergeAllRuns(items []triggeredRun) triggeredRun {
 		groups[it.taskID] = append(groups[it.taskID], it)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "【本会话合并了队列中的 %d 条触发事件（共 %d 个任务），请一并处理】\n", len(items), len(order))
+	fmt.Fprintf(&b, "[This session merges %d trigger events in the queue (a total of %d tasks), please process them together]\n", len(items), len(order))
 	seq := 0
 	for _, tid := range order {
 		g := groups[tid]
@@ -854,12 +854,12 @@ func mergeAllRuns(items []triggeredRun) triggeredRun {
 		}
 		for _, it := range g {
 			seq++
-			fmt.Fprintf(&b, "\n── 触发 %d（task#%d）──\n%s\n", seq, tid, it.message)
+			fmt.Fprintf(&b, "\n── Trigger %d (task#%d)──\n%s\n", seq, tid, it.message)
 		}
 	}
 	return triggeredRun{
 		agentKey:  first.agentKey,
-		title:     fmt.Sprintf("合并触发 · 全部 · %d 条", len(items)),
+		title:     fmt.Sprintf("Merge Trigger · All · %d Articles", len(items)),
 		message:   b.String(),
 		taskID:    first.taskID,
 		mergeable: true,

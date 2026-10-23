@@ -184,7 +184,7 @@ func (d *DB) CreateTaskWithOptions(description, goal string, opts TaskCreateOpti
 	// is global and shared, not isolated per task). Being a fact (not a special 'begin' kind) lets every
 	// intent uniformly connect to a fact node, including the first ones.
 	originPayload, _ := json.Marshal(map[string]any{
-		"summary":     "任务起点：" + description + "；目标：" + goal,
+		"summary":     "Mission starting point:" + description + ";Target:" + goal,
 		"description": description,
 		"goal":        goal,
 	})
@@ -261,19 +261,7 @@ func insertTaskCompanies(tx *sql.Tx, taskID int64, companyIDs []int64) error {
 		return err
 	}
 	var inserted int
-	err := tx.QueryRow(`
-WITH requested(company_id, position) AS (
-    SELECT company_id, position
-    FROM unnest($2::bigint[]) WITH ORDINALITY AS requested(company_id, position)
-), inserted AS (
-    INSERT INTO task_scope(task_id, kind, company_id, source, reason)
-    SELECT $1, 'company', companies.id, 'manual', '작업 생성 시 연결된 회사'
-    FROM requested
-    JOIN companies ON companies.id=requested.company_id
-    ORDER BY requested.position
-    RETURNING company_id
-)
-SELECT count(*) FROM inserted`, taskID, companyIDs).Scan(&inserted)
+	err := tx.QueryRow("\nWITH requested(company_id, position) AS (\n    SELECT company_id, position\n    FROM unnest($2::bigint[]) WITH ORDINALITY AS requested(company_id, position)\n), inserted AS (\n    INSERT INTO task_scope(task_id, kind, company_id, source, reason)\n    SELECT $1, 'company', companies.id, 'manual', 'Company associated with task creation'\n    FROM requested\n    JOIN companies ON companies.id=requested.company_id\n    ORDER BY requested.position\n    RETURNING company_id\n)\nSELECT count(*) FROM inserted", taskID, companyIDs).Scan(&inserted)
 	if err != nil {
 		return err
 	}
@@ -293,17 +281,7 @@ END
 WHERE company_id=ANY($2::bigint[])`, taskID, companyIDs); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(`
-INSERT INTO task_asset_links(task_id, asset_id, source, source_summary)
-SELECT $1, asset.id, $3, '작업 생성 시 연결된 회사: ' || company.name
-FROM assets asset
-JOIN companies company ON company.id=asset.company_id
-WHERE asset.company_id=ANY($2::bigint[])
-  AND $1=ANY(asset.task_ids)
-ON CONFLICT (task_id, asset_id) DO UPDATE
-SET source=EXCLUDED.source,
-    source_summary=EXCLUDED.source_summary,
-    source_node_id=NULL`, taskID, companyIDs, taskCompanyAssetSource); err != nil {
+	if _, err := tx.Exec("\nINSERT INTO task_asset_links(task_id, asset_id, source, source_summary)\nSELECT $1, asset.id, $3, 'Companies connected when creating a task: ' || company.name\nFROM assets asset\nJOIN companies company ON company.id=asset.company_id\nWHERE asset.company_id=ANY($2::bigint[])\n  AND $1=ANY(asset.task_ids)\nON CONFLICT (task_id, asset_id) DO UPDATE\nSET source=EXCLUDED.source,\n    source_summary=EXCLUDED.source_summary,\n    source_node_id=NULL", taskID, companyIDs, taskCompanyAssetSource); err != nil {
 		return err
 	}
 	return nil
@@ -509,15 +487,7 @@ UPDATE tasks
 // leaves deadline_at NULL (不限时). Returns the resulting deadline (nil = 不限/未变).
 func (d *DB) StampFirstRun(id int64, timeoutSeconds int) (*time.Time, error) {
 	var deadline *time.Time
-	err := d.QueryRow(`
-UPDATE tasks
-   SET first_run_at = COALESCE(first_run_at, now()),
-       deadline_at  = CASE
-           WHEN first_run_at IS NOT NULL THEN deadline_at            -- 已盖过章：不动
-           WHEN $2 > 0 THEN now() + make_interval(secs => $2)
-           ELSE NULL END
- WHERE id = $1
- RETURNING deadline_at`, id, timeoutSeconds).Scan(&deadline)
+	err := d.QueryRow("\nUPDATE tasks\n   SET first_run_at = COALESCE(first_run_at, now()),\n       deadline_at  = CASE\n           WHEN first_run_at IS NOT NULL THEN deadline_at            -- 已盖过章：不动\n           WHEN $2 > 0 THEN now() + make_interval(secs => $2)\n           ELSE NULL END\n WHERE id = $1\n RETURNING deadline_at", id, timeoutSeconds).Scan(&deadline)
 	return deadline, err
 }
 

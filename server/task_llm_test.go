@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/norma/harness"
 	"github.com/Autumn-27/norma/llm"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
 )
 
 type scriptedLLMProvider struct {
@@ -117,7 +117,7 @@ func TestIsQuotaExhaustedError(t *testing.T) {
 		`billing_hard_limit_reached`,
 		`billing_not_active`,
 		`HTTP status 402 Payment Required`,
-		`账户余额不足，请充值`,
+		"The account balance is insufficient, please top up",
 		`credit balance is too low`,
 	}
 	for _, message := range positive {

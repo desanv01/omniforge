@@ -24,7 +24,16 @@ func TestTaskMetadataPatchReturnsRenameAndPin(t *testing.T) {
 	}
 	taskID, _ := strconv.ParseInt(task.ID, 10, 64)
 	defer func() { _ = m.pg.DeleteTask(taskID) }()
-	s := New(context.Background(), m, t.TempDir(), t.TempDir(), t.TempDir())
+	ctx, cancel := context.WithCancel(t.Context())
+	s := New(ctx, m, t.TempDir(), t.TempDir(), t.TempDir())
+	defer func() {
+		// New restores persisted tasks. Stop and join their runtime loops before
+		// TempDir cleanup, rather than leaving Background-owned writers behind.
+		cancel()
+		for _, running := range m.List() {
+			s.engine.StopTask(running.ID)
+		}
+	}()
 	token, err := signJWT(s.jwtKey)
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +59,7 @@ func TestTaskMetadataPatchReturnsRenameAndPin(t *testing.T) {
 		t.Fatalf("unexpected task patch response: %+v", updated)
 	}
 
-	body, _ = json.Marshal(map[string]any{"name": strings.Repeat("任", maxTaskNameRunes+1)})
+	body, _ = json.Marshal(map[string]any{"name": strings.Repeat("appoint", maxTaskNameRunes+1)})
 	req = httptest.NewRequest(http.MethodPatch, "/api/tasks/"+task.ID, bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec = httptest.NewRecorder()

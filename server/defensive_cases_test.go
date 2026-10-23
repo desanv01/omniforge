@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func defensiveAPIFixture(t *testing.T) (*Server, func(string, string, string) *httptest.ResponseRecorder) {
@@ -60,7 +60,7 @@ func defensiveAPIFixture(t *testing.T) (*Server, func(string, string, string) *h
 }
 func defensiveAPIInput() defensiveCaseRequest {
 	scope := investigation.Scope{Target: "app.example", PathPrefix: "/ftp", Start: time.Now().UTC().Add(-time.Hour), End: time.Now().UTC().Add(-time.Minute)}
-	return defensiveCaseRequest{Title: "Independent incident", Question: "접근 로그의 근거를 확인하세요.", Scope: scope, Mapping: investigation.DefaultMapping(), SourceKind: "file", FileLabel: "original web log", CoverageConfirmed: true, Files: []investigation.InputFile{{Name: "independent.jsonl", Content: fmt.Sprintf(`{"timestamp":%q,"id":"independent-raw-event","target":"app.example","path":"/ftp/initial.txt"}`, scope.Start.Add(time.Minute).Format(time.RFC3339Nano))}}}
+	return defensiveCaseRequest{Title: "Independent incident", Question: "Check the basis of the access log.", Scope: scope, Mapping: investigation.DefaultMapping(), SourceKind: "file", FileLabel: "original web log", CoverageConfirmed: true, Files: []investigation.InputFile{{Name: "independent.jsonl", Content: fmt.Sprintf(`{"timestamp":%q,"id":"independent-raw-event","target":"app.example","path":"/ftp/initial.txt"}`, scope.Start.Add(time.Minute).Format(time.RFC3339Nano))}}}
 }
 func createAPICase(t *testing.T, s *Server, request func(string, string, string) *httptest.ResponseRecorder, in defensiveCaseRequest) *db.DefensiveCase {
 	t.Helper()
@@ -270,7 +270,7 @@ func TestDefensiveCaseMarkersGlobalWindowAndUntrustedValues(t *testing.T) {
 	if !c.Events[0].KnownARTEX || c.Events[1].KnownARTEX || c.Events[2].KnownARTEX || c.Stats.KnownARTEX != 1 || c.Stats.UnrecognizedMarkers != 2 {
 		t.Fatal("global marker classification ignored actual evidence window")
 	}
-	if len(c.Warnings) != 1 || !strings.Contains(c.Warnings[0], "전체 등록") || strings.Contains(c.Warnings[0], "같은 취약점") {
+	if len(c.Warnings) != 1 || !strings.Contains(c.Warnings[0], "Full registration") || strings.Contains(c.Warnings[0], "same vulnerability") {
 		t.Fatal("standalone case misleadingly scoped marker to a finding")
 	}
 }

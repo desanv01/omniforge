@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/securitysource"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/securitysource"
 )
 
 func TestPurpleSecuritySourceEncryptionAndTamper(t *testing.T) {

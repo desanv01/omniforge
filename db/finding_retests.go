@@ -19,11 +19,11 @@ const FindingRetestAgentKey = "retester"
 // retestServiceRestartReason 은 재시작 복구(RecoverFindingRetests)가 미완 재검증을 봉인할 때 쓴다.
 // 작은따옴표 없는 상수라 SQL 리터럴 자리에 그대로 이어 붙여도 안전하다.
 const (
-	retestNoConclusionReason   = "에이전트가 재검증 결론을 저장하지 않았습니다. 대화를 확인한 뒤 다시 재검증해 주세요"
-	retestServiceRestartReason = "서비스가 재시작되어 재검증이 중단되었습니다. 다시 시작해 주세요"
+	retestNoConclusionReason   = "The agent has not saved revalidation conclusions. Please check the conversation and re-verify again."
+	retestServiceRestartReason = "Revalidation was aborted because the service was restarted. Please start again"
 )
 
-var ErrRetestNotRunning = errors.New("本次复测已结束或尚未开始，请从漏洞详情发起新的复测")
+var ErrRetestNotRunning = errors.New("This retest has ended or has not yet started. Please initiate a new retest from the vulnerability details.")
 
 // FindingRetest is an immutable historical test once its conversation turn ends.
 // Snapshot is only loaded for the agent, never sent with the history list.
@@ -124,11 +124,7 @@ func createFindingRetestTx(ctx context.Context, tx *sql.Tx, findingID int64, not
 	}
 	var title string
 	var snapshot []byte
-	err := tx.QueryRowContext(ctx, `SELECT COALESCE(NULLIF(f.name,''), NULLIF(f.vulnclass,''), '未分类'),
-	jsonb_build_object('finding', to_jsonb(f),
-	 'assets', COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM assets a WHERE f.asset_ids @> to_jsonb(ARRAY[a.id])), '[]'::jsonb),
-	 'constraints', COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM task_constraints c JOIN tasks t ON t.exploration_id=c.exploration_id WHERE t.id=f.task_id), '[]'::jsonb))
-	FROM findings f WHERE f.id=$1 FOR UPDATE OF f`, findingID).Scan(&title, &snapshot)
+	err := tx.QueryRowContext(ctx, "SELECT COALESCE(NULLIF(f.name,''), NULLIF(f.vulnclass,''), 'Uncategorized'),\n\tjsonb_build_object('finding', to_jsonb(f),\n\t 'assets', COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM assets a WHERE f.asset_ids @> to_jsonb(ARRAY[a.id])), '[]'::jsonb),\n\t 'constraints', COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM task_constraints c JOIN tasks t ON t.exploration_id=c.exploration_id WHERE t.id=f.task_id), '[]'::jsonb))\n\tFROM findings f WHERE f.id=$1 FOR UPDATE OF f", findingID).Scan(&title, &snapshot)
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -147,7 +143,7 @@ func createFindingRetestTx(ctx context.Context, tx *sql.Tx, findingID int64, not
 		title = string(runes[:100])
 	}
 	c, err := scanConv(tx.QueryRowContext(ctx, `INSERT INTO conversations(agent_key,title) VALUES ($1,$2) RETURNING `+convCols,
-		FindingRetestAgentKey, fmt.Sprintf("复测 #%d · %s", findingID, title)))
+		FindingRetestAgentKey, fmt.Sprintf("Retest #%d · %s", findingID, title)))
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -166,7 +162,7 @@ func createFindingRetestTx(ctx context.Context, tx *sql.Tx, findingID int64, not
 	}
 	msg := r.InitialMessage()
 	_, err = tx.ExecContext(ctx, `INSERT INTO conversation_activities(conversation_id,worker,kind,summary,detail) VALUES ($1,$2,'user',$3,$4)`,
-		c.ID, FindingRetestAgentKey, fmt.Sprintf("请复测漏洞 #%d", findingID), msg)
+		c.ID, FindingRetestAgentKey, fmt.Sprintf("Please retest the vulnerability #%d", findingID), msg)
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -174,12 +170,12 @@ func createFindingRetestTx(ctx context.Context, tx *sql.Tx, findingID int64, not
 }
 
 func (r *FindingRetest) InitialMessage() string {
-	msg := fmt.Sprintf("请复测漏洞 #%d。先调用 get_finding_retest_context 读取本会话关联的原始证据与约束，再执行针对性验证，最后调用 record_finding_retest_result 保存结论。", r.FindingID)
+	msg := fmt.Sprintf("Please retest vulnerability #%d. First call get_finding_retest_context to read the original evidence and constraints associated with this session, then perform targeted verification, and finally call record_finding_retest_result to save the conclusion.", r.FindingID)
 	if r.Notes != "" {
-		msg += "\n\n本次复测补充说明：\n" + r.Notes
+		msg += "\n\nSupplementary instructions for this retest:\n" + r.Notes
 	}
 	if r.defenseCorrelationID != "" {
-		msg += "\n\n本次复测已关联防御验证执行。先从 get_finding_retest_context 读取服务端提供的 defense_execution。只给已授权原目标上实际复现原漏洞触发条件的 HTTP 请求添加关联头 X-ARTEX-Verification-ID: " + r.defenseCorrelationID + "。登录、会话准备与良性对照请求不得附加这个关联 ID；它们仍应按原复测流程执行并单独记录。保留原身份、认证、请求条件和任务约束；不得为了打标扩大目标范围或改变漏洞关键条件。非 HTTP 或无法可靠附加关联头时如实说明，不伪造日志、请求、告警或阻断证明。关联标记本身不证明安全设备检测成功；检测结论由独立的安全日志采集与证据判定完成。"
+		msg += "\n\nThis retest has been associated with defense verification execution. First read the defense_execution provided by the server from get_finding_retest_context. Only add the correlation header X-ARTEX-Verification-ID: to the HTTP requests that actually reproduce the triggering conditions of the original vulnerability on the authorized original target: " + r.defenseCorrelationID + ". Login, session preparation, and benign control requests must not have this correlation ID attached; they should still be performed according to the original retest process and logged separately. Keep the original identity, authentication, request conditions and task constraints; do not expand the target scope or change the key conditions of the vulnerability for the purpose of marking. Tell the truth when it's not HTTP or can't reliably append correlation headers, and don't fake logs, requests, alerts, or proof of blocking. The associated mark itself does not prove that the security device is successfully detected; the detection conclusion is completed by independent security log collection and evidence judgment."
 	}
 	return msg
 }
@@ -235,14 +231,14 @@ func (d *DB) StartFindingRetest(ctx context.Context, id int64) (bool, error) {
 // runtime conversation. Identical retries are safe; a second verdict is refused.
 func (d *DB) RecordFindingRetestResult(ctx context.Context, conversationID int64, verdict, summary, evidence string) error {
 	if verdict != "reproduced" && verdict != "fixed" && verdict != "inconclusive" {
-		return errors.New("verdict 必须为 reproduced / fixed / inconclusive")
+		return errors.New("verdict must be reproduced / fixed / inconclusive")
 	}
 	summary, evidence = strings.TrimSpace(summary), strings.TrimSpace(evidence)
 	if summary == "" || evidence == "" {
-		return errors.New("summary 与 evidence 不能为空；无法确认时说明实际检查及阻塞原因")
+		return errors.New("summary and evidence cannot be empty; if it cannot be confirmed, the actual inspection and blocking reasons will be stated.")
 	}
 	if len(summary) > 16000 || len(evidence) > 128000 {
-		return errors.New("复测结论过长（summary ≤ 16KB，evidence ≤ 128KB）")
+		return errors.New("The retest conclusion is too long (summary ≤ 16KB, evidence ≤ 128KB)")
 	}
 	res, err := d.ExecContext(ctx, `UPDATE finding_retests SET verdict=$2,summary=$3,evidence=$4
 	WHERE conversation_id=$1 AND status='running' AND (verdict='' OR (verdict=$2 AND summary=$3 AND evidence=$4))`, conversationID, verdict, summary, evidence)

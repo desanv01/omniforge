@@ -1,19 +1,19 @@
-# 공식 Splunk Attack Range 로컬 설치
+# Official Splunk Attack Range local installation
 
-이 구성은 공식 [Splunk Attack Range](https://github.com/splunk/attack_range)의 **관리 웹 화면·API**를 별도 Docker Compose 프로젝트로 설치합니다. 기존 AegisLoop·PostgreSQL과 [Juice Shop·WAF·Splunk 실습 환경](purple-lab.md)은 각자의 구성으로 유지합니다.
+This configuration installs the **Administration Web Screen·API** from the official [Splunk Attack Range](https://github.com/splunk/attack_range) as a separate Docker Compose project. The existing AegisLoop·PostgreSQL and [Juice Shop·WAF·Splunk practice environment](purple-lab.md) are maintained in their respective configurations.
 
-**관리 서비스 설치와 실제 실습 서버 구축은 별개입니다.** 이 Compose를 실행해도 Windows·Linux 대상 서버나 새로운 Splunk 서버가 로컬 Docker에 생성되지 않습니다. 공식 Attack Range는 템플릿과 Terraform·Ansible로 AWS·Azure·GCP 대상 환경을 구축하고, 대상 서버에서 Atomic Red Team 등으로 행위를 실행합니다. 클라우드 선택·자원 규모·예산·전용 접근 권한을 정한 뒤 별도 구축해야 합니다. 이 로컬 설치는 사용자의 기존 클라우드 로그인과 자격 증명을 연결하지 않습니다.
+**Installing the management service is separate from building the actual lab server.** Running this Compose will not create a Windows/Linux target server or a new Splunk server in your local Docker. The official Attack Range builds a target environment for AWS, Azure, and GCP using templates and Terraform and Ansible, and executes actions on the target server with Atomic Red Team, etc. Cloud selection, resource size, budget, and dedicated access rights must be determined and then built separately. This local installation does not associate any credentials with the user's existing cloud login.
 
-## 실행
+## execution
 
-Docker Compose, Git, Python 3가 필요합니다. 제품 기본 설치에는 Attack Range가 필요하지 않습니다.
+Requires Docker Compose, Git, and Python 3. Attack Range is not required for a basic installation of the product.
 
 ```sh
 # 고정 공식 소스 준비 → 이미지 빌드 → 관리 서비스 시작 → 조회 확인
 ./scripts/attack-range.sh install
 ```
 
-단계를 나누어 실행할 수도 있습니다.
+You can also run it in separate steps.
 
 ```sh
 ./scripts/attack-range.sh init
@@ -23,70 +23,70 @@ Docker Compose, Git, Python 3가 필요합니다. 제품 기본 설치에는 Att
 ./scripts/attack-range.sh status
 ```
 
-| 항목 | 주소·경로 |
+| Item | Address·Route |
 | --- | --- |
-| 관리 웹 화면 | <http://localhost:4321> |
-| 관리 API | <http://localhost:4000> |
-| OpenAPI JSON 문서 | <http://localhost:4000/openapi/openapi.json> |
-| 공식 고정 소스 | `.local-runtime/attack-range/upstream/` |
-| 개인 설정·SSH 키 | `.local-runtime/attack-range/config/`, `ssh_keys/` |
-| 설치 증거 | `.local-runtime/attack-range/installation.json` |
-| 조회 확인 증거 | `.local-runtime/attack-range/doctor.json` |
+| Management web screen | <http://localhost:4321> |
+| Management API | <http://localhost:4000> |
+| OpenAPI JSON document | <http://localhost:4000/openapi/openapi.json> |
+| Official Fixed Source | `.local-runtime/attack-range/upstream/` |
+| Personal Settings/SSH Keys | `.local-runtime/attack-range/config/`, `ssh_keys/` |
+| Installation proof | `.local-runtime/attack-range/installation.json` |
+| Inquiry Confirmation Evidence | `.local-runtime/attack-range/doctor.json` |
 
-4000·4321 포트는 공식 소스의 브라우저 CORS 허용값에 맞춰 사용합니다. 다른 프로그램이 포트를 사용 중이면 먼저 충돌을 확인하세요. 관리 포트는 `127.0.0.1`에만 공개하며, 인증이 없는 공식 관리 API를 외부 네트워크에 공개하지 않습니다.
+Ports 4000 and 4321 are used in accordance with the browser CORS tolerance of the official source. If another program is using the port, check for conflicts first. The management port is only exposed to `127.0.0.1`, and the official management API without authentication is not exposed to external networks.
 
-첫 빌드는 공식 Dockerfile이 Python·Node·Terraform·AWS CLI·Azure CLI·Google Cloud CLI 및 프로젝트 의존성을 다운로드하므로 시간이 걸리고 네트워크가 필요합니다. API·앱 이미지 빌드는 메모리 부담을 줄이기 위해 순차 실행합니다. 이미지 빌드 시에는 해당 도구의 공급자에 접근하지만 클라우드 계정 인증이나 서버 생성은 수행하지 않습니다. API 런타임 메모리는 1 GiB, UI는 512 MiB로 제한했습니다. 기존 Splunk 실습 환경을 함께 실행하면 Docker 메모리 사용량을 확인하세요.
+The first build takes time and requires a network as the official Dockerfile downloads Python·Node·Terraform·AWS CLI·Azure CLI·Google Cloud CLI and project dependencies. API/app image builds are executed sequentially to reduce memory burden. When building an image, it accesses the tool's provider but does not perform cloud account authentication or server creation. We limited the API runtime memory to 1 GiB and the UI to 512 MiB. Check Docker memory usage when running alongside an existing Splunk lab environment.
 
-## 재현성과 기존 상태 보존
+## Reproducibility and preservation of original state
 
-[upstream.json](../lab/attack-range/upstream.json)에 공식 저장소와 커밋 `fc9b9e719d8835da0bbb5c20d46c52a9778d64e2`를 기록했습니다. 공식 API·앱 Dockerfile을 변경하지 않고 그 소스로 빌드합니다. 새 소스는 임시 폴더에서 다운로드·검증한 뒤에만 `upstream/`으로 옮기므로, 다운로드 실패 후에는 같은 명령으로 다시 시도할 수 있습니다. 로컬 소스가 다른 커밋이거나 수정된 상태이면 초기화·빌드가 중단되며 자동 덮어쓰기하지 않습니다. 기존 개인 설정·SSH 키도 교체하거나 삭제하지 않습니다.
+Recorded official repository and commit `fc9b9e719d8835da0bbb5c20d46c52a9778d64e2` in [upstream.json](../lab/attack-range/upstream.json). Build from the source without changing the official API/app Dockerfile. New sources are moved to `upstream/` only after being downloaded and verified in the temporary folder, so after a download failure, you can try again with the same command. If the local source is a different commit or has been modified, initialization/build will stop and will not be automatically overwritten. It also does not replace or delete existing personal settings or SSH keys.
 
-상류 README는 v5를 설명하지만 API health는 `1.0.0`, Python 프로젝트 메타데이터는 `3.1.2`를 표기합니다. 버전 문자열 하나로 설치 결과를 판정하지 않습니다. `installation.json`에는 고정 소스 커밋·Compose SHA-256·실제 빌드 이미지 ID를 기록합니다. 기반 이미지와 일부 다운로드는 상류 Dockerfile 자체에서 가변 버전을 사용하므로 같은 소스 커밋의 재빌드가 항상 동일한 이미지 바이트를 만든다는 보장은 없습니다.
+The upstream README describes v5, but the API health says `1.0.0` and the Python project metadata says `3.1.2`. The installation result is not determined by the version string alone. `installation.json` records the fixed source commit, Compose SHA-256, and actual build image ID. Because the base image and some downloads use variable versions in the upstream Dockerfile itself, there is no guarantee that rebuilds from the same source commit will always produce the same image bytes.
 
-개인 설정과 원본 체크아웃은 Git 제외 경로인 `.local-runtime/`에만 저장합니다. 공개 저장소에는 Compose·래퍼·고정 커밋 정보·설명만 포함합니다. 별도 관리 네트워크를 사용하며 AegisLoop·실습 대상 네트워크에 자동 연결하지 않습니다.
+Personal settings and original checkouts are stored only in the Git-excluded path `.local-runtime/`. A public repository contains only Compose, Wrapper, and Fixed Commit information and Description. It uses a separate management network and does not automatically connect to the AegisLoop/practice target network.
 
-## `doctor`가 확인하는 범위
+## What range does `doctor` check?
 
-`doctor`는 다음 GET 요청만 수행합니다.
+`doctor` only performs the following GET request:
 
-- `/health`: API 준비 상태
-- `/templates`: 템플릿 목록
-- `/configs`: 저장 설정 목록
-- `/attack-range/list`: 실습 목록
-- `/openapi/openapi.json`: API 문서 형식과 경로 개수
-- UI `/`: 웹 화면 응답
+- `/health`: API ready status
+- `/templates`: Template list
+- `/configs`: Save settings list
+- `/attack-range/list`: Lab List
+- `/openapi/openapi.json`: API document format and number of paths
+- UI `/`: Web screen response
 
-확인 결과에는 목록 개수와 고정 커밋 등만 남깁니다. 응답 원문·설정 본문·접속 비밀번호·VPN 설정은 기록하지 않습니다. `doctor`는 cloud build·simulate·destroy API를 호출하지 않습니다.
+Only the list count and fixed commits are left in the verification results. The original response text, settings text, access password, and VPN settings are not recorded. `doctor` does not call cloud build·simulate·destroy API.
 
-상류 안내의 `/openapi/swagger`는 이 공식 Dockerfile로 빌드한 이미지에서는 404를 반환합니다. 현재 상류 의존성에는 Swagger UI 추가 패키지가 없으므로, 설치 검증은 정상 제공되는 OpenAPI JSON 문서를 사용합니다.
+`/openapi/swagger` in the upstream instructions returns 404 in images built with this official Dockerfile. Currently, there are no Swagger UI additional packages in the upstream dependencies, so installation verification uses the normally provided OpenAPI JSON document.
 
-조회는 GET으로 제한하지만, 상류 `/attack-range/list` 구현은 오래된 구축 상태를 오류 상태로 갱신할 수 있습니다. 상류 내부 설정의 완전한 불변성을 보장하는 검사는 아니며, 저장 설정이 없는 첫 설치에는 이 상태 갱신이 적용되지 않습니다.
+Queries are limited to GET, but upstream `/attack-range/list` implementations can update stale build states to error states. This check does not guarantee complete immutability of upstream internal settings, and this state update does not apply to first-time installations without saved settings.
 
-**템플릿의 `provider_available: true`는 인증 검증 결과가 아닙니다.** 이 고정 소스는 해당 표시에 실제 CLI·자격 증명 확인을 수행하지 않습니다. 웹 화면이 열리는 것과 클라우드 실습 환경이 구축되는 것을 구분하세요.
+**`provider_available: true` in the template is not an authentication verification result.** This fixed source does not perform any actual CLI/credential verification on its representation. Distinguish between opening a web screen and establishing a cloud lab environment.
 
-클라우드 인증 경로는 비어 있는 전용 `.local-runtime/attack-range/cloud-disabled/` 폴더에만 연결합니다. 사용자 `~/.aws`, `~/.azure`, `~/.config/gcloud`와 호스트 Docker 소켓·특권 모드는 사용하지 않습니다. AWS 인스턴스 메타데이터를 통한 자격 증명 조회도 비활성화했습니다. 이 구성에서는 UI의 클라우드 생성 버튼을 눌러도 사용할 계정이 연결되어 있지 않습니다.
+The cloud authentication path connects only to the empty, dedicated `.local-runtime/attack-range/cloud-disabled/` folder. Users `~/.aws`, `~/.azure`, `~/.config/gcloud` and host Docker socket/privileged mode are not used. We also disabled credential lookup through AWS instance metadata. In this configuration, pressing the Create Cloud button in the UI does not have an account associated with it to use.
 
-## 기존 AWS CLI 인증 사용
+## Use existing AWS CLI authentication
 
-이미 로컬 AWS CLI 프로필로 인증했다면 다시 로그인할 필요가 없습니다. 현재 실습에서는 로컬 `attack-range` 프로필의 인증을 사용합니다. 사용하려는 프로필의 계정과 역할은 다음 읽기 전용 명령으로 확인합니다.
+If you have already authenticated with your local AWS CLI profile, you do not need to log in again. The current lab uses authentication from the local `attack-range` profile. Verify the account and role of the profile you want to use with the following read-only command:
 
 ```sh
 aws sts get-caller-identity --profile <your-profile>
 ```
 
-`<your-profile>`을 자신의 프로필 이름으로 바꾸세요. 응답의 계정·역할이 실습 대상으로 맞는지 확인하고, 응답 원문이나 임시 자격 증명을 공개 저장소에 넣지 않습니다. 인증 성공과 EC2·VPC·IAM 등의 생성·삭제 권한은 별도로 확인합니다.
+Replace `<your-profile>` with your profile name. Verify that the account/role in the response is appropriate for the exercise, and do not place the original response text or temporary credentials in a public repository. Successful authentication and creation/deletion permissions for EC2, VPC, IAM, etc. are checked separately.
 
-로컬 인증은 조회·계획·적용·정리를 위한 **일회성 컨테이너**에만 전달합니다. 실행 후 컨테이너를 제거하며, 계속 실행 중인 Attack Range 관리 API·UI에는 호스트 인증을 연결하지 않습니다. 기존 호스트 프로필·키·세션을 이 프로젝트의 SSO 폴더로 복사하거나 변경할 필요도 없습니다.
+Local authentication is delivered only to **one-time containers** for viewing, planning, application, and cleanup. The container is removed after execution, and host authentication is not attached to the Attack Range Management API/UI while it is still running. There is no need to copy or change existing host profiles, keys, or sessions to this project's SSO folder.
 
-## 선택적 AWS SSO 로그인 준비
+## Optional AWS SSO login preparation
 
-[AWS 준비안](attack-range-aws-plan.md)에 계정 정보 확인 위치, Windows 구성, 실제 가격표 기반 비용 계산과 재구축·후속 실습 순서를 정리했습니다. 현재 수동 운영 환경의 실제 설치·로그 수집 검증은 [AWS 구축 기록](evidence/attack-range-aws-deployment-2026-10-11.md)에 있습니다.
+In the [AWS Preparation Plan](attack-range-aws-plan.md), we have summarized where to check account information, Windows configuration, cost calculation based on the actual price list, and the order of rebuilding and follow-up exercises. The actual installation and log collection verification of the current manual operating environment can be found in [AWS Construction Records](evidence/attack-range-aws-deployment-2026-10-11.md).
 
-AWS 콘솔에서 **IAM Identity Center → Dashboard → Settings summary**를 열고 **AWS access portal URL**을 확인합니다. SSO 시작 주소는 보통 `https://d-xxxxxxxxxx.awsapps.com/start` 형태입니다. 같은 IAM Identity Center 화면의 리전을 SSO 리전으로 사용합니다. 이 위치는 [AWS 공식 안내](https://docs.aws.amazon.com/singlesignon/latest/userguide/howtochangeURL.html)에 설명돼 있습니다. 주소를 사용자 지정하거나 설정을 변경할 필요는 없습니다.
+In the AWS console, open **IAM Identity Center → Dashboard → Settings summary** and check the **AWS access portal URL**. The SSO starting address is usually in the form `https://d-xxxxxxxxxx.awsapps.com/start`. Use the region on the same IAM Identity Center screen as the SSO region. This location is described in [AWS Official Guide](https://docs.aws.amazon.com/singlesignon/latest/userguide/howtochangeURL.html). You don't need to customize your address or change any settings.
 
-포털 주소가 없고 활성화 안내가 보이면 기존 SSO가 준비되지 않은 상태입니다. 조직 계정은 관리자에게 기존 접속 주소와 실습 계정 권한을 확인하고, 개인 계정은 로그인 방식과 SSO 준비 여부부터 확인합니다. 계정 권한 선택은 로그인 후 진행하며, 실제 구축에는 선택한 실습 계정에서 EC2·VPC 자원을 생성·조회·삭제할 권한이 필요합니다. 공식 S3 backend를 사용할 때는 S3 상태 관리 권한도 필요하지만 현재 수동 운영은 로컬 상태를 사용합니다. 이 설치가 새 IAM 권한을 자동 부여하지는 않습니다.
+If you don't have a portal address and see activation instructions, your existing SSO isn't ready. For organizational accounts, check the existing access address and practice account permissions with the administrator, and for personal accounts, check the login method and whether SSO is ready. Selecting account permissions is done after logging in, and for actual deployment, permission to create, view, and delete EC2/VPC resources is required in the selected practice account. When using the official S3 backend, you also need S3 state management permissions, but currently manual operations use local state. This installation does not automatically grant new IAM permissions.
 
-로컬 CLI 인증이 없고 이 프로젝트의 별도 SSO 프로필을 사용하려는 경우에만 아래 래퍼를 실행합니다. AWS IAM Identity Center의 **SSO 시작 URL과 SSO 리전**을 준비합니다. SSO 리전은 이후 대상 서버를 설치할 AWS 리전과 다를 수 있습니다. 계정·Permission Set을 선택할 권한이 있는 사용자로 브라우저에 직접 로그인해야 합니다. 장기 Access Key를 채팅이나 공개 설정 파일에 입력하지 않습니다.
+Run the wrapper below only if you do not have local CLI authentication and want to use a separate SSO profile for this project. Prepare the **SSO launch URL and SSO region** for AWS IAM Identity Center. The SSO Region may be different from the AWS Region where you will later install the target server. You must log in directly to the browser as a user with permission to select Account/Permission Set. Do not enter long-term Access Keys into chat or privacy settings files.
 
 ```sh
 # 공식 API 이미지에 포함된 AWS CLI를 별도 임시 컨테이너로 실행
@@ -96,27 +96,27 @@ AWS 콘솔에서 **IAM Identity Center → Dashboard → Settings summary**를 �
 ./scripts/attack-range.sh sso-login
 ```
 
-설정 마법사에서 SSO 시작 주소·SSO 리전·계정·역할을 직접 선택합니다. `CLI profile name`에는 **`aegisloop`**를 입력하세요. `--use-device-code --no-browser`를 사용하므로 터미널에 표시된 AWS 인증 URL을 브라우저에서 열어 로그인·승인을 완료합니다. 옵션은 AWS 공식 [configure sso](https://docs.aws.amazon.com/cli/latest/reference/configure/sso.html)와 [sso login](https://docs.aws.amazon.com/cli/latest/reference/sso/login.html) 문서에 따른 것입니다.
+In the setup wizard, manually select the SSO starting address, SSO region, account, and role. For `CLI profile name`, enter **`aegisloop`**. Since you are using `--use-device-code --no-browser`, open the AWS authentication URL displayed in the terminal in your browser to complete login/authorization. The options are according to AWS official [configure sso](https://docs.aws.amazon.com/cli/latest/reference/configure/sso.html) and [sso login](https://docs.aws.amazon.com/cli/latest/reference/sso/login.html) documents.
 
-SSO 설정·세션 캐시는 `.local-runtime/attack-range/aws-sso/`에만 저장하며 Git에서 제외됩니다. 이 폴더 하나만 임시 CLI 컨테이너의 `/root/.aws`에 연결하고 호스트의 기존 `~/.aws`는 읽거나 변경하지 않습니다. 기존 SSO 설정과 캐시는 래퍼가 삭제하지 않으며 AWS CLI가 설정·로그인 과정에서 갱신합니다. 임시 컨테이너는 종료 후 제거되고 메모리 512 MiB·CPU 1개로 제한합니다.
+SSO settings and session cache are stored only in `.local-runtime/attack-range/aws-sso/` and are excluded from Git. This one folder only attaches to `/root/.aws` in the temporary CLI container and does not read or change the existing `~/.aws` on the host. Existing SSO settings and cache are not deleted by the wrapper and are updated by the AWS CLI during the setup and login process. Temporary containers are removed after termination and are limited to 512 MiB of memory and 1 CPU.
 
-**이 단계는 AWS 로그인과 임시 자격 증명 준비까지만 수행합니다.** EC2·S3·VPC 생성, Attack Range 구축·공격 시뮬레이션, 관리 API에 자격 증명 연결은 포함하지 않습니다. 클라우드 비용 한도와 대상 구성을 별도로 확인한 뒤 다음 구축 단계에 진행합니다.
+**This step only involves logging into AWS and preparing temporary credentials.** It does not include creating an EC2·S3·VPC, building an Attack Range or simulating an attack, or connecting credentials to the management API. Check the cloud cost limit and target configuration separately before proceeding to the next deployment step.
 
-## AegisLoop 테스트에 사용할 순서
+## Order to use for AegisLoop testing
 
-1. 현재 Docker 웹 실습에서 실제 요청·정상 활동·WAF·Splunk 근거 수집을 확인합니다.
-2. Attack Range의 템플릿과 지원 OS·로그 수집 구성을 검토합니다.
-3. 클라우드 공급자·예산·자원 규모·종료 기준을 정하고 전용 접근 권한으로 대상 서버를 구축합니다.
-4. 구축한 Splunk에 AegisLoop의 검색 연결을 등록하거나 원본 로그를 내보내 조사에 사용합니다. 이 연동은 자동 등록되지 않습니다.
-5. 실행 기록·대상 상태로 공격 행위를 확인한 뒤 실제 경보와 조사 결과를 비교합니다. 관리 화면 설치 성공만으로 공격 재현·탐지 성능을 입증하지 않습니다.
+1. Current Docker web labs verify actual requests, normal activity, WAF, and Splunk evidence collection.
+2. Review Attack Range's templates and supported OS/log collection configurations.
+3. Set the cloud provider, budget, resource size, and termination criteria and build a target server with dedicated access rights.
+4. Register AegisLoop's search connection in Splunk or export the original log to use for investigation. This integration is not auto-registered.
+5. After checking the attack behavior through execution history and target status, compare the actual alert and investigation results. Successful installation of the management screen alone does not prove attack reproduction or detection performance.
 
-Windows AD·Sysmon 등 실제 Windows 동작을 검증하려면 해당 Windows 대상 서버가 필요합니다. 이 macOS Docker 관리 설치는 Windows 서버 실행을 대신하지 않습니다.
+To verify actual Windows operation, such as Windows AD·Sysmon, a corresponding Windows target server is required. This macOS Docker managed installation is not a replacement for running Windows Server.
 
-## 중지와 단위 검증
+## Halting and Unit Verification
 
 ```sh
 ./scripts/attack-range.sh stop
 python3 -m unittest discover -s lab/attack-range/tests -v
 ```
 
-`stop`은 `aegis-attack-range` 프로젝트만 중지하고 소스·개인 상태를 보존합니다. 단위 검증은 모의 응답을 사용하여 소스 변경 보호, 개인 키 보존, 조회 경로 제한, 자격 증명 없는 집계 기록을 검사하며 클라우드와 Docker를 실행하지 않습니다.
+`stop` only stops the `aegis-attack-range` project and preserves the source/private state. Unit validation uses mock responses to check source change protection, private key preservation, lookup path restrictions, credential-free aggregate history, and does not run in the cloud or Docker.

@@ -1,54 +1,54 @@
-# 행동 강령 (Code of Conduct)
+# Code of Conduct
 
-한국어 · [English](CODE_OF_CONDUCT.en.md)
+Korean · [English](CODE_OF_CONDUCT.en.md)
 
-## 우리의 약속
+## our promise
 
-이 프로젝트에 참여하는 모든 사람이 괴롭힘 없는 환경에서 협력할 수 있도록, 유지관리자와
-기여자는 나이·신체·장애·민족·성별·경험 수준·국적·외모·인종·종교·성 정체성과 지향에
-상관없이 서로를 존중하기로 약속합니다.
+To ensure that everyone involved in this project can collaborate in a harassment-free environment, maintainers and
+Contributors are based on age, body, disability, ethnicity, gender, experience level, nationality, appearance, race, religion, sexual identity and orientation.
+We promise to respect each other regardless.
 
-## 우리의 기준
+## our standards
 
-긍정적인 환경을 만드는 행동의 예는 다음과 같습니다.
+Examples of behaviors that create a positive environment include:
 
-- 상대를 존중하는 언어를 사용합니다.
-- 서로 다른 관점과 경험을 존중합니다.
-- 건설적인 비판을 품위 있게 주고받습니다.
-- 공동체 전체에 가장 이로운 방향을 우선합니다.
+- Use language that respects others.
+- We respect different perspectives and experiences.
+- Give and receive constructive criticism graciously.
+- We prioritize the direction that is most beneficial to the entire community.
 
-받아들일 수 없는 행동의 예는 다음과 같습니다.
+Examples of unacceptable behavior include:
 
-- 성적인 언어·이미지를 사용하거나 원치 않는 성적 관심을 보이는 행위
-- 조롱, 모욕, 비하, 그리고 개인·정치적 공격
-- 공개적이든 사적이든 상대를 괴롭히는 행위
-- 동의 없이 타인의 사생활 정보(실제 주소·연락처 등)를 공개하는 행위
-- 그 밖에 전문적인 환경에서 부적절하다고 볼 수 있는 행위
+- Using sexual language or images or showing unwanted sexual attention
+- Ridicule, insults, belittling, and personal and political attacks
+- Harassing another person, whether publicly or privately
+- Disclosing another person's personal information (real address, contact information, etc.) without consent
+- Other acts that may be considered inappropriate in a professional environment
 
-## 보안 도구 사용에 관한 특칙
+## Special rules for using security tools
 
-ARTEX 는 공격 보안 도구입니다. 이 공동체 공간(이슈·PR·토론)을 다음 목적으로 사용하는
-것을 금지합니다.
+ARTEX is an offensive security tool. This community space (issues, PR, discussions) is used for the following purposes:
+prohibit it.
 
-- 허가받지 않은 실제·운영 시스템에 대한 공격을 요청·공유·조장하는 행위
-- 특정 대상을 공격하기 위한 실행 정보를 주고받는 행위
-- [사용 범위](README.md#️-먼저-읽어-주세요--사용-범위와-국내법-고지)와 국내법을 벗어난
-  사용을 돕는 행위
+- Requesting, sharing, or promoting unauthorized attacks on real or operational systems
+- The act of exchanging execution information to attack a specific target
+- [Scope of use](README.md#features) and outside of domestic law
+  the act of helping use
 
-## 책임과 시행
+## Accountability and Enforcement
 
-유지관리자는 이 강령에 맞지 않는 댓글·커밋·이슈·PR·그 밖의 기여를 수정하거나 거부하거나
-삭제할 권한과 책임이 있으며, 부적절하다고 판단되는 행동을 한 참여자의 참여를 일시적 또는
-영구적으로 제한할 수 있습니다.
+Maintainers may edit or reject any comments, commits, issues, PRs, or other contributions that do not comply with this Code.
+We have the right and responsibility to remove, temporarily or temporarily suspend the participation of participants who have behaved in ways we deem inappropriate.
+You can permanently restrict it.
 
-## 신고
+## declaration
 
-받아들일 수 없는 행동을 겪거나 목격했다면, 저장소의 유지관리자에게 비공개로 알려
-주십시오(저장소의 [SECURITY.md](SECURITY.md)에 안내된 비공개 연락 경로를 사용할 수
-있습니다). 모든 신고는 검토되며, 상황에 필요하고 적절한 방식으로 대응합니다.
-신고자의 신원은 보호합니다.
+If you experience or witness unacceptable behavior, please notify the repository maintainers privately.
+Please (you can use the private contact path indicated in [SECURITY.md](SECURITY.md) in the repository)
+there is). All reports are reviewed and responded to in a manner necessary and appropriate to the circumstances.
+The identity of the reporter is protected.
 
-## 출처
+## source
 
-이 행동 강령은 [Contributor Covenant](https://www.contributor-covenant.org) 2.1 판을
-참고해 이 프로젝트에 맞게 다듬은 것입니다.
+This Code of Conduct applies to version 2.1 of [Contributor Covenant](https://www.contributor-covenant.org).
+I used it as a reference and refined it for this project.

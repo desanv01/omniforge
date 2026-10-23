@@ -1,120 +1,120 @@
-# AegisLoop 사용 안내
+# AegisLoop usage guide
 
-ARTEX의 취약점 진단·재검증을 실제 로그 근거와 연결하고, 기준 감사 로그로 개선한 규칙을 새 공격 실행에서 비교합니다. 취약점 없이 시작하는 독립 사건 조사와 기존 오프라인 규칙 평가도 같은 웹앱에서 사용할 수 있습니다. [소스 분석과 구현 범위](aegisloop-source-analysis.md), [초기 화면 검증 기록](evidence/aegisloop-mvp.md)을 함께 참고하세요. 초기 기록의 합성 규칙 평가 수치는 실제 공격 루프의 성능 수치가 아닙니다.
+Connect ARTEX's vulnerability diagnosis and re-verification with actual log evidence, and compare improved rules with baseline audit logs in new attack execution. Independent incident investigation starting without vulnerabilities and evaluation of existing offline rules are also available from the same web app. Please also refer to [Source Analysis and Implementation Scope](aegisloop-source-analysis.md) and [Initial Screen Verification Record](evidence/aegisloop-mvp.md). The synthesis rule evaluation figures from the initial record are not the performance figures of the actual attack loop.
 
-## 통합 화면
+## integrated screen
 
-- `/dashboard`: Offensive·Defensive·Closed-loop의 실제 저장 기록 수와 진입점.
-- `/offensive`: 기존 진단 대시보드. 작업·자산·취약점·트래픽 화면은 기존 경로를 유지합니다.
-- `/defensive`: 취약점 없이 파일 또는 Splunk 로그에서 사건 생성, 결과 확인, 선택한 사건의 AI 조사.
-- `/closed-loop`: 기본 **실제 실행 루프**, 선택형 **AWS Windows** 및 기존 **로그 규칙 평가** 탭. HTTP 재검증, 고정 Windows 실습 시나리오와 오프라인 라벨 평가를 구분합니다. AWS 연결은 [별도 브리지 안내](aws-windows-loop.md)를 참고하세요.
-- `/function/purple`: 기존 공격 재검증에 연결한 탐지·차단 확인.
+- `/dashboard`: Actual number of saved records and entry points for Offensive·Defensive·Closed-loop.
+- `/offensive`: Traditional diagnostic dashboard. The Tasks, Assets, Vulnerabilities, and Traffic screens maintain their existing paths.
+- `/defensive`: Create incidents from files or Splunk logs without vulnerabilities, view results, and AI investigate selected incidents.
+- `/closed-loop`: Basic **Actual Execution Loop**, optional **AWS Windows**, and existing **Evaluate Log Rules** tab. HTTP revalidation,distinguishes between static Windows hands-on scenarios and,offline label evaluation. For AWS connection, refer to [Separate Bridge Instructions](aws-windows-loop.md).
+- `/function/purple`: Confirmation of detection and blocking linked to re-verification of existing attacks.
 
-LLM 연결·로그 출처·권한·인증은 같은 웹앱의 기존 설정을 사용합니다. 기본 실행 서비스는 ARTEX와 PostgreSQL입니다.
+LLM connection, log source, permissions, and authentication use the existing settings of the same web app. The default execution services are ARTEX and PostgreSQL.
 
-## 실제 실행 루프
+## actual execution loop
 
-### 준비와 실행 순서
+### Preparation and execution sequence
 
-1. 기존 ARTEX 점검으로 저장된 **원본 취약점**을 준비합니다. 취약점 상세의 **방어 검증**에서 재현 범위·검사 제약·기대 탐지 등을 검토해 방어 계획을 저장합니다. 상속된 취약점은 원본에서 실행합니다.
-2. **Closed-loop → 실제 실행 루프**에서 시나리오와 취약점을 선택합니다. 저장된 방어 계획 revision, 취약점 근거 version과 fingerprint를 확인합니다. 계획을 다른 화면에서 수정했다면 **최신 계획 읽기**를 선택합니다.
-3. 로그 근거 방식으로 **Splunk** 또는 **로그 파일**을 선택합니다. Splunk는 등록된 검색 연결을 선택하고, 파일은 출처 이름과 시각·검증 ID·조치·이벤트 ID의 필드 이름을 준비합니다. 로그 대상은 원본 취약점의 허가된 자산에서 추론하며, 경로 접두사를 비우면 `/`를 사용합니다. 로그에 기록된 대상 값이 다르면 범위 설정을 확인하세요.
-4. 기준 규칙 JSON을 입력합니다. `equals`·`contains`, OR인 `any`, AND인 `all`을 사용하며, 저장된 방어 계획이 `event_filter`이면 내용을 불러옵니다. 조건은 원본 감사 로그의 허용된 행동 필드만 사용합니다. 실행 UUID·시각·이벤트 ID·정답 레이블을 탐지 조건으로 사용하지 않습니다.
-5. 대상과 권한 범위를 확인하고 **기준 공격 실제 실행**을 선택합니다. 기존 LLM 설정의 ARTEX 재검증 에이전트가 실제 요청을 보내고, 재검증 ID·방어 실행 ID·고유 검증 UUID를 저장합니다. 실행 세션과 상태를 확인하거나 중단할 수 있습니다. 실행 완료와 취약점 악용 재현은 별도 판정입니다.
-6. 실행이 끝난 뒤 **최소 60초의 로그 관측 기간**을 기다립니다. Splunk는 **실제 로그 수집·그림자 평가**로 감사·경보를 조회합니다. 파일은 해당 실행의 감사 파일과 경보 파일을 업로드하고 조회 기간·전체 내보내기 여부를 확인합니다. 실제 경보 조회가 비어 있었다면 파일 제출에서 그 사실을 명시합니다. 업로드 후 실제 로그 평가를 저장합니다. 60초는 최소 대기이며 스케줄 경보와 로그 반영의 최대 지연을 보장하지 않습니다. 늦은 경보가 가능하면 같은 실행을 다시 수집하고, 파일은 같은 조회 범위의 원본을 다시 내보내 업로드하세요.
-7. **기준 감사 로그에서 후보 제안**을 선택하거나 후보 JSON을 직접 작성합니다. 제안은 저장된 기준 감사 이벤트만 사용하며 운영 규칙을 변경하지 않습니다. 조건과 정상 활동 가능성을 검토하고 **규칙 변경 이유**를 적어 후보 revision을 저장합니다.
-8. **새 검증 ID로 공격 재실행**을 선택합니다. 같은 취약점과 저장된 검사 조건에서 새로운 ARTEX 재검증을 실행합니다. 새 UUID와 새 시간 범위에 맞는 로그를 다시 수집합니다. 이전 공격의 파일을 새 실행의 증거로 사용하지 않습니다.
-9. 실제 경보 전후 결과와 규칙 비교 근거를 확인하고 **원본 근거 JSON 내보내기**로 보관합니다. 한 루프는 기준 공격과 새 재실행 한 쌍으로 고정됩니다. 재실행이 만들어진 뒤 후보를 수정하거나 추가 공격을 시작하려면 새 루프를 만듭니다.
+1. Prepare the **original vulnerability** saved as an existing ARTEX check. Review the reproduction range, inspection constraints, expected detections, etc. in **Defense Verification** of the vulnerability details and save the defense plan. Inherited vulnerabilities run from the source.
+2. **Closed-loop → Select scenarios and vulnerabilities in the actual execution loop**. Check saved defense plan revision, vulnerability basis version and fingerprint. If you modified your plan from another screen, select **Read Latest Plan**.
+3. Select **Splunk** or **Log File** as the log basis method. Splunk selects the registered search connection and prepares the file with the source name and field names of time, validation ID, action, and event ID. The log destination is inferred from the licensed assets of the original vulnerability, using `/` if the path prefix is ​​left empty. If the target values ​​recorded in the log are different, check the range settings.
+4. Enter the baseline rule JSON. `equals` · `contains`, OR `any`, AND `all` are used, and if the saved defense plan is `event_filter`, the contents are loaded. The condition uses only the Allowed Actions fields from the original audit log. Execution UUID, time, event ID, and answer label are not used as detection conditions.
+5. Confirm the target and privilege set and select **Actual Run Baseline Attack**. The ARTEX revalidation agent in an existing LLM setup sends the actual request and stores the revalidation ID, defense execution ID, and unique verification UUID. You can check or abort running sessions and status. Completion of execution and reproduction of vulnerability exploitation are separate judgments.
+6. After execution finishes, wait **at least 60 seconds of log observation period**. Splunk retrieves audits and alerts with **real log collection and shadow evaluation**. The file uploads the audit file and alarm file of the corresponding execution and checks the viewing period and whether to export the entire file. If the actual alert query was empty, this will be stated in the file submission. Save actual log evaluation after upload. 60 seconds is the minimum wait and does not guarantee the maximum delay in schedule alerts and log reflection. If late alerts are possible, re-collect the same run and upload the files by re-exporting the original with the same hit range.
+7. Select **Suggested Candidates from Baseline Audit Logs** or write your own candidate JSON. The proposal only uses stored baseline audit events and does not change the operating rules. Review the conditions and the possibility of normal activity, write down the **reason for the rule change**, and save the candidate revision.
+8. Select **Rerun attack with new verification ID**. Run a new ARTEX revalidation with the same vulnerabilities and saved scan conditions. Collect logs again for the new UUID and new time range. Files from previous attacks are not used as evidence for new executions.
+9. Check the actual alert before and after results and rule comparison basis and save them as **Export original evidence JSON**. One loop is fixed with a baseline attack and a pair of new reruns. After a rerun is made, create a new loop to modify the candidates or launch additional attacks.
 
-취약점 상세의 **침해 조사** 진입점도 유지합니다. 실제 실행 로그 수집과 AI 과거 로그 조사는 별도 작업이며, 수집 버튼만으로 AI 조사를 자동 시작하지 않습니다.
+We also maintain the **Breach Investigation** entry point for vulnerability details. Collecting actual execution logs and investigating AI past logs are separate tasks, and AI investigation does not automatically start with just the collection button.
 
-### 두 로그 출처
+### Two log sources
 
-| 출처 | 근거 수집 | 확인할 한계 |
+| Source | Gather evidence | Limits to check |
 |---|---|---|
-| Splunk 직접 조회 | 저장된 연결·index·sourcetype과 실제 실행 UUID·시간 범위를 사용해 감사/경보를 읽고, 대상·경로를 제한한 감사 검색에 두 규칙을 적용합니다. | 검색 완료와 센서의 수집 범위 완전성은 다릅니다. 연결 설정 변경, 수집 오류·한도·누락은 비교 근거에 남습니다. |
-| 파일 업로드 | 기존 방어 검증의 감사/경보 JSONL·JSON·CSV 업로드를 재사용합니다. 서버가 원문·해시·실행 UUID·기간을 검증하고 감사 이벤트에 규칙을 적용합니다. | 출처와 전체 내보내기 확인은 업로더의 선언에 의존합니다. 로컬 파일 일치는 실제 SIEM의 경보 발생을 증명하지 않습니다. |
+| Splunk direct query | Reads audits/alerts using stored connection·index·sourcetype and actual execution UUID·time range and applies two rules for audit search with limited target/path. | There is a difference between completion of the search and completeness of the sensor's collection coverage. Changes in connection settings and collection errors, limits or omissions remain the basis for comparison. |
+| Upload File | Reuse audit/alert JSONL·JSON·CSV uploads from existing defense verification. The server verifies the source text, hash, execution UUID, and period and applies rules to the audit event. | Verification of origin and full export relies on the uploader's declaration. Local file matching does not prove that an alert occurred in the actual SIEM. |
 
-대상·경로·행동 필드의 기본 매핑은 `target`, `path`, `action` 등의 원본 필드입니다. API에는 `log_mapping`이 있지만 현재 실제 루프 화면은 파일의 기본 검증 필드와 대상·경로 범위를 설정합니다. 조직의 원본 필드 구조가 다르면 기본값을 그대로 사용해 완전한 수집으로 간주하지 마세요.
+The default mapping for the target/path/action fields is the source fields `target`, `path`, and `action`. There is `log_mapping` in the API, but currently the actual loop screen sets the default validation fields and destination/path range for the file. If your organization's source field structure is different, accept the defaults and don't consider this a complete collection.
 
-### 실제 경보와 후보 규칙 일치의 차이
+### Differences between actual alerts and candidate rule matches
 
-| 화면 결과 | 의미 | 의미하지 않는 것 |
+| screen result | Meaning | What it doesn't mean |
 |---|---|---|
-| 실제 기존 경보 탐지·차단 | 해당 실행의 감사 로그와 실제 alert 기록에 근거한 탐지/정책 조치 판정 | 후보 규칙이 설치됐다는 증거, HTTP 상태 코드만으로 확정한 차단 |
-| 후보 규칙에 귀속된 실제 경보 | Splunk에서 직접 수집한 새 실행의 실제 경보에 규칙 ID가 명시되고 규칙 SHA-256이 저장된 후보 해시와 일치할 때만 `detected` | 파일의 규칙 참조만으로 확정한 독립 귀속, 귀속 근거가 없다는 이유만으로 확정한 후보 미탐·배포 실패 |
-| 규칙 그림자 평가(shadow) | 실제 감사 로그를 대상으로 기준/후보 조건을 별도 계산한 일치·불일치·판정 불가 | 실제 경보 발화나 보안 정책 변경 |
-| 두 실행의 기존 경보 비교 | 기준 실행과 새 실행에서 각각 관측한 경보 결과 | 외부 규칙·수집 설정 변경을 자동 통제한 실험 |
-| 동일 재실행 로그의 두 규칙 비교 | 새 실행의 같은 감사 이벤트에 기준 규칙과 후보 규칙을 적용한 결과 | 서로 다른 입력 표본의 정확도 비교 |
+| Detection and blocking of actual existing alarms | Detection/policy action decision based on audit log and actual alert records of the execution | Evidence that a candidate rule has been installed, blocking confirmed by HTTP status code alone |
+| Actual alerts attributed to a candidate rule | `detected` only when a new alert collected directly from Splunk includes the rule ID and its SHA-256 matches the saved candidate hash | A file reference alone does not prove independent attribution; missing attribution does not prove a missed detection or deployment failure |
+| rule shadow evaluation | Match/disagreement/judgment is not possible by separately calculating standard/candidate conditions for actual audit logs | Actual alarm ignition or security policy change |
+| Compare existing alerts from two runs | Alarm results observed in the baseline and new runs, respectively | Experiment with automatic control of changes to external rules and collection settings |
+| Compare two rules from the same redo log | Results of applying baseline and candidate rules to the same audit event in a new run | Accuracy comparison of different input samples |
 
-실제 경보에 규칙 ID·SHA-256이 들어 있으면 그 참조를 별도로 보여줍니다. 전체 탐지기의 기존 경보 결과와 `candidate_native_rule_detection`은 구분합니다. 후보 해시와 연결할 명시적 규칙 참조가 없으면 `not_attributed`이며, 경보가 존재한다는 이유만으로 해당 경보를 후보에 귀속하지 않습니다. 수집 범위가 불완전하거나 필드가 없거나 값이 잘렸다면 결과를 확인 불가로 남기며 미탐/성공으로 확정하지 않습니다.
+If the actual alert contains rule ID·SHA-256, its reference is shown separately. `candidate_native_rule_detection` is distinguished from the existing alarm results of the entire detector. If there is no explicit rule reference to associate with a candidate hash, `not_attributed`, we do not attribute the alert to a candidate just because the alert exists. If the collection range is incomplete, fields are missing, or values ​​are truncated, the results will remain unverifiable and will not be confirmed as false/successful.
 
-두 공격 실행만으로 precision·recall·오탐률·MTTD·MTTR을 만들지 않습니다. 현재 실제 루프에는 정상 트래픽 정답 표본, 독립 경보 시각 검증, 실제 대응 실행의 시간 근거가 없습니다. 해당 수치를 실제 루프의 성능 지표로 표시하지 않습니다.
+Executing two attacks alone does not produce precision, recall, false positive rate, MTTD, or MTTR. Currently, real-world loops do not have normal traffic sampling, independent alert visual verification, or time basis for actual response execution. We do not show that number as a performance indicator of the actual loop.
 
-### API와 이력 보존
+### API and history preservation
 
-실제 루프는 `/api/closed-loop/live-cycles`에 저장합니다. 인증은 기존 웹앱과 같습니다.
+The actual loop is saved in `/api/closed-loop/live-cycles`. Authentication is the same as in traditional web apps.
 
-| 요청 | 동작 |
+| request | Action |
 |---|---|
-| `GET /api/closed-loop/live-cycles` | 최근 실제 루프 목록 |
-| `POST /api/closed-loop/live-cycles` | 기준 ARTEX 실행과 루프 생성. `request_id` UUID, 취약점 ID, 방어 계획/근거 version, 로그 출처와 기준 규칙 필요 |
-| `GET /api/closed-loop/live-cycles/{id}` | 실행 상태·규칙·관측 요약·비교 조건 |
-| `POST /api/closed-loop/live-cycles/{id}/collect` | 종료된 실행의 실제 로그 조회 또는 업로드한 근거 평가 |
-| `POST /api/closed-loop/live-cycles/{id}/suggest` | 저장된 기준 감사 로그에서 후보 제안 |
-| `PUT /api/closed-loop/live-cycles/{id}/candidate` | `expected_revision`, `rule`, `note`로 후보 저장 |
-| `POST /api/closed-loop/live-cycles/{id}/rerun` | `expected_revision`에 맞는 새 실제 재검증 시작 |
-| `POST /api/closed-loop/live-cycles/{id}/stop` | 현재 공격 실행 중단 및 이력 보존 |
-| `GET /api/closed-loop/live-cycles/{id}/export` | 원본 로그·실행 스냅샷·규칙·해시·관측 이력 JSON |
+| `GET /api/closed-loop/live-cycles` | Recent Real Loop List |
+| `POST /api/closed-loop/live-cycles` | Run the baseline ARTEX and create a loop. `request_id` UUID, vulnerability ID, defense plan/basis version, log source and standard rules required |
+| `GET /api/closed-loop/live-cycles/{id}` | Execution status, rules, observation summary, comparison conditions |
+| `POST /api/closed-loop/live-cycles/{id}/collect` | View actual logs of terminated runs or evaluate uploaded rationale |
+| `POST /api/closed-loop/live-cycles/{id}/suggest` | Candidate suggestions from saved criteria audit logs |
+| `PUT /api/closed-loop/live-cycles/{id}/candidate` | Save candidates as `expected_revision`, `rule`, `note` |
+| `POST /api/closed-loop/live-cycles/{id}/rerun` | Start of new physical revalidation for `expected_revision` |
+| `POST /api/closed-loop/live-cycles/{id}/stop` | Stop current attack execution and preserve history |
+| `GET /api/closed-loop/live-cycles/{id}/export` | Original log·execution snapshot·rule·hash·observation history JSON |
 
-생성 요청의 같은 UUID를 다시 보내면 동일 실행을 반환합니다. 같은 revision의 재실행 요청도 기존 새 실행을 반환합니다. 예상 revision이 다르면 저장/실행을 거절합니다. 계획·근거·로그 연결의 변경으로 실행이 stale이 되면 재실행이나 비교 조건 충족이 제한되므로, 변경 내용을 확인하고 새 루프에서 시작하세요. 일반 상세 응답은 원문을 생략하며 전체 근거는 내보내기에 보존합니다. 원본 내보내기를 공개할 때는 인증 정보와 민감한 로그를 제거하세요.
+Sending the same UUID in the create request again will return the same execution. A re-execution request of the same revision also returns a new existing execution. If the expected revision is different, save/run is refused. If execution becomes stale due to a change in plan, basis, or log connection, re-execution or satisfaction of comparison conditions is limited, so check the changes and start in a new loop. For general detailed responses, the original text is omitted and the entire rationale is preserved for export. When making your original export public, remove authentication information and sensitive logs.
 
-### 규칙 배포 범위
+### Rule deployment scope
 
-일반 HTTP 재검증 루프의 후보 저장·수집·재실행 API는 **운영 SIEM의 규칙이나 차단 정책을 자동 적용하지 않습니다.** Splunk 연결은 기존 검색 계정을 사용합니다. 실제 후보 경보 발화를 따로 확인하는 선택형 [로컬 실습 helper](../lab/purple/loop_rule.py)는 별도 소유 실습 Splunk의 전용 saved search만 다룹니다. 선택형 [AWS Windows 브리지](aws-windows-loop.md)는 고정 실습 대상과 전용 saved search의 기준·후보 규칙 실제 적용 경로를 따로 제공합니다. 두 실습 경로의 관리 권한은 일반 제품 검색 연결과 분리하며, 기존 운영 규칙이나 CRS를 바꾸는 범용 배포 기능이 아닙니다.
+The Candidate Store, Collect, and Rerun API for a regular HTTP revalidation loop **does not automatically apply rules or blocking policies from your production SIEM.** Splunk connections use existing search accounts. The optional [local lab helper](../lab/purple/loop_rule.py), which separately checks for actual candidate alert firings, only covers dedicated saved searches in Splunk's separately owned lab. The optional [AWS Windows Bridge](aws-windows-loop.md) provides separate fixed practice targets and a separate route for actual application of standard/candidate rules for dedicated saved searches. The administrative rights for both lab paths are separate from regular product search connections and are not a universal deployment feature that changes existing operating rules or CRS.
 
-## 독립 사건 조사
+## independent case investigation
 
-1. **Defensive**에서 대상 호스트, 조회 시작·종료, 필요한 경우 경로를 입력합니다.
-2. **파일**을 선택해 JSONL·JSON·CSV 로그를 업로드하거나, **Splunk**에서 기존 검색 연결과 sourcetype을 선택합니다. Splunk 검색 미리보기는 조회문만 보여주며 원격 검색을 실행하지 않습니다.
-3. 실제 원본 필드가 다르면 필드 매핑을 수정합니다. 로그 출처·시간·대상 범위의 확인 항목은 원본 조회 조건을 확인한 경우에만 선택합니다.
-4. 근거를 저장해 사건을 만듭니다. 로그 내용·파일 SHA-256·검색 범위·수집 경고와 정적 요청 흐름이 보존됩니다. 취약점은 선택적으로 연결할 수 있으며 새 취약점을 자동 생성하지 않습니다.
-5. 저장한 사건에서 필요하면 **AI 조사 시작**을 선택합니다. 기존 LLM 설정이 필요하며, 선택한 로그 일부가 해당 모델 공급자에 전달됩니다. 파일 조사에는 업로드 파일 밖의 로그가 없습니다. Splunk 조사에는 기존 허용 범위 안의 추가 읽기 전용 조회가 가능합니다.
-6. 조사 이력에서 계획·도구 실행·근거 인용·관측/추론·정상 대안·추가 자료 요청을 확인합니다. 중지한 실행도 보존됩니다. 원본 보관은 사건 또는 AI 실행의 JSON 내보내기를 사용합니다.
+1. In **Defensive**, enter the target host, start/end query, and path if necessary.
+2. Select **File** to upload JSONL, JSON, or CSV logs, or select an existing search connection and sourcetype from **Splunk**. Splunk search preview only shows queries and does not run remote searches.
+3. If the actual source fields are different, modify the field mapping. Confirmation items for log source, time, and target range are selected only when the original search conditions are confirmed.
+4. Save the evidence to create a case. Log content, file SHA-256, search scope, collection warnings and static request flows are preserved. Vulnerabilities can be optionally linked and do not automatically create new vulnerabilities.
+5. Select **Start AI Investigation** on a saved case if necessary. An existing LLM setup is required, and a portion of the selected logs will be passed to the appropriate model provider. File inspection has no logs outside of the uploaded file. Splunk investigations allow for additional read-only queries within existing tolerances.
+6. In the investigation history, check plans, tool implementation, citing evidence, observations/inferences, normal alternatives, and requests for additional data. Stopped executions are also preserved. Original archiving uses a JSON export of an incident or AI run.
 
-AI 조사는 최대 3회 계획, 18회 모델 호출, 12회 조회, 3회 원격 조회, 4분으로 제한합니다. 기존 취약점 조사와 독립 사건 조사는 동시에 하나만 실행할 수 있습니다. 서비스 재시작으로 남은 실행은 `interrupted`가 되며 모델을 자동 재호출하지 않습니다. 조사 완료는 침해 확정과 다릅니다.
+AI investigations are limited to a maximum of 3 plans, 18 model calls, 12 queries, 3 remote queries, and 4 minutes. Only one existing vulnerability investigation and one independent incident investigation can be run at the same time. After restarting the service, the remaining execution will be `interrupted` and will not automatically recall the model. Completion of an investigation is not the same as confirmation of infringement.
 
-### 연결 없이 화면을 확인하는 합성 예제
+### Composite example of checking the screen without connection
 
-[`incident.jsonl`](examples/aegisloop/incident.jsonl)은 원본 시스템에서 수집한 실습 증적이 아닌 **합성 로그**입니다. 대상 `demo.example`, 기간 `2026-10-09T09:00:00Z`~`2026-10-09T11:00:00Z`, 경로 제한 없음으로 업로드해 파일 저장과 타임라인을 확인할 수 있습니다. UI 시간 입력은 브라우저 로컬 시간입니다. 한국 시간에서는 18:00~20:00입니다. 예제의 경보·허용·차단 기록만으로 실제 침해 여부를 확정할 수 없습니다.
+[`incident.jsonl`](examples/aegisloop/incident.jsonl) is a **synthetic log**, not a practice log collected from the original system. You can upload the target `demo.example`, period `2026-10-09T09:00:00Z`~`2026-10-09T11:00:00Z`, and no path restrictions to save the file and check the timeline. UI time input is browser local time. It is 18:00~20:00 in Korean time. It is not possible to determine actual infringement based on the alarm/allow/block records in the example.
 
-## 로그 규칙 평가: 기존 오프라인 비교
+## Log Rule Evaluation: Traditional Offline Comparison
 
-**Closed-loop → 로그 규칙 평가**에는 기존 업로드·후보 제안·지표 계산·이력·내보내기 흐름을 유지합니다. 입력 이벤트의 `fields`에 대한 `equals`·`contains` 조건을 실행합니다. `any`는 OR, 각 분기의 `all`은 AND입니다. 이 탭은 공격을 실행하지 않으며 Sigma·Suricata 실행이나 운영 정책 배포 기능도 아닙니다.
+**Closed-loop → Log rule evaluation** maintains the existing upload/candidate proposal/indicator calculation/history/export flow. Executes the conditions `equals`·`contains` for `fields` in the input event. `any` is OR, and `all` in each branch is AND. This tab does not launch attacks, nor does it function as a Sigma·Suricata launcher or operational policy deployment function.
 
-1. 시나리오 이름을 정하고 기준 규칙 JSON을 입력합니다.
-2. **개선용 로그**를 업로드합니다. 각 이벤트는 `event_id`, 정답 `label`(`attack` 또는 `benign`), 실제 관측 필드 `fields`를 포함해야 합니다.
-3. 후보 제안은 개선용 로그만 사용합니다. 제안된 조건이 원본 로그에서 관측 가능한지, 정상 활동에도 일치하는지 확인하고 후보 규칙을 편집합니다.
-4. 후보를 정한 다음 별도의 **평가용 로그**를 업로드합니다. 동일 이벤트 ID와 동일 필드 내용이 개선·평가 쪽에 중복되면 평가를 거부합니다. label과 event_id는 규칙 조건으로 사용할 수 없습니다.
-5. 기준·후보 규칙을 같은 평가 로그에 적용합니다. TP/FP/TN/FN, precision, recall, false-positive rate와 이벤트별 근거를 비교합니다. 필드가 부족한 이벤트는 unknown으로 남고, 지표의 분모가 없으면 `null`입니다.
-6. 평가 이력을 저장하면 서버가 수치를 다시 계산해 불변 기록으로 남깁니다. 취약점·사건 ID는 선택적으로 연결하고 당시 근거를 함께 보존할 수 있습니다. 원본 로그·규칙·SHA-256·결과는 JSON으로 내보냅니다.
-7. 남은 미탐·오탐·누락 필드를 다음 검증 우선순위로 사용합니다. 이 오프라인 탭에서 후보를 운영에 배포하거나 Offensive 작업을 실행하지 않습니다.
+1. Name your scenario and enter your baseline rule JSON.
+2. **Upload logs for improvement**. Each event must contain `event_id`, the correct answer `label` (`attack` or `benign`), and the actual observed field `fields`.
+3. Candidate proposals only use logs for improvement. Verify that the proposed conditions are observable in the original logs and also match normal activity, and edit candidate rules.
+4. After selecting candidates, upload a separate **evaluation log**. If the same event ID and same field contents are duplicated in the improvement/evaluation page, the evaluation will be rejected. label and event_id cannot be used as rule conditions.
+5. Apply the criteria and candidate rules to the same evaluation log. Compare TP/FP/TN/FN, precision, recall, false-positive rate and event-specific evidence. Events with insufficient fields remain unknown, and if there is no denominator for the indicator, it is `null`.
+6. When you save the evaluation history, the server recalculates the numbers and leaves them as an immutable record. Vulnerability/incident IDs can be selectively linked and the evidence at the time can be preserved together. Original logs, rules, SHA-256, and results are exported as JSON.
+7. The remaining false positive, false positive, and missing fields are used as the next verification priority. You will not deploy candidates to Operations or run Offensive actions in this offline tab.
 
-실제 규칙별 경보 시각 `baseline_alert_at`·`candidate_alert_at`, 발생 시각 `occurred_at`과 시각 출처 확인이 있을 때만 해당 표본의 MTTD를 계산합니다. 미탐 이벤트는 탐지 시간 평균에 포함되지 않으므로 recall과 함께 읽어야 합니다. 실제 대응 실행이 없는 이 MVP에는 MTTR을 만들지 않습니다.
+The MTTD of the sample is calculated only when there is actual alarm time `baseline_alert_at`·`candidate_alert_at`, occurrence time `occurred_at`, and time source confirmation for each rule. Undetected events are not included in the detection time average and must be read together with recall. We do not create an MTTR for this MVP as it has no actual response execution.
 
-### 규칙 비교 합성 예제
+### Rule Comparison Synthesis Example
 
-- 개선용: [`tuning.jsonl`](examples/aegisloop/tuning.jsonl)
-- 평가용: [`evaluation.jsonl`](examples/aegisloop/evaluation.jsonl)
-- 기준 규칙: [`baseline-rule.json`](examples/aegisloop/baseline-rule.json)
-- 편집한 후보 규칙: [`candidate-rule.json`](examples/aegisloop/candidate-rule.json)
+- For improvement: [`tuning.jsonl`](examples/aegisloop/tuning.jsonl)
+- For evaluation: [`evaluation.jsonl`](examples/aegisloop/evaluation.jsonl)
+- Base rule: [`baseline-rule.json`](examples/aegisloop/baseline-rule.json)
+- Edited candidate rule: [`candidate-rule.json`](examples/aegisloop/candidate-rule.json)
 
-두 데이터셋은 각각 공격 2건·정상 2건입니다. 기준은 기존 경로만 확인하므로 평가용 TP=1, FP=1, TN=1, FN=1입니다. 후보는 비공개 경로와 비인증 상태를 함께 확인해 이 예제에서 TP=2, FP=0, TN=2, FN=0입니다. 이 수치는 **합성 입력에서 매처의 계산이 동작하는지 확인하기 위한 값**이며 실무 탐지 성능을 입증하지 않습니다. `auth_state`가 실제 로그에 없으면 이 후보를 그대로 사용할 수 없습니다.
+The two datasets contain 2 attacks and 2 normal cases, respectively. The criteria is TP=1, FP=1, TN=1, FN=1 for evaluation since it only checks existing paths. Candidates check the private route and unauthenticated status together, so in this example TP=2, FP=0, TN=2, FN=0. These numbers are **values ​​to check that the matcher's calculations work on synthetic input** and do not prove practical detection performance. If `auth_state` is not in the actual log, this candidate cannot be used as is.
 
-## 시연 환경과 후속 범위
+## Demonstration environment and follow-up scope
 
-Juice Shop·WAF·Splunk·Attack Range와 AWS 대상은 제품의 기본 설치 구성과 별도입니다. **AWS는 실제 동작을 확인하고 공개 증적을 만들기 위한 임시 시연 환경입니다. 장기 서비스 인프라를 만드는 것이 이 프로젝트의 목표는 아닙니다.** 환경 준비·운영·정리는 별도 실습 절차이며, 장기 유지나 추가 클라우드 자원 생성을 실제 루프 기능의 전제로 삼지 않습니다.
+Juice Shop·WAF·Splunk·Attack Range and AWS targets are separate from the product's default installation configuration. **AWS is a temporary demonstration environment to see real-world behavior and create a public trail. Creating a long-term service infrastructure is not the goal of this project.** Preparing, operating, and cleaning up the environment is a separate hands-on procedure, and neither long-term maintenance nor the creation of additional cloud resources are prerequisites for actual loop functionality.
 
-정답 라벨과 원본 시각의 신뢰도는 업로더 확인에 의존합니다. 필드 해시로 모든 형태의 중복·상관 표본·라벨 누수를 찾을 수는 없습니다. 평가 결과를 보고 후보를 다시 조정한 경우에는 그 데이터가 최종 미사용 평가용 데이터가 아니므로 새로운 데이터로 검증해야 합니다.
+The reliability of the correct answer label and the original view depends on uploader verification. Field hashes cannot find all forms of duplicates, correlated samples, or label leaks. If the candidate is readjusted based on the evaluation results, the data is not final unused evaluation data and must be verified with new data.
 
-현재는 독립 조사, 오프라인 평가와 사용자가 시작하는 실제 재검증 루프를 제공합니다. 코드·바이너리 분석 어댑터, Fuzzer, ATT&CK coverage 평가, Alert Triage 전용 에이전트, 운영 규칙 배포 승인, 실제 대응 자동화와 조사 결과에서 공격 계획을 자율적으로 바꾸는 정책 루프는 [후속 요구사항](aegisloop-source-analysis.md#이번-mvp와-후속-요구사항)에 남습니다.
+We now offer independent investigation, offline evaluation, and a user-initiated real-world revalidation loop. Code/binary analysis adapter, fuzzer, ATT&CK coverage evaluation, Alert Triage dedicated agent, operational rule deployment approval, automation of actual response, and policy loop to autonomously change attack plan based on investigation results remain in [Follow-up Requirements](aegisloop-source-analysis.md#this-mvp-and-follow-up-requirements).

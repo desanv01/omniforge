@@ -13,10 +13,10 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/evidence"
 	actool "github.com/Autumn-27/norma/tool"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/evidence"
 )
 
 // 사용자 노출 HTTP 에러 응답 문구. 아래 네 문구는 HTTP 핸들러(findingTrafficAccess·
@@ -26,10 +26,10 @@ import (
 // roTool("get_finding_traffic") 도구 설명은 에이전트가 읽는 두뇌 입력이라 원문을
 // 보존한다(각 지점 주석 참조, F16 두뇌 경계 계열).
 const (
-	errFindingTrafficInheritedReadonly  = "상속된 취약점은 읽기 전용이라 출처 작업에서 수정해야 합니다"
-	errFindingTrafficSelectRequired     = "트래픽을 선택하세요"
-	errFindingTrafficVersionRequired    = "version 과 유효한 요청 본문은 필수입니다"
-	errFindingTrafficBindingIDsRequired = "binding_ids 는 필수입니다"
+	errFindingTrafficInheritedReadonly  = "Inherited vulnerabilities are read-only and must be fixed in the source action."
+	errFindingTrafficSelectRequired     = "Choose your traffic"
+	errFindingTrafficVersionRequired    = "version and a valid request body are required"
+	errFindingTrafficBindingIDsRequired = "binding_ids is required"
 )
 
 func (s *Server) evidenceStore() *evidence.Store {
@@ -257,7 +257,7 @@ type evidencePreview struct {
 // 피하려고 중국어 원문을 보존한다(F16 두뇌 경계 계열 — 표시/입력 분리는 별도 결정 대기).
 func readEvidencePreview(store *evidence.Store, snapshot db.TrafficEvidenceSnapshot, side string, offset, length int64) (out evidencePreview, err error) {
 	if offset < 0 || length < 0 {
-		return out, errors.New("offset / length 不能为负数")
+		return out, errors.New("offset / length cannot be negative")
 	}
 	if length == 0 || length > 8192 {
 		length = 8192
@@ -268,7 +268,7 @@ func readEvidencePreview(store *evidence.Store, snapshot db.TrafficEvidenceSnaps
 	}
 	defer f.Close()
 	if offset > total {
-		return out, errors.New("offset 超出正文长度")
+		return out, errors.New("offset exceeds text length")
 	}
 	if _, err = f.Seek(offset, io.SeekStart); err != nil {
 		return out, err
@@ -291,7 +291,7 @@ func readEvidencePreview(store *evidence.Store, snapshot db.TrafficEvidenceSnaps
 	out = evidencePreview{Offset: offset, Total: total, NextOffset: offset + int64(len(raw)), Truncated: offset+int64(len(raw)) < total,
 		Binary: bytes.IndexByte(raw, 0) >= 0 || (offset == 0 && !utf8.Valid(raw))}
 	if out.Binary {
-		out.Content = fmt.Sprintf("[二进制正文，%d 字节；请下载查看]", total)
+		out.Content = fmt.Sprintf("[Binary text, %d bytes; please download and view]", total)
 	} else {
 		out.Content = string(bytes.ToValidUTF8(raw, []byte("�")))
 	}
@@ -383,8 +383,8 @@ func (s *Server) getFindingTrafficBody(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) toolGetFindingTraffic() actool.CoreTool {
-	return roTool("get_finding_traffic", "读取漏洞已绑定的真实流量证据，不依赖捕获开关。finding_id 使用 report_finding JSON 返回的独立漏洞记录 ID（不是第一行的探索节点 ID）。先不传 binding_id 获取清单及 version；空清单是正常情况，TCP 等非 HTTP 漏洞或未采集时仍可依据文字/命令证据编写报告，不强制绑定。有绑定时按 binding_id、side(request/response)、offset 分段读取正文。写报告时将读取的 version 作为 evidence_version 传给 update_finding_report，后者 finding_id 仍使用探索节点 ID。",
-		objSchema(map[string]any{"finding_id": strParam("独立漏洞记录 ID"), "binding_id": strParam("清单里的绑定 ID，省略则返回清单"), "side": strParam("request 或 response，默认 response"), "offset": map[string]any{"type": "integer"}, "length": map[string]any{"type": "integer"}}, "finding_id"),
+	return roTool("get_finding_traffic", "Read the real traffic evidence bound to the vulnerability without relying on the capture switch. finding_id uses the individual vulnerability record ID returned by report_finding JSON (not the discovery node ID of the first row). Do not pass binding_id to get the list and version; an empty list is normal. For non-HTTP vulnerabilities such as TCP or when they are not collected, reports can still be written based on text/command evidence without forcing binding. When there is binding, read the text in sections according to binding_id, side(request/response), and offset. When writing a report, the read version is passed to update_finding_report as evidence_version, and the latter's finding_id still uses the exploration node ID.",
+		objSchema(map[string]any{"finding_id": strParam("Individual vulnerability record ID"), "binding_id": strParam("The binding ID in the list. If omitted, the list will be returned."), "side": strParam("request or response, default response"), "offset": map[string]any{"type": "integer"}, "length": map[string]any{"type": "integer"}}, "finding_id"),
 		func(ctx context.Context, in json.RawMessage) (actool.Result, error) {
 			var a struct {
 				FindingID      json.RawMessage `json:"finding_id"`

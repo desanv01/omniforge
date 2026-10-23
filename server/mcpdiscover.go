@@ -7,10 +7,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/mcphttp"
 	"github.com/Autumn-27/norma/mcp"
 	actool "github.com/Autumn-27/norma/tool"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/mcphttp"
 )
 
 // mcpClient is the shared surface of a connected MCP server (stdio, Streamable HTTP,
@@ -30,10 +30,10 @@ type mcpClient interface {
 // (stdio/http/sse)과 URL 은 와이어 식별자라 원문을 유지하고, UI mcpPage(전송 방식·명령·
 // 원격 URL)와 표기를 맞춘다.
 const (
-	errMCPStdioNoCommand      = "stdio 전송 방식에 명령이 없습니다"
-	errMCPHTTPNoURL           = "http 전송 방식에 URL 이 없습니다"
-	errMCPSSENoURL            = "sse 전송 방식에 URL 이 없습니다"
-	errMCPUnknownTransportFmt = "알 수 없는 전송 방식입니다: %q"
+	errMCPStdioNoCommand      = "There is no command in stdio transport method"
+	errMCPHTTPNoURL           = "There is no URL in http transmission method"
+	errMCPSSENoURL            = "There is no URL in the sse transmission method"
+	errMCPUnknownTransportFmt = "Unknown transfer method: %q"
 )
 
 // connectMCP dials one MCP server per its transport. Callers must Close the client.
@@ -79,7 +79,7 @@ func (s *Server) discoverAndCacheMCP(ctx context.Context, m *db.MCPServer) error
 	if err := s.m.pg.SaveMCPTools(m.ID, tools); err != nil {
 		return err
 	}
-	log.Printf("[mcp] %s 에서 도구 %d개를 발견해 캐시했습니다", m.Name, len(tools))
+	log.Printf("[mcp] Found and cached tool %[2]d on %[1]s", m.Name, len(tools))
 	return nil
 }
 
@@ -90,7 +90,7 @@ func (s *Server) discoverAndCacheMCP(ctx context.Context, m *db.MCPServer) error
 func (s *Server) discoverEmptyMCPsOnStartup() {
 	servers, err := s.m.pg.ListMCP()
 	if err != nil {
-		log.Printf("[mcp] 시작 시 자동 발견: 목록을 읽지 못했습니다: %v", err)
+		log.Printf("[mcp] Auto-discovery on startup: Failed to read list: %v", err)
 		return
 	}
 	for _, m := range servers {
@@ -99,7 +99,7 @@ func (s *Server) discoverEmptyMCPsOnStartup() {
 		}
 		ctx, cancel := context.WithTimeout(s.ctx, 90*time.Second)
 		if err := s.discoverAndCacheMCP(ctx, m); err != nil {
-			log.Printf("[mcp] 시작 시 %s 자동 발견에 실패했습니다: %v", m.Name, err)
+			log.Printf("[mcp] Automatic discovery of %s failed at startup: %v", m.Name, err)
 		}
 		cancel()
 	}

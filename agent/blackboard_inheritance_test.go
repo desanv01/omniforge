@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
 	actool "github.com/Autumn-27/norma/tool"
+	"github.com/desanv01/omniforge/db"
 )
 
 func callReadJSON(t *testing.T, tool actool.CoreTool, input string) any {
@@ -39,7 +39,7 @@ func TestGraphOverviewExpandsAssociatedCompanyScope(t *testing.T) {
 	domain := fmt.Sprintf("overview-scope-%d.invalid", companyID)
 	ip := fmt.Sprintf("2001:db8:%x::42", companyID%0xffff)
 	cidr := fmt.Sprintf("2001:db8:%x:1::/64", companyID%0xffff)
-	icp := fmt.Sprintf("京 ICP 备 %d 号", companyID)
+	icp := fmt.Sprintf("Beijing ICP No. %d", companyID)
 	keyword := fmt.Sprintf("Scope Company %d", companyID)
 	inputs := []db.ScopeInput{
 		{Kind: "domain", Value: domain},

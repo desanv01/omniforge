@@ -1,8 +1,8 @@
-# WAF·Splunk 방어 검증 실습
+# WAF/Splunk defense verification practice
 
-ARTEX로 로컬 취약점 진단을 실행하고, 같은 요청이 WAF에서 차단되는지와 Splunk에서 탐지되는지를 확인하는 선택형 실습 환경입니다. Juice Shop, ModSecurity·OWASP CRS, 로그 수집기와 Splunk를 별도 Docker Compose 프로젝트로 실행합니다. 제품의 기본 실행은 기존처럼 ARTEX와 PostgreSQL입니다.
+An optional hands-on environment to run a local vulnerability assessment with ARTEX and see if the same request is blocked by a WAF and detected by Splunk. Run Juice Shop, ModSecurity·OWASP CRS, log collector, and Splunk as separate Docker Compose projects. The product's primary implementations remain ARTEX and PostgreSQL.
 
-## 연결 구조
+## connection structure
 
 ```text
 ARTEX → purple-lab-target:8080 → WAF → Juice Shop
@@ -12,21 +12,21 @@ ARTEX → purple-lab-target:8080 → WAF → Juice Shop
                                       ARTEX 방어 검증
 ```
 
-브라우저에서 대상에 접속할 때도 WAF 주소를 사용합니다. Juice Shop 직접 주소로 요청하면 WAF 차단 검증에 사용할 수 없습니다. WAF 검사 결과와 실제 요청 처리 기록은 감사 로그로 수집하며, Splunk 탐지 규칙의 결과는 별도의 경보 로그로 수집합니다. 초기 WAF 모드는 `DetectionOnly`이며 `blocking`으로 바꿔야 실제 차단을 검증할 수 있습니다. HTTP 상태 코드나 검증 UUID 자체를 탐지·차단 근거로 삼지 않습니다.
+The WAF address is also used when connecting to the target in the browser. Juice Shop direct addresses cannot be used for WAF blocking verification. WAF inspection results and actual request processing records are collected as audit logs, and the results of Splunk detection rules are collected as separate alarm logs. The initial WAF mode is `DetectionOnly` and must be changed to `blocking` to verify actual blocking. HTTP status code or verification UUID itself is not used as a basis for detection or blocking.
 
-| 접속 대상 | 기본 주소 | 용도 |
+| Connection target | default address | Use |
 | --- | --- | --- |
-| ARTEX | <http://localhost:8787> | 진단·방어 검증·침해 조사 |
-| WAF 앞단의 Juice Shop | <http://localhost:18790> | 브라우저에서 실습 대상 확인 |
-| Splunk Web | <http://localhost:18000> | 수집 로그와 탐지 규칙 결과 확인 |
-| ARTEX 컨테이너의 진단 대상 | `http://purple-lab-target:8080` | WAF를 통과하는 진단·재검증 |
-| ARTEX 컨테이너의 Splunk 관리 API | `https://purple-lab-splunk:8089` | 읽기 전용 로그 조회 |
+| ARTEX | <http://localhost:8787> | Diagnosis/Defense Verification/Breach Investigation |
+| Juice Shop in front of WAF | <http://localhost:18790> | View lab targets in your browser |
+| Splunk Web | <http://localhost:18000> | Check collection logs and detection rule results |
+| Diagnostic targets for ARTEX containers | `http://purple-lab-target:8080` | Diagnosis and re-verification through WAF |
+| Splunk management API in ARTEX containers | `https://purple-lab-splunk:8089` | Read-only log query |
 
-외부에 공개하는 웹 포트는 로컬 컴퓨터의 `127.0.0.1`에 연결합니다. ARTEX는 실습용 Docker 네트워크 `artex-purple-lab-front`에 연결하여 위 별칭에 접근합니다. ARTEX 컨테이너에서 `localhost:18790`이나 `localhost:18000`을 진단·검색 주소로 사용하지 마세요.
+The externally exposed web port connects to `127.0.0.1` on the local computer. ARTEX connects to the lab Docker network `artex-purple-lab-front` to access the above alias. Do not use `localhost:18790` or `localhost:18000` as a diagnosis/search address in the ARTEX container.
 
-## 실습 환경 시작
+## Welcome to the lab environment
 
-Docker Desktop 또는 Docker Engine과 Compose v2, 호스트의 Python 3가 필요합니다. Splunk 컨테이너의 메모리 상한은 4 GiB이며 Juice Shop·WAF·ARTEX도 함께 실행하므로 Docker에 충분한 메모리를 할당합니다. ARTEX를 먼저 시작한 뒤 저장소 루트에서 다음 명령을 실행합니다.
+Requires Docker Desktop or Docker Engine, Compose v2, and Python 3 on the host. Splunk containers have a memory upper limit of 4 GiB, and since they also run Juice Shop, WAF, and ARTEX, allocate enough memory to Docker. Start ARTEX first, then run the following command from the repository root:
 
 ```sh
 ./scripts/local-start.sh
@@ -35,17 +35,17 @@ Docker Desktop 또는 Docker Engine과 Compose v2, 호스트의 Python 3가 필�
 ./scripts/purple-lab.sh status
 ```
 
-명령의 `--accept-splunk-terms`는 [Splunk 일반 약관](https://www.splunk.com/en_us/legal/splunk-general-terms.html)과 이미지의 라이선스 조건에 동의한다는 명시적 선택입니다. 약관을 확인하고 동의하는 경우에만 사용합니다. `init`은 로컬 폴더와 인증 정보만 준비하며 약관에 동의하거나 컨테이너를 실행하지 않습니다. 한 번 동의를 기록한 이후에는 `start`만으로 다시 시작할 수 있습니다.
+The `--accept-splunk-terms` in the command is an explicit choice to agree to the [Splunk General Terms](https://www.splunk.com/en_us/legal/splunk-general-terms.html) and the image's license terms. Use only if you confirm and agree to the terms and conditions. `init` only prepares local folders and authentication information and does not accept terms or run containers. Once you have recorded your consent, you can start over with just `start`.
 
-최초 실행은 이미지 다운로드와 Splunk 초기 구성 때문에 시간이 걸릴 수 있습니다. Apple Silicon에서는 Splunk의 `linux/amd64` 이미지가 에뮬레이션으로 실행됩니다. 준비 상태를 확인한 뒤 다음 단계로 진행합니다.
+The first run may take some time due to downloading the image and initial configuration of Splunk. On Apple Silicon, Splunk's `linux/amd64` image runs in emulation. After checking readiness, proceed to the next step.
 
-Splunk Enterprise의 기본 Trial은 60일입니다. Splunk Free에는 경보 기능과 사용자·역할 기능이 없으므로 이 실습의 실제 경보 및 검색 전용 계정 구성에는 유효한 Enterprise Trial 또는 해당 기능을 지원하는 라이선스가 필요합니다. [Splunk 공식 라이선스 안내](https://help.splunk.com/en/splunk-enterprise/administer/admin-manual/10.6/configure-splunk-licenses/about-splunk-free)를 참고하세요.
+The default trial for Splunk Enterprise is 60 days. Because Splunk Free does not have alerting and user/role capabilities, the actual alerting and search-only account configuration for this lab requires a valid Enterprise Trial or a license that supports those features. Please refer to [Splunk Official License Guide](https://help.splunk.com/en/splunk-enterprise/administer/admin-manual/10.6/configure-splunk-licenses/about-splunk-free).
 
-실습 인증 정보와 설정은 Git에서 제외된 `.local-runtime/purple-lab/`, 내보낸 근거는 `evidence-local/purple-lab/`에 보관합니다. 비밀번호나 토큰을 GitHub에 올리지 마세요. 실습 환경에서 생성한 인덱스·검색 계정은 이 실습용 Splunk에만 사용합니다.
+The lab certification information and settings are stored in `.local-runtime/purple-lab/`, which is excluded from Git, and the exported evidence is stored in `evidence-local/purple-lab/`. Please do not post your password or token to GitHub. The index and search accounts created in the lab environment are used only for Splunk for this lab.
 
-## 먼저 환경 자체 확인
+## First check the environment itself
 
-2026-10-10 로컬 환경에서 실제 WAF와 Splunk를 실행하여 세 가지 사례를 확인했습니다. 각 사례의 감사 로그는 3건, 실제 Splunk 경보는 각각 2건·2건·0건으로 합계 13건입니다. ARTEX의 Splunk 수집 함수로도 같은 5건·5건·3건을 읽었으며 모두 조회 완료, 경고 0건을 확인했습니다. 수집기·TLS·Splunk 구성의 Python 단위 테스트 42개도 통과했습니다. 화면과 검증 범위는 [실제 실습 검증 기록](evidence/purple-lab-2026-10-10.md)에 정리했습니다.
+2026-10-10 We verified three cases by running a real WAF and Splunk in a local environment. In each case, there are 3 audit logs, and the actual Splunk alarms are 2, 2, and 0, respectively, for a total of 13 cases. The same 5, 5, and 3 cases were read using ARTEX's Splunk collection function, and all searches were completed, with 0 warnings. We also passed 42 Python unit tests for Collector, TLS, and Splunk configurations. The screens and verification range are summarized in [Actual Practice Verification Record](evidence/purple-lab-2026-10-10.md).
 
 ```sh
 ./scripts/purple-lab.sh check
@@ -54,62 +54,62 @@ Splunk Enterprise의 기본 Trial은 60일입니다. Splunk Free에는 경보 �
 ./scripts/purple-lab.sh check --waf-only
 ```
 
-기본 `check`는 탐지·미차단, 탐지·차단, 경보 끄기의 세 가지 사례를 실제 요청과 Splunk 검색으로 확인합니다. 검사가 끝나면 WAF를 `DetectionOnly`, Splunk 경보를 `on`으로 복원합니다. `--waf-only`는 이미 실행 중인 WAF의 처리·감사 로그만 확인하고 WAF를 `DetectionOnly`로 복원하며, Splunk를 시작하거나 약관에 동의하지 않습니다.
+The default `check` checks three cases: Detect/Not Block, Detect/Block, and Turn Off Alarm using actual requests and Splunk searches. After the scan is complete, restore WAF to `DetectionOnly` and Splunk alerts to `on`. `--waf-only` only checks the processing and audit logs of the already running WAF, restores the WAF to `DetectionOnly`, and does not start Splunk or agree to the terms and conditions.
 
-각 검사는 고정 Juice Shop 연습파일 `acquisitions.md`의 바이트 수와 SHA-256을 대상 컨테이너에서 읽어 실제 HTTP 응답과 대조합니다. 탐지 전용 구간은 전체 909바이트 파일이 전달되는지, 차단 구간은 같은 파일이 전달되지 않고 WAF 감사 로그에 명시적 차단이 남는지 확인합니다. 원본 파일 본문·계정·토큰은 출력하지 않습니다. 이 확인은 의도적으로 취약한 로컬 연습파일의 접근 성공만 입증하며, 기업 데이터 유출이나 SQLi 악용 성공을 의미하지 않습니다. 현재 준비 상태와 실제 확인 결과는 [환경 준비 기록](evidence/purple-lab-ready-2026-10-10.md)에 정리합니다.
+Each check reads the byte count and SHA-256 from the frozen Juice Shop exercise file `acquisitions.md` from the target container and compares it to the actual HTTP response. The detection-only section checks whether the entire 909-byte file is delivered, and the blocking section checks whether the same file is not delivered and an explicit block is left in the WAF audit log. The original file body, account, and token are not printed. This confirmation only demonstrates successful access to an intentionally vulnerable local exercise file and does not imply a successful enterprise data leak or SQLi exploit. The current readiness status and actual verification results are compiled in [Environmental Readiness Record](evidence/purple-lab-ready-2026-10-10.md).
 
-경보를 끄는 사례는 수집·판정 경로가 정상 동작하는지 확인하는 음성 대조입니다. 실제 탐지 성능이나 규칙 개선 효과의 평가 자료로 사용하지 않습니다. 성능 검증은 경보를 켠 상태에서 실제로 놓친 행위와 정상 활동을 함께 수집하고, 규칙을 바꾼 뒤 새 실행으로 확인해야 합니다.
+An example of turning off an alarm is voice verification to check whether the collection/judgment path is operating normally. It is not used as evaluation data for actual detection performance or rule improvement effectiveness. Performance verification requires collecting both actual missed behavior and normal activity with alerts turned on, changing rules, and verifying them with a new run.
 
-전체 검사 기록은 `evidence-local/purple-lab/environment-check.json`, WAF만 검사한 기록은 `evidence-local/purple-lab/waf-check.json`에 저장됩니다. 이 기록은 독립된 환경 확인이며 ARTEX의 취약점·방어 검증 실행을 생성하지 않습니다. **확인 명령이 만든 UUID와 로그를 다른 ARTEX 재검증의 근거로 대신 업로드하지 마세요.** 실제 ARTEX 실행은 해당 화면에서 생성한 UUID로 별도 검증합니다.
+The entire scan record is saved in `evidence-local/purple-lab/environment-check.json`, and the record of only WAF scans is saved in `evidence-local/purple-lab/waf-check.json`. This recording is an independent environmental check and does not create a vulnerability/defense verification run by ARTEX. **Do not upload the UUID and log generated by the verification command as the basis for another ARTEX re-verification.** The actual ARTEX execution is separately verified with the UUID generated in the corresponding screen.
 
-환경 확인은 WAF를 통과하는 실제 로컬 요청, 감사 로그 수집과 Splunk 규칙 실행 결과를 검사합니다. ARTEX의 LLM 진단을 대신 완료하거나 취약점 결과를 생성하지 않습니다. ARTEX 진단·재검증에는 **시스템 → LLM 설정**에서 활성화한 연결이 필요합니다.
+Environment checks examine actual local requests passing through the WAF, audit log collection, and the results of Splunk rule execution. It does not complete ARTEX's LLM diagnostics on your behalf or generate vulnerability results. ARTEX diagnosis/re-verification requires an activated connection in **System → LLM Settings**.
 
-실습에는 두 종류의 탐지 조건이 있습니다.
+There are two types of detection conditions in the lab.
 
-- **정보 노출 경로 보호:** Juice Shop의 `/ftp`와 하위 경로에 대한 명시적인 실습 정책입니다. 이 경로 접근을 허용·탐지하거나 차단하는 개선 전후 비교에 사용합니다.
-- **OWASP CRS 공격 검사:** CRS가 식별하는 SQL 인젝션 등 요청 패턴을 검사합니다. 이번 탐지 전용 확인에서 SQLi 요청의 백엔드 응답은 HTTP 500이었으며, 규칙 일치는 SQLi 악용 성공을 입증하지 않습니다. CRS 요청의 차단 결과를 `/ftp` 정보 노출 취약점의 개선 근거로 사용하지 않습니다.
+- **Information Disclosure Path Protection:** Explicit practice policy for Juice Shop's `/ftp` and subpaths. This is used to compare before and after improvements that allow, detect, or block access to this path.
+- **OWASP CRS Attack Inspection:** Checks request patterns, including SQL injections, that CRS identifies. In this detection-only check, the backend response to the SQLi request was HTTP 500, and the rule match does not demonstrate a successful SQLi exploit. The results of blocking CRS requests are not used as a basis for improving the `/ftp` information exposure vulnerability.
 
-## ARTEX에 연결하고 새 진단 실행
+## Connect to ARTEX and run new diagnostics
 
 ```sh
 ./scripts/purple-lab.sh connect
 ```
 
-`connect`는 기본 로컬 ARTEX인 `artex-local-artex-1`이 `http://127.0.0.1:8787`에서 실행 중이고, 같은 체크아웃에 `.local-runtime/jwt.key`가 보존된 구성을 대상으로 합니다. 기존 키를 메모리에서 사용하여 짧은 API 인증을 만들며 비밀번호를 재설정하거나 인증 정보를 출력하지 않습니다. 실습용 Splunk 연결과 새 WAF 자산을 추가하고 ARTEX 컨테이너의 실습 네트워크 접근을 준비합니다. 기존 Splunk 연결과 기존 취약점의 원래 대상 주소는 변경하지 않습니다. 연결 화면은 **방어 검증 → Splunk 로그 연결**에서 확인할 수 있으며, 추가되는 연결명은 **로컬 Purple 실습 Splunk**입니다.
+`connect` targets a configuration where the default local ARTEX, `artex-local-artex-1`, is running on `http://127.0.0.1:8787`, and `.local-runtime/jwt.key` is preserved in the same checkout. Creates a short API authentication using an existing key in memory and does not reset passwords or print authentication information. Add a lab Splunk connection and a new WAF asset and prepare the ARTEX container for lab network access. It doesn't change the original target address of existing Splunk connections and existing vulnerabilities. The connection screen can be checked in **Defense Verification → Splunk Log Connection**, and the connection name added is **Local Purple Practice Splunk**.
 
-1. 새로운 진단 작업을 만들고 대상에 **`http://purple-lab-target:8080`**을 지정합니다. 예전의 `http://juice-shop:3000` 대상은 WAF를 우회할 수 있으므로 새 실습 작업을 사용합니다.
-2. 목표를 `/ftp` 공개 파일·목록의 접근 여부 확인처럼 좁게 지정하고, 이 로컬 대상만 점검하도록 범위를 정합니다.
-3. 실제 진단이 발견한 취약점 상세를 엽니다. 기존 취약점 3번을 새 WAF 주소로 고쳐 사용하지 않습니다.
-4. **방어 검증**에서 탐지 가설과 방어 계획을 저장한 뒤 **로컬 Purple 실습 Splunk** 연결을 선택합니다.
-5. **ARTEX 진단 + 방어 검증 시작**을 누릅니다. 실제 재현 요청에는 서버가 만든 `X-ARTEX-Verification-ID`가 전달되며, 감사 로그와 경보에 같은 UUID가 남아야 합니다.
-6. 진단이 정상 종료된 뒤 최소 60초를 기다리고, 로그 전달·경보 처리가 끝났는지 확인한 다음 **로그·경보 수집**을 누릅니다.
+1. Create a new diagnostic task and specify **`http://purple-lab-target:8080`** as the target. The older `http://juice-shop:3000` target can bypass the WAF, so we'll use the new hands-on task.
+2. Specify the goal as narrow as checking whether `/ftp` public files/lists are accessible, and scope the check to only check this local target.
+3. Opens details of the vulnerabilities found by the actual diagnostic. Existing vulnerability #3 will not be used by fixing it with the new WAF address.
+4. In **Defense Validation**, save your detection hypothesis and defense plan and then select **Local Purple Practice Splunk** connection.
+5. Press **Start ARTEX Diagnostics + Defense Verification**. The actual replay request is passed `X-ARTEX-Verification-ID` created by the server, and the same UUID should remain in the audit log and alarm.
+6. After the diagnosis is completed normally, wait at least 60 seconds, check that log delivery/alarm processing is complete, and then click **Collect log/alarm**.
 
-연결 테스트 성공은 Splunk 관리 API의 통신·인증 확인입니다. 실제 감사 로그나 탐지 경보가 있다는 뜻은 아니므로 각 실행의 근거를 수집해 확인합니다.
+A successful connection test confirms communication/authentication of the Splunk management API. This does not mean that there are actual audit logs or detection alerts, so we collect and verify the basis for each execution.
 
-실습 연결의 설정은 다음과 같습니다. 인증서 SHA-256 지문은 실행 중인 실습 Splunk에서 확인한 정확한 값이며, 비밀값이 없는 `.local-runtime/purple-lab/connector-template.json`에도 저장됩니다.
+The settings for the lab connection are as follows: The certificate SHA-256 fingerprint is the exact value seen by Splunk in the running lab, and is also stored in `.local-runtime/purple-lab/connector-template.json`, which has no secret value.
 
-| 설정 | 값 |
+| Settings | value |
 | --- | --- |
-| 인덱스 | `artex_lab` |
-| 감사 sourcetype | `artex:lab:audit` |
-| 경보 sourcetype | `artex:lab:alert` |
-| UUID 필드 | `artex_verification_id` |
-| 실제 조치 필드 | `action` |
-| 읽기 전용 계정 | `artex_lab_search` |
+| index | `artex_lab` |
+| thanks sourcetype | `artex:lab:audit` |
+| alert sourcetype | `artex:lab:alert` |
+| UUID field | `artex_verification_id` |
+| Actual Action Field | `action` |
+| read-only account | `artex_lab_search` |
 
-검색 계정은 이 인덱스의 조회와 서버 정보 확인에 필요한 권한만 사용합니다. 관리자 인증은 실습 Splunk의 초기 구성에 사용하고 ARTEX 연결에 저장하지 않습니다. 인덱스 보존 상한은 256 MiB·7일이므로 장기간 실습에서 오래된 기록은 사라질 수 있습니다.
+The search account uses only the permissions necessary to query this index and check server information. Administrator authentication is used for initial configuration of Splunk in the lab and is not stored in the ARTEX connection. The index retention upper limit is 256 MiB·7 days, so in long-term practice, older records may disappear.
 
-Splunk 경보 규칙은 1분마다 최근 3분의 실제 WAF 감사 이벤트에서 `/ftp` 보호 규칙 `1001001` 또는 CRS SQL 인젝션 규칙 `942xxx`가 일치한 요청을 검사합니다. 모든 CRS 일치를 경보로 복제하지 않으며, 원래 `rule_ids`는 감사 로그에 보존합니다. 경보의 검색 시각 `_time`은 탐지 대상 요청의 원래 시각이며, 경보가 생성된 시각은 `alert_created_at`으로 별도 보존합니다. 규칙 실행과 인덱싱이 늦을 수 있으므로 ARTEX의 종료 후 60초 대기만으로 전달 완료를 가정하지 말고 경보·처리 상태를 확인한 뒤 수집하세요. 늦게 인덱싱된 경보는 같은 실행에서 재수집할 수 있습니다.
+Every minute, the Splunk alert rule checks the last three minutes of actual WAF audit events for requests that match the `/ftp` protection rule `1001001` or the CRS SQL injection rule `942xxx`. All CRS matches are not replicated as alerts, and the original `rule_ids` is retained in the audit log. The alarm search time `_time` is the original time of the detection target request, and the alarm creation time is stored separately as `alert_created_at`. Rule execution and indexing may be delayed, so do not assume delivery is complete just by waiting 60 seconds after ARTEX ends, but check the alert/processing status before collecting. Late indexed alerts can be recollected in the same run.
 
-## 세 가지 비교 실습
+## Three comparative exercises
 
-정책은 새 재검증을 시작하기 전에 설정하고, 해당 실행의 로그 수집까지 유지합니다. 경보를 off에서 on으로 바꿀 때 새 활성화 시각을 기록하여 꺼져 있던 구간의 요청이 이후 조회에서 소급 탐지되지 않도록 합니다. 끄기 전에 이미 시작된 검색은 완료될 수 있으므로 상태를 확인한 뒤 새 실습 요청을 보냅니다. 같은 취약점과 같은 Splunk 연결을 사용하여 새 UUID의 실행을 만듭니다.
+The policy is set before starting a new revalidation and is maintained until log collection of that run occurs. When changing an alarm from off to on, the new activation time is recorded to ensure that requests for the section that was turned off are not retroactively detected in subsequent queries. Searches that have already started before you turn it off may complete, so check the status and send a new lab request. Create a new UUID launch using the same vulnerability and the same Splunk connection.
 
-| 설정 | 명령 | 기대하는 관측 |
+| Settings | command | Expected observations |
 | --- | --- | --- |
-| 검사만 하고 경보 발생 | `mode detection`, `alerts on` | 감사 로그의 허용 조치와 같은 UUID의 실제 경보 |
-| 공격 차단과 경보 발생 | `mode blocking`, `alerts on` | 감사 로그의 명시적 차단 조치와 같은 UUID의 실제 경보 |
-| 검사만 하고 경보 끄기 | `mode detection`, `alerts off` | 감사 로그는 있지만 해당 UUID의 경보는 없음 |
+| Just scan and generate an alarm | `mode detection`, `alerts on` | Actual alerts on UUIDs such as allow actions in audit logs |
+| Block attacks and raise alarms | `mode blocking`, `alerts on` | Actual alerts on UUIDs, such as explicit blocking actions in audit logs |
+| Just scan and turn off the alarm | `mode detection`, `alerts off` | Audit logs but no alerts for that UUID |
 
 ```sh
 # 탐지되지만 요청은 통과하는 기준 실행
@@ -125,7 +125,7 @@ Splunk 경보 규칙은 1분마다 최근 3분의 실제 WAF 감사 이벤트에
 ./scripts/purple-lab.sh alerts off
 ```
 
-`mode`는 WAF 컨테이너를 재생성하므로 모드를 바꾼 뒤 준비 상태를 확인하고 새 ARTEX 재검증을 시작합니다. 다음 HTTP 확인이 성공할 때까지 기다립니다. 이 준비 요청에는 실행 UUID를 넣지 않습니다.
+`mode` regenerates the WAF container, so after changing modes, it checks readiness and starts revalidating a new ARTEX. Wait for the next HTTP verification to succeed. This prepare request does not include an execution UUID.
 
 ```sh
 ./scripts/purple-lab.sh status
@@ -134,11 +134,11 @@ curl --fail --silent --show-error \
   http://localhost:18790/healthz
 ```
 
-표의 결과는 기대값입니다. 실제 요청이 규칙에 일치하고 진단이 정상 완료됐는지, 동일 UUID의 감사·경보가 수집됐는지 확인한 뒤 ARTEX가 판정합니다. 정상 요청은 공격 차단 기대값에 포함하지 않습니다. 재검증이 실패·중단됐거나 감사 로그가 없으면 미탐지로 확정하지 않습니다. WAF 차단은 앞단 방어 정책의 효과이며 Juice Shop 내부 취약 코드가 제거됐다는 증거는 아닙니다.
+The results in the table are expected values. ARTEX makes a decision after checking whether the actual request matches the rules, whether the diagnosis has been completed normally, and whether audits and alerts for the same UUID have been collected. Normal requests are not included in attack prevention expectations. If re-verification fails or is interrupted or there is no audit log, it is not confirmed as not detected. Blocking WAF is an effect of a front-end defense policy and is not evidence that the vulnerable code inside Juice Shop has been removed.
 
-방어 검증 화면에서 **개선 전 기준 실행**을 선택하고 적용한 정책 변경을 적은 뒤 개선 실행을 시작합니다. WAF 모드와 경보 규칙의 변경은 실습용 정책이며 ARTEX에 저장된 Splunk 연결 설정이나 취약점 대상은 유지하여 비교할 수 있습니다.
+On the defense verification screen, select **Run baseline before improvement**, write down the applied policy changes, and start implementing improvements. Changing WAF modes and alert rules is a practice policy, and you can keep Splunk connection settings or vulnerability targets stored in ARTEX for comparison.
 
-## 파일로도 같은 근거 확인
+## Check the same basis with the file
 
 ```sh
 ./scripts/purple-lab.sh export \
@@ -147,25 +147,25 @@ curl --fail --silent --show-error \
   --end '2026-10-10T12:05:00+09:00'
 ```
 
-UUID와 위 예시 시간을 실제 실행 값으로 바꿉니다. 시작·종료 시각에는 `+09:00`이나 `Z`처럼 시간대가 있는 ISO 8601 값을 입력하며, 실행 시작 30초 전부터 종료 60초 후까지를 포함합니다. 실제 실행 UUID와 해당 시간 범위의 Splunk 감사·경보 `_raw`를 JSONL로 내보내 파일 방식으로 검증할 수 있습니다. 출력 폴더의 `audit.jsonl`, `alert.jsonl`과 `manifest.json`을 보관합니다. 내보내기는 수집의 완전성을 자동으로 확인하지 않으며 manifest의 `completeness_confirmed`는 기본 `false`입니다. 경보를 끈 실습이라면 경보 파일이 비었는지 확인하고 **조회 범위에 경보 없음**을 선택합니다. 로그가 없거나 내보내기가 실패한 상태를 경보 없음으로 확인하지 않습니다.
+Replace the UUID and example times above with actual execution values. For the start and end times, enter an ISO 8601 value with a time zone, such as `+09:00` or `Z`, and includes 30 seconds before the start of execution to 60 seconds after the end. You can export the actual execution UUID and Splunk audit alert `_raw` for the corresponding time range to JSONL for file verification. Keep `audit.jsonl`, `alert.jsonl` and `manifest.json` in the output folder. The export does not automatically check the completeness of the collection, and `completeness_confirmed` in the manifest is the default `false`. If your practice has alerts turned off, make sure the alerts file is empty and select **No alerts in query range**. No logs or failed exports are not identified as No Alerts.
 
-파일 업로드의 필드 매핑은 내보내기가 안내한 값으로 지정합니다. 로그의 `target`은 실습 자산 `purple-lab-target:8080`이며 실제 요청의 Host 값은 `request_host`로 별도 보존합니다. 원문 ModSecurity 감사 로그는 `evidence-local/purple-lab/logs/modsec_audit.log`, 정규화한 감사 로그는 같은 폴더의 `audit.jsonl`에 보존합니다. `allowed`는 WAF 정책이 요청을 허용했다는 뜻이며 취약점 악용 성공이나 응답 본문 전달 완료를 증명하지 않습니다. 전체 수집 확인은 실행 시작 30초 전부터 종료 60초 후까지의 감사·경보가 포함됐고 수집 공백이나 한도 초과가 없을 때만 선택합니다. 파일 업로드와 Splunk 조회의 의미·한도는 [방어 검증 가이드](purple-validation.md)를 참고하세요.
+Field mappings for file uploads are specified by values ​​guided by the exporter. `target` in the log is the practice asset `purple-lab-target:8080`, and the Host value of the actual request is stored separately as `request_host`. The original ModSecurity audit log is stored in `evidence-local/purple-lab/logs/modsec_audit.log`, and the normalized audit log is stored in `audit.jsonl` in the same folder. `allowed` means that the WAF policy allowed the request and does not prove that the vulnerability was successfully exploited or that the response body was delivered successfully. Check full collection is selected only when audits and alarms from 30 seconds before the start of execution to 60 seconds after the end of execution are included and there are no collection gaps or limits exceeded. For the meaning and limits of file upload and Splunk query, please refer to [Defense Verification Guide](purple-validation.md).
 
-## 결과가 판단 불가일 때
+## When the result is indeterminable
 
-- **진단이 아직 진행 중이거나 실패·중단됨:** 진단 대화에서 LLM·대상 접근과 재현 여부를 확인합니다. 정상 완료된 새 실행으로 검증합니다.
-- **같은 UUID의 감사 로그 없음:** 실제 요청이 WAF 앞단 주소로 갔는지와 검증 헤더가 기록됐는지 확인합니다.
-- **감사 로그 조치 누락:** 실제 WAF 조치를 담은 `action` 필드를 연결에 매핑합니다. HTTP 403을 차단 필드로 대신 사용하지 않습니다.
-- **경보가 없음:** 경보 규칙 활성 여부, 규칙 조건 일치와 로그 전달을 각각 확인합니다. 단순 로그 검색 결과를 경보로 대신 사용하지 않습니다.
-- **수집이 늦음:** 전달·검색 처리가 완료된 뒤 같은 실행에서 재수집합니다. ARTEX 조회 구간은 종료 후 60초로 고정되어 있어, 이 구간보다 늦은 이벤트 시각의 경보는 별도 조사가 필요합니다.
-- **검색 경고·행 한도 초과:** 감사·경보 각각 200건 이내의 재현 요청으로 다시 검증합니다. 부분 결과로 미탐지를 확정하지 않습니다.
+- **Diagnosis is still in progress or failed/aborted:** Check the LLM/object access and reproducibility in the diagnostics dialog. Verify with a new run that completed successfully.
+- **No audit log with same UUID:** Checks whether the actual request went to the WAF front end address and whether the verification header was logged.
+- **Missing Audit Log Action:** Map the `action` field containing the actual WAF action to the connection. Avoid using HTTP 403 as a blocking field instead.
+- **No alerts:** Check whether the alert rule is active, rule condition matching and log forwarding respectively. Do not use simple log search results as alerts instead.
+- **Late collection:** After delivery and retrieval processing is completed, re-collection is performed in the same run. The ARTEX inquiry section is fixed to 60 seconds after the end, so alarms with event times later than this section require separate investigation.
+- **Search Warning/Row Limit Exceeded:** Re-verify with replay requests within 200 audits/alarms each. Partial results do not confirm non-detection.
 
-과거 공격 흐름을 조사하려면 **침해 조사 → 로그 근거 준비**에서 UUID로 좁힌 파일 대신 해당 대상의 기간 전체 기록을 선택합니다. Splunk 직접 조회와 파일 업로드를 모두 사용할 수 있으며, 자세한 순서는 [침해 조사 가이드](cert-investigation.md)에 있습니다.
+To investigate historical attack flows, under **Breach Investigation → Prepare Log Evidence**, select the target's entire historical history instead of files narrowed down by UUID. You can use both Splunk direct query and file upload, detailed steps are in [Breach Investigation Guide](cert-investigation.md).
 
-## 실습 환경 중지
+## Stop the lab environment
 
 ```sh
 ./scripts/purple-lab.sh stop
 ```
 
-실습 환경만 중지하며 데이터를 보존합니다. ARTEX와 PostgreSQL은 기존 실행 구성으로 관리합니다. 다음 실습에서 다시 `start`를 실행하고 상태·정책·경보 설정을 확인하세요.
+It only stops the lab environment and preserves your data. ARTEX and PostgreSQL are managed by existing run configurations. In the next lab, run `start` again and check the status, policy, and alarm settings.
