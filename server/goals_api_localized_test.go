@@ -8,7 +8,7 @@ import (
 )
 
 // goals_api.go 의 목표 관리 API 에러 응답을 한국어로 유지하는 회귀 방어 테스트다.
-// 한국어 판정은 F3a 가 만든 assertKoreanError(한글 포함·중국어 한자 0)를, 응답 본문
+// 한국어 판정은 F3a 가 만든 assertEnglishError(한글 포함·중국어 한자 0)를, 응답 본문
 // 추출은 task_categories 테스트의 decodeErrorField 를 재사용한다(같은 package server).
 
 // TestGoalErrorConstantsLocalized 는 응답 상수 7종이 전부 한국어임을 단언한다. 목표
@@ -26,7 +26,7 @@ func TestGoalErrorConstantsLocalized(t *testing.T) {
 		"read_after_edit":      errGoalReadAfterEdit,
 	}
 	for label, msg := range cases {
-		assertKoreanError(t, label, msg)
+		assertEnglishError(t, label, msg)
 	}
 }
 
@@ -68,7 +68,7 @@ func TestGoalHandlersResponsesLocalized(t *testing.T) {
 			name:    "add/task-deleting",
 			handler: func(s *Server) http.HandlerFunc { return s.addGoal },
 			server:  deletingServer,
-			body:    `{"text":"SQL 인젝션 입증"}`,
+			body:    "{\"text\":\"SQL Injection Proof\"}",
 			code:    http.StatusConflict,
 			want:    errGoalTaskDeletingAdd,
 		},
@@ -84,7 +84,7 @@ func TestGoalHandlersResponsesLocalized(t *testing.T) {
 			name:    "edit/task-deleting",
 			handler: func(s *Server) http.HandlerFunc { return s.editGoal },
 			server:  deletingServer,
-			body:    `{"text":"수정된 목표"}`,
+			body:    "{\"text\":\"Modified Goal\"}",
 			gid:     "5",
 			code:    http.StatusConflict,
 			want:    errGoalTaskDeletingEdit,
@@ -114,13 +114,13 @@ func TestGoalHandlersResponsesLocalized(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c.handler(s)(rec, newReq(c.body, c.gid))
 			if rec.Code != c.code {
-				t.Fatalf("상태 코드 = %d, 기대 = %d (본문 %q)", rec.Code, c.code, rec.Body.String())
+				t.Fatalf("status code = %d, expectation = %d (body %q)", rec.Code, c.code, rec.Body.String())
 			}
 			got := decodeErrorField(t, rec.Body.Bytes())
 			if got != c.want {
-				t.Fatalf("응답 문구 = %q, 기대 = %q", got, c.want)
+				t.Fatalf("Response phrase = %q, Expectation = %q", got, c.want)
 			}
-			assertKoreanError(t, c.name, got)
+			assertEnglishError(t, c.name, got)
 		})
 	}
 }

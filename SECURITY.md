@@ -1,59 +1,59 @@
-# 보안 정책 (Security Policy)
+# Security Policy
 
-한국어 · [English](SECURITY.en.md)
+Korean · [English](SECURITY.en.md)
 
-이 문서는 **ARTEX 한국어판(`artex-ko`) 코드 자체의 보안 취약점**을 어떻게 신고하는지
-설명합니다. ARTEX 는 침투 테스트를 수행하는 공격 보안 도구이지만, 이 문서가 다루는 것은
-도구로 공격한 결과가 아니라 **이 소프트웨어를 운영·배포할 때 생기는 취약점**입니다.
+This document explains how to report a security vulnerability in the ARTEX Korean version (`artex-ko`) code itself.
+Explain. ARTEX is an offensive security tool that performs penetration testing, but what this article covers is
+This is not the result of an attack using a tool, but a vulnerability that arises when operating and distributing this software.
 
-예를 들면 다음과 같은 것입니다.
+For example:
 
-- 웹 UI·API 서버(`server/`)의 인증 우회, 권한 상승, SSRF, 인젝션
-- 저장되는 자격 증명·API 키의 노출 또는 평문 보관
-- 사람 개입(human-in-the-loop) 승인 절차를 건너뛰고 에이전트가 범위를 벗어나 도구를
-  실행하게 만드는 결함
-- 공급망·의존성 관련 취약점
+- Authentication bypass, privilege escalation, SSRF, injection of web UI/API server (`server/`)
+- Exposure or storage of stored credentials/API keys in plaintext
+- Skip human-in-the-loop approval process and allow agents to use tools out of scope
+  defect that causes it to run
+- Vulnerabilities related to supply chain and dependency
 
-## 신고 방법
+## How to report
 
-**보안 취약점은 공개 이슈(Issue)로 올리지 마십시오.** 공개되면 패치가 나오기 전에 악용될
-수 있습니다. 대신 다음 비공개 경로를 사용해 주십시오.
+**Please do not post security vulnerabilities as public issues.** If disclosed, they may be exploited before a patch is released.
+You can. Please use the following private path instead:
 
-1. 저장소의 **Security** 탭 → **"Report a vulnerability"**(비공개 보안 권고, GitHub Private
-   Vulnerability Reporting)로 신고합니다. 이 경로는 유지관리자만 볼 수 있습니다.
-2. 위 기능이 열려 있지 않다면, 민감한 세부 내용을 적지 말고 "보안 관련 비공개 연락을
-   원한다"는 최소한의 이슈만 열어 유지관리자가 비공개 채널을 열도록 요청하십시오.
+1. **Security** tab in the repository → **"Report a vulnerability"** (private security advisory, GitHub Private
+   Report it to Vulnerability Reporting. This path is visible only to maintainers.
+2. If the above feature is not open, please do not enter any sensitive details and use the “Security-related confidential contact information.”
+   Open only the minimum number of issues you "want" and ask the maintainer to open a private channel.
 
-신고에는 다음을 포함해 주시면 분류가 빨라집니다.
+Please include the following in your report to speed up classification:
 
-- 영향을 받는 구성 요소와 버전(릴리스 태그 또는 커밋 해시)
-- 재현 절차와 영향 범위(무엇을 할 수 있게 되는지)
-- 가능하다면 개념 증명(PoC)과 제안하는 완화책
+- Affected components and versions (release tag or commit hash)
+- Reproducibility and scope of impact (what can be done)
+- If possible, a proof of concept (PoC) and proposed mitigations.
 
-## 처리 절차
+## Processing Procedure
 
-- 접수하면 합리적인 기간 안에 확인 회신을 드리고, 유효성과 심각도를 평가합니다.
-- 수정이 준비되면 신고자와 조율해 **책임 있는 공개(coordinated disclosure)** 로
-  공개 시점을 맞춥니다. 수정 전에는 세부 내용을 공개하지 않습니다.
-- 동의를 주시면 공개 시 기여를 밝혀 드립니다.
+- Once received, we will respond within a reasonable period of time to confirm and assess the validity and severity.
+- Once the correction is ready, coordinate with the reporter to make it a **coordinated disclosure**.
+  Timing the disclosure is correct. Details will not be disclosed before modification.
+- If you give consent, we will disclose your contribution when we make it public.
 
-## 지원 범위
+## scope of support
 
-이 저장소는 자원봉사로 유지되는 **원본 ARTEX 의 한국어 현지화 판본**입니다. 보안 수정은
-**최신 기본 브랜치**를 기준으로 제공합니다. 과거 릴리스로의 소급 백포트는 보장하지 않습니다.
-현지화와 무관하게 원본(upstream) 코드에 해당하는 취약점이라면, 함께
-[Autumn-27/ARTEX](https://github.com/Autumn-27/ARTEX) 에도 신고하는 것을 권장합니다.
+This repository is a volunteer-maintained **Korean localized version of the original ARTEX**. The security fix is
+**Provided based on the latest default branch**. Retroactive backports to past releases are not guaranteed.
+If it is a vulnerability in the original (upstream) code, regardless of localization,
+We also recommend reporting to [Autumn-27/ARTEX](https://github.com/Autumn-27/ARTEX).
 
-## 범위를 벗어나는 신고
+## Report out of scope
 
-다음은 이 보안 정책의 대상이 **아닙니다.**
+The following are **not** covered by this security policy:
 
-- ARTEX 로 외부 시스템을 공격해 발견한, **그 외부 시스템**의 취약점. 그것은 해당 시스템의
-  소유자에게 신고할 사안입니다.
-- 허가 없이 타인의 시스템을 대상으로 도구를 돌려 생긴 문제. 그런 사용 자체가
-  [사용 범위](README.md#️-먼저-읽어-주세요--사용-범위와-국내법-고지)와 국내법을 위반합니다.
-- ARTEX 가 "설계대로" 공격 도구를 실행한다는 사실 자체. 이 도구는 허가된 범위 안에서
-  침투 테스트를 수행하도록 만들어졌습니다.
+- A vulnerability in **that external system** discovered by attacking an external system with ARTEX. It's the system's
+  This is a matter to report to the owner.
+- Problems caused by using tools targeting other people’s systems without permission. Such use itself
+  [Scope of use](README.md#features) and violates domestic laws.
+- The fact that ARTEX executes the attack tool “as designed”. This tool is used within the permitted scope.
+  It is made to perform penetration testing.
 
-이 도구의 **오용**(허가 범위를 벗어난 사용)을 목격했다면, GitHub 를 통한 신고가 아니라
-해당 행위에 대한 적법한 신고 절차(피해 시스템 소유자·관계 기관)를 이용해 주십시오.
+If you witness **misuse** (use outside the scope of permission) of this tool, please do not report it via GitHub.
+Please use the legal reporting process for such actions (damaged system owner/related organizations).

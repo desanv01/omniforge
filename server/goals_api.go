@@ -6,20 +6,20 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 // goals_api.go 가 사용자에게 돌려주는 오류 응답 문구. 명령·요청 필드명(text·vulnclass·
 // gid)·enum 은 원문 그대로 두고, 사람이 읽는 메시지만 한국어로 둔다. 영어 writeErr
 // (task not found·invalid JSON·bad goal id)는 F3b 중국어 전용 범위라 보존한다.
 const (
-	errGoalTaskDeletingAdd    = "작업을 삭제하는 중이라 목표를 추가할 수 없습니다"
-	errGoalTaskDeletingEdit   = "작업을 삭제하는 중이라 목표를 수정할 수 없습니다"
-	errGoalTaskDeletingDelete = "작업을 삭제하는 중이라 목표를 삭제할 수 없습니다"
-	errGoalTextEmpty          = "목표 내용은 비워 둘 수 없습니다"
-	errGoalNotFound           = "목표를 찾을 수 없습니다"
-	errGoalReadAfterAdd       = "목표를 저장한 뒤 읽지 못했습니다"
-	errGoalReadAfterEdit      = "목표를 수정한 뒤 읽지 못했습니다"
+	errGoalTaskDeletingAdd    = "Can't add goal because we're deleting the task"
+	errGoalTaskDeletingEdit   = "The goal cannot be modified because the task is being deleted"
+	errGoalTaskDeletingDelete = "The goal cannot be deleted because the task is being deleted"
+	errGoalTextEmpty          = "Goal content cannot be empty"
+	errGoalNotFound           = "Target not found"
+	errGoalReadAfterAdd       = "Failed to read goal after saving it"
+	errGoalReadAfterEdit      = "I couldn't read it after editing the goal"
 )
 
 // 总览「目标管理」的人工 CRUD 接口。与 agent 侧的 set_goals 工具写同一批 goal 节点,

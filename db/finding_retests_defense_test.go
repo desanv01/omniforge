@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/securitysource"
+	"github.com/desanv01/omniforge/securitysource"
 )
 
 func defenseRetestInput(t *testing.T, d *DB, findingID int64) DefenseExecutionInput {
@@ -56,7 +56,7 @@ func TestPurpleRetestAtomicDefenseAssociation(t *testing.T) {
 	if !strings.Contains(detail, "X-ARTEX-Verification-ID: "+execution.CorrelationID) || !strings.Contains(r.InitialMessage(), execution.CorrelationID) {
 		t.Fatal("dispatch/persisted prompt lacks server-owned correlation")
 	}
-	if !strings.Contains(detail, "实际复现原漏洞触发条件") || !strings.Contains(detail, "登录、会话准备与良性对照请求不得附加这个关联 ID") {
+	if !strings.Contains(detail, "only to HTTP requests that actually reproduce the triggering conditions") || !strings.Contains(detail, "Login, session preparation, and benign control requests must not have this correlation ID attached") {
 		t.Fatal("correlation scope includes login or benign control requests")
 	}
 	if _, _, _, _, err := d.CreateFindingRetestWithDefense(t.Context(), fid, "duplicate", in); !errors.Is(err, ErrDefenseConflict) {

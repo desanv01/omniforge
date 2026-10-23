@@ -60,7 +60,7 @@ func assertSurfacedExhaustion(t *testing.T, label string, err error) {
 // transcript. So its text must be Korean, while its identity (errors.Is) must be
 // preserved for callers that branch on the sentinel.
 func TestExhaustedErrorLocalized(t *testing.T) {
-	assertKoreanErrText(t, "ErrExhausted", ErrExhausted.Error())
+	assertEnglishErrText(t, "ErrExhausted", ErrExhausted.Error())
 
 	// Drive both surfaced paths so a future edit to either wrap site is caught.
 	streamChain := New([]*Member{
@@ -78,13 +78,13 @@ func TestExhaustedErrorLocalized(t *testing.T) {
 	assertSurfacedExhaustion(t, "Complete", cerr)
 }
 
-// assertKoreanErrText fails unless s contains Hangul and no Han character.
-func assertKoreanErrText(t *testing.T, label, s string) {
+// assertEnglishErrText fails unless s contains Hangul and no Han character.
+func assertEnglishErrText(t *testing.T, label, s string) {
 	t.Helper()
-	if !hasHangul(s) {
-		t.Errorf("%s: 한글이 없습니다: %q", label, s)
+	if hasHangul(s) {
+		t.Errorf("%s: Unexpected Korean text: %q", label, s)
 	}
 	if hasHanzi(s) {
-		t.Errorf("%s: 중국어 한자가 남아 있습니다: %q", label, s)
+		t.Errorf("%s: Chinese characters remain: %q", label, s)
 	}
 }

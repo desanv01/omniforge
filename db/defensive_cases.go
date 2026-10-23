@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/investigation"
 )
 
-var ErrDefensiveCaseNotFound = errors.New("방어 조사 사건을 찾을 수 없습니다")
+var ErrDefensiveCaseNotFound = errors.New("No defense investigation case found")
 
 // A case owns its evidence. A finding is an optional immutable context snapshot,
 // never a prerequisite and never synthesized as a side effect of log analysis.
@@ -58,10 +58,10 @@ type DefensiveCaseOverview struct {
 
 func (d *DB) SaveDefensiveCase(ctx context.Context, in DefensiveCase) (*DefensiveCase, error) {
 	var err error
-	if in.Title, err = defenseText(in.Title, "사건 제목", 1, 200); err != nil {
+	if in.Title, err = defenseText(in.Title, "case title", 1, 200); err != nil {
 		return nil, err
 	}
-	if in.Question, err = defenseText(in.Question, "조사 질문", 0, 4000); err != nil {
+	if in.Question, err = defenseText(in.Question, "research questions", 0, 4000); err != nil {
 		return nil, err
 	}
 	if in.SourceKind != "file" && in.SourceKind != "splunk" {
@@ -130,7 +130,7 @@ func (d *DB) SaveDefensiveCase(ctx context.Context, in DefensiveCase) (*Defensiv
 		return nil, err
 	}
 	if len(raw) > 32<<20 {
-		return nil, fmt.Errorf("%w: 사건 기록이 너무 큽니다", ErrDefenseInvalid)
+		return nil, fmt.Errorf("%w: Event record is too large", ErrDefenseInvalid)
 	}
 	var finding any
 	if in.FindingID > 0 {

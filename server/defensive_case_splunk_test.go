@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/securitysource"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/securitysource"
 )
 
 func TestDefensiveCaseSplunkPreviewCallbackAndRevision(t *testing.T) {
@@ -106,7 +106,7 @@ func TestDefensiveCaseSplunkPreviewCallbackAndRevision(t *testing.T) {
 			s.llmOn = true
 			s.llmCfg = agent.Config{Model: "local-scripted-mock", Stream: false}
 			path := fmt.Sprintf("%s/%d/runs", basePath, base.ID)
-			w = request("POST", path, `{"question":"원격 후속 로그로 파일 요청을 확인하세요."}`)
+			w = request("POST", path, "{\"question\":\"Check file requests with remote follow-up logs.\"}")
 			if w.Code != 202 {
 				t.Fatal(w.Code, w.Body.String())
 			}

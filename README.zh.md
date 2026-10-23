@@ -122,7 +122,7 @@ cd web && npm ci && npm run build:static && cd ..
 # 2) 拷进内嵌目录
 cp -r web/out server/webui/dist
 # 3) 编译（-tags embedui 才内嵌前端）
-CGO_ENABLED=0 go build -tags embedui -o artex ./cmd/artex
+CGO_ENABLED=0 go build -tags embedui -o artex ./cmd/omniforge
 ./start.sh
 ```
 
@@ -199,7 +199,7 @@ cp -r <解压目录>/skills ./ && cp <解压目录>/artex ./
 git pull
 cd web && npm ci && npm run build:static && cd ..
 cp -r web/out server/webui/dist
-CGO_ENABLED=0 go build -tags embedui -o artex ./cmd/artex
+CGO_ENABLED=0 go build -tags embedui -o artex ./cmd/omniforge
 # 重启 ./start.sh
 ```
 
@@ -277,7 +277,7 @@ server {
 ./dev.sh    # 后端(:8787) + 流量代理(:8788) + 前端 next dev(:5173) → http://localhost:5173
 ```
 
-- 后端：`go run ./cmd/artex`（不带 `-tags embedui` 则不内嵌前端）
+- 后端：`go run ./cmd/omniforge`（不带 `-tags embedui` 则不内嵌前端）
 - 前端：`cd web && npm run dev`（`/api` 反代到后端，带热更新）
 - 测试：`go test ./...`
 - Mock 预览（无后端）：`cd web && NEXT_PUBLIC_MOCK=1 npm run dev`

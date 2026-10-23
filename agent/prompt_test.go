@@ -17,11 +17,11 @@ func TestRenderSystemOverrideAndFallback(t *testing.T) {
 	// override → rendered with vars
 	PromptOverride = func(k string) (string, bool) {
 		if k == "planner" {
-			return "目标:{{.Goal}} 范围:{{.Scope}}", true
+			return "Goal:{{.Goal}} Scope:{{.Scope}}", true
 		}
 		return "", false
 	}
-	if got := renderSystem("planner", "DEFAULT", PlannerVars{Goal: "拿下X", Scope: "*.x.com"}); got != "目标:拿下X 范围:*.x.com" {
+	if got := renderSystem("planner", "DEFAULT", PlannerVars{Goal: "Take the X", Scope: "*.x.com"}); got != "Goal: Capture X Scope: *.x.com" {
 		t.Fatalf("override render: %q", got)
 	}
 
@@ -34,11 +34,11 @@ func TestRenderSystemOverrideAndFallback(t *testing.T) {
 	// full plannerSystem path: DB body [A] is honored, then the code-owned tail
 	// [C] (中间产物输出规约) is ALWAYS appended — editing the body can't drop it.
 	PromptOverride = func(k string) (string, bool) { return "PLANNER {{.Goal}}", true }
-	got := plannerSystem("拿下X", "/data", "/data")
-	if !strings.HasPrefix(got, "PLANNER 拿下X") {
+	got := plannerSystem("Take the X", "/data", "/data")
+	if !strings.HasPrefix(got, "PLANNER takes X") {
 		t.Fatalf("plannerSystem body not honored: %q", got)
 	}
-	if !strings.Contains(got, "中间产物输出规约") || !strings.Contains(got, "/data") {
+	if !strings.Contains(got, "Intermediate product output protocol") || !strings.Contains(got, "/data") {
 		t.Fatalf("plannerSystem missing code-owned artifact tail: %q", got)
 	}
 
@@ -48,10 +48,10 @@ func TestRenderSystemOverrideAndFallback(t *testing.T) {
 	// block is gated on the CA (arg 2), NOT on ProxyAddr — a global egress proxy
 	// with capture off routes traffic but records nothing.
 	PromptOverride = func(k string) (string, bool) {
-		return "{{if .ProxyAddr}}走代理 {{.ProxyAddr}}{{else}}手动{{end}}", true
+		return "{{if .ProxyAddr}}Go to proxy {{.ProxyAddr}}{{else}}manually{{end}}", true
 	}
 	recording := workerSystem("127.0.0.1:8080", "/ca.pem", "/data", "/data")
-	if !strings.HasPrefix(recording, "走代理 127.0.0.1:8080") {
+	if !strings.HasPrefix(recording, "Go to proxy 127.0.0.1:8080") {
 		t.Fatalf("worker proxy branch body: %q", recording)
 	}
 	if !strings.Contains(recording, "traffic_search") {
@@ -60,20 +60,20 @@ func TestRenderSystemOverrideAndFallback(t *testing.T) {
 	if strings.Contains(recording, "traffic_refs") {
 		t.Fatalf("worker bypassed shared optional evidence policy: %q", recording)
 	}
-	if !strings.Contains(recording, "中间产物输出规约") {
+	if !strings.Contains(recording, "Intermediate product output protocol") {
 		t.Fatalf("worker missing artifact tail: %q", recording)
 	}
 	// Egress proxy set but capture OFF (no CA): the ProxyAddr template branch still
 	// renders, but the trafficTool block must NOT — those tools are not registered.
 	egressOnly := workerSystem("127.0.0.1:8080", "", "/data", "/data")
-	if !strings.HasPrefix(egressOnly, "走代理 127.0.0.1:8080") {
+	if !strings.HasPrefix(egressOnly, "Go to proxy 127.0.0.1:8080") {
 		t.Fatalf("worker egress-only branch body: %q", egressOnly)
 	}
 	if strings.Contains(egressOnly, "traffic_search") {
 		t.Fatalf("worker without recording must NOT inject trafficTool: %q", egressOnly)
 	}
 	noProxy := workerSystem("", "", "/data", "/data")
-	if !strings.HasPrefix(noProxy, "手动") {
+	if !strings.HasPrefix(noProxy, "Manual") {
 		t.Fatalf("worker no-proxy branch body: %q", noProxy)
 	}
 	if strings.Contains(noProxy, "traffic_search") {
@@ -90,10 +90,10 @@ func TestLangDirectiveAppendedToUserFacingRoles(t *testing.T) {
 	// The directive forces Korean OUTPUT and preserves raw technical strings; both
 	// signals must be present. 한국어 marker + verbatim-preservation clause.
 	dir := langDirective()
-	if !strings.Contains(dir, "한국어") {
+	if !strings.Contains(dir, "English") {
 		t.Fatalf("langDirective must force Korean output, got %q", dir)
 	}
-	if !strings.Contains(dir, "payload") || !strings.Contains(dir, "原样逐字保留") {
+	if !strings.Contains(dir, "payload") || !strings.Contains(dir, "verbatim") {
 		t.Fatalf("langDirective must keep commands/payloads verbatim, got %q", dir)
 	}
 	// L1 anti-drift hardening: the directive must (1) forbid leaking the Chinese
@@ -101,13 +101,13 @@ func TestLangDirectiveAppendedToUserFacingRoles(t *testing.T) {
 	// drift), and (2) forbid mirroring the target/material language — e.g. an
 	// English target app — in the display fields (report_finding drift). Both
 	// clauses are locked here so a future edit can't silently drop them.
-	if !strings.Contains(dir, "也绝不能把中文输出给用户") {
+	if !strings.Contains(dir, "Do not expose internal reasoning") {
 		t.Fatalf("langDirective must forbid leaking Chinese to the user, got %q", dir)
 	}
-	if !strings.Contains(dir, "不要镜像或照抄目标") {
+	if !strings.Contains(dir, "regardless of the language") {
 		t.Fatalf("langDirective must forbid mirroring the target/material language, got %q", dir)
 	}
-	if !strings.Contains(dir, "态势") {
+	if !strings.Contains(dir, "status updates") {
 		t.Fatalf("langDirective must name the planner situation summary as user-facing, got %q", dir)
 	}
 
@@ -130,11 +130,11 @@ func TestLangDirectiveAppendedToUserFacingRoles(t *testing.T) {
 		if !strings.HasPrefix(sys, "BODY-ONLY") {
 			t.Fatalf("%s: DB body not honored: %q", role, sys)
 		}
-		if !strings.Contains(sys, "한국어") {
+		if !strings.Contains(sys, "English") {
 			t.Fatalf("%s: missing Korean output-language tail: %q", role, sys)
 		}
 		// The directive is the tail — it must come AFTER the body (recency).
-		if strings.Index(sys, "한국어") <= strings.Index(sys, "BODY-ONLY") {
+		if strings.Index(sys, "English") <= strings.Index(sys, "BODY-ONLY") {
 			t.Fatalf("%s: langDirective must be appended after the body: %q", role, sys)
 		}
 	}

@@ -22,51 +22,51 @@ func TestChatMentionErrorsLocalized(t *testing.T) {
 		"dataUnavail": errChatMentionDataUnavail,
 		"tooLarge":    errChatMentionTooLarge,
 	} {
-		assertKoreanError(t, label, msg)
+		assertEnglishError(t, label, msg)
 	}
 
 	// parseChatMentions — a non-positive id inside a valid wire token.
-	if _, err := parseChatMentions("@[漏洞#0]"); err == nil {
-		t.Fatal("잘못된 인용 ID 가 통과해서는 안 됩니다")
+	if _, err := parseChatMentions("@[Vulnerability#0]"); err == nil {
+		t.Fatal("Invalid quote id should not pass")
 	} else {
-		assertKoreanError(t, "parse.badID", err.Error())
+		assertEnglishError(t, "parse.badID", err.Error())
 	}
 
 	// parseChatMentions — exceeding the per-message mention cap (11 distinct ids).
 	var b strings.Builder
 	for i := 1; i <= 11; i++ {
-		fmt.Fprintf(&b, "@[漏洞#%d] ", i)
+		fmt.Fprintf(&b, "@[Vulnerability#%d] ", i)
 	}
 	if _, err := parseChatMentions(b.String()); err == nil {
-		t.Fatal("인용 상한 초과가 통과해서는 안 됩니다")
+		t.Fatal("Quotation upper limit exceeded must not be passed")
 	} else {
-		assertKoreanError(t, "parse.tooMany", err.Error())
+		assertEnglishError(t, "parse.tooMany", err.Error())
 	}
 
 	// composeChatMentionMessage — a mention is present but the database is nil.
-	if _, err := composeChatMentionMessage(nil, "@[漏洞#1]"); err == nil {
-		t.Fatal("DB 없이 인용 해석이 통과해서는 안 됩니다")
+	if _, err := composeChatMentionMessage(nil, "@[Vulnerability#1]"); err == nil {
+		t.Fatal("Quotation interpretation should not pass without DB")
 	} else {
-		assertKoreanError(t, "compose.dataUnavail", err.Error())
+		assertEnglishError(t, "compose.dataUnavail", err.Error())
 	}
 
 	// searchChatMentions — invalid kind and over-long query are rejected before
 	// the database handle is touched, so &Server{} is enough to reach the branch.
-	for _, q := range []string{"kind=unsupported", "q=" + url.QueryEscape(strings.Repeat("字", 201))} {
+	for _, q := range []string{"kind=unsupported", "q=" + url.QueryEscape(strings.Repeat("Character", 201))} {
 		w := httptest.NewRecorder()
 		(&Server{}).searchChatMentions(w, httptest.NewRequest("GET", "/api/chat/mentions?"+q, nil))
 		if w.Code != 400 {
-			t.Fatalf("검증 실패(400)를 기대했으나 %d 가 반환되었습니다 (%s)", w.Code, q)
+			t.Fatalf("Expected validation failure (400), but returned %d (%s)", w.Code, q)
 		}
-		assertKoreanError(t, "search."+q, decodeErrorField(t, w.Body.Bytes()))
+		assertEnglishError(t, "search."+q, decodeErrorField(t, w.Body.Bytes()))
 	}
 
 	// The display label map mirrors the UI mention kinds, and the not-found
 	// template resolves to a fully Korean message for a known kind.
 	for _, kind := range []string{"finding", "asset", "company", "endpoint", "ip", "app", "root_domain", "subdomain", "service"} {
 		if chatMentionKindLabel[kind] == "" {
-			t.Fatalf("종류 라벨이 누락되었습니다: %s", kind)
+			t.Fatalf("Type label is missing: %s", kind)
 		}
 	}
-	assertKoreanError(t, "notFound", fmt.Sprintf(errChatMentionNotFoundFmt, chatMentionKindLabel["finding"], 7))
+	assertEnglishError(t, "notFound", fmt.Sprintf(errChatMentionNotFoundFmt, chatMentionKindLabel["finding"], 7))
 }

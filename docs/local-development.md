@@ -1,20 +1,20 @@
-# 로컬 Docker 개발
+# Local Docker development
 
-이 프로젝트는 ARTEX 한국어판을 기반으로 방어 검증과 에이전트 침해 조사를 추가한 소스입니다. 기본 배포는 **ARTEX와 PostgreSQL만** 실행합니다. 현재 소스의 한국어 UI와 Go 백엔드를 직접 빌드하며, 상류 ARTEX 이미지가 필요하지 않습니다. Juice Shop과 Splunk는 설치하지 않습니다.
+This project is based on the Korean version of ARTEX and adds defense verification and agent infringement investigation. The default distribution runs **ARTEX and PostgreSQL** only. Currently, we build the Korean UI and Go backend directly from source, and no upstream ARTEX image is required. Juice Shop and Splunk are not installed.
 
-## 실행
+## execution
 
-Docker Desktop 또는 Docker Engine과 Compose v2를 실행한 뒤 저장소 루트에서 다음 명령을 사용합니다. 호스트에 Go나 Node.js를 따로 설치할 필요는 없습니다.
+After running Docker Desktop or Docker Engine and Compose v2, use the following command in the repository root: There is no need to install Go or Node.js separately on the host.
 
 ```sh
 ./scripts/local-start.sh
 ```
 
-최초 빌드는 의존성과 Chromium을 내려받으므로 시간이 걸립니다. 완료 후 <http://localhost:8787/setup/>에서 관리자 비밀번호를 설정합니다. LLM 키는 UI에서 설정할 수 있으며, 키 없이도 초기 설정 화면은 열립니다.
+The first build will take some time as it downloads dependencies and Chromium. After completion, set the administrator password on <http://localhost:8787/setup/>. The LLM key can be set in the UI, and the initial setup screen opens without the key.
 
-포트 8787과 기록 프록시 8788은 로컬 컴퓨터의 `127.0.0.1`에만 공개합니다. 다른 컨테이너는 별도 Compose 프로젝트이므로 이 구성으로 중지하거나 변경하지 않습니다.
+Port 8787 and logging proxy 8788 are only exposed to `127.0.0.1` on the local computer. The other containers are separate Compose projects and will not be stopped or changed by this configuration.
 
-## 운영 명령
+## operating instructions
 
 ```sh
 # 상태
@@ -33,81 +33,81 @@ docker compose --env-file .env.local -f docker-compose.local.yml stop
 ./scripts/local-test.sh
 ```
 
-## 데이터와 설정
+## Data and Settings
 
-- `.env.local`: 최초 실행 시 생성되는 DB 비밀번호. 필요하면 여기에 `ANTHROPIC_API_KEY` 또는 `OPENAI_API_KEY` 등 환경 설정을 추가합니다.
-- `.local-runtime/jwt.key`: 로그인 서명과 저장된 Splunk 인증 정보의 암호화에 사용하는 키입니다. DB와 함께 보존해야 합니다. 분실·교체하면 Splunk 인증 정보를 다시 입력해야 합니다.
-- `data/`: 작업 파일과 실행 기록을 보존합니다.
-- `artex-local_pgdata`: PostgreSQL 데이터를 보존하는 Docker 볼륨입니다.
-- `skills/`: 현재 저장소의 스킬을 컨테이너에 연결합니다.
+- `.env.local`: DB password generated upon first run. If necessary, add preferences here, such as `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
+- `.local-runtime/jwt.key`: The key used to sign logins and encrypt stored Splunk credentials. It must be preserved with the DB. If you lose or replace it, you will need to re-enter your Splunk authentication information.
+- `data/`: Preserves working files and execution history.
+- `artex-local_pgdata`: Docker volume that holds PostgreSQL data.
+- `skills/`: Attaches a skill from the current repository to a container.
 
-비밀과 런타임 데이터는 Git과 소스 빌드 컨텍스트에서 제외합니다. `docker compose config`를 `--quiet` 없이 출력하면 비밀번호가 표시될 수 있습니다.
+Secrets and runtime data are excluded from Git and source build contexts. If you print `docker compose config` without `--quiet`, the password may be displayed.
 
-다른 로컬 앱이 기본 포트를 사용 중이면 실행 전에 포트를 지정할 수 있습니다.
+If another local app is using the default port, you can specify the port before launching.
 
 ```sh
 ARTEX_LOCAL_PORT=18887 ARTEX_LOCAL_PROXY_PORT=18888 ./scripts/local-start.sh
 ```
 
-이 경우 접속 주소는 `http://localhost:18887`입니다. 다음 실행에도 같은 값을 지정하거나 `.env.local`에 보관합니다. 서로 다른 소스 체크아웃을 동시에 검증한다면 `ARTEX_PROJECT_NAME`과 `ARTEX_LOCAL_IMAGE`도 별도로 지정해야 컨테이너·DB 볼륨·이미지가 섞이지 않습니다.
+In this case, the connection address is `http://localhost:18887`. Specify the same value for the next run or keep it in `.env.local`. If you verify different source checkouts simultaneously, you must also specify `ARTEX_PROJECT_NAME` and `ARTEX_LOCAL_IMAGE` separately to prevent containers, DB volumes, and images from being mixed.
 
-이 구성은 개발용입니다. UI의 상류 자동 업데이트 대신 `local-start.sh`로 현재 소스를 재빌드합니다. 관리자 비밀번호와 LLM 키는 사용자가 설정하고, 작업을 생성하기 전까지 실제 대상에 대한 진단을 실행하지 않습니다.
+This configuration is for development use only. Rebuild the current source with `local-start.sh` instead of automatically updating the UI upstream. The administrator password and LLM key are set by the user, and no diagnostics are run on the actual target until the task is created.
 
-## 파일 업로드로 먼저 사용
+## Use first as file upload
 
-취약점 상세의 방어 검증에서 기본 연결 방식인 **파일 업로드**를 사용합니다. 로그 출처와 시각·UUID·조치·이벤트 ID 필드를 설정하고 ARTEX 재검증을 실행합니다. 종료 후 감사·경보 JSON·JSONL·CSV 파일을 등록하면 판정과 확인된 문제·추정 원인을 볼 수 있습니다. 파일 방식에는 Splunk 계정이 필요하지 않습니다. ARTEX 진단에는 기존과 같이 LLM 설정과 허가된 대상이 필요합니다.
+The default connection method, **file upload**, is used in the defense verification of vulnerability details. Set the log source and time, UUID, action, and event ID fields and run ARTEX revalidation. After completion, if you register the audit/alarm JSON/JSONL/CSV file, you can view the judgment, confirmed problems, and probable cause. The file method does not require a Splunk account. ARTEX Diagnostics still requires an LLM setup and licensed audience.
 
-전체 기간의 내보내기를 확인하지 않았거나 경보 파일도 경보 없음 확인도 없다면 미탐지로 단정하지 않습니다. 파일 원문은 로컬 DB에 보존하며 목록·비교 응답에서 제외하고 전체 JSON 내보내기에 포함합니다. 자세한 사용 순서와 지원 형식은 [방어 검증 가이드](purple-validation.md)를 참고합니다.
+If the export for the entire period has not been confirmed, or there is neither an alert file nor a no-alert confirmation, it is not assumed to be a non-detection. The original file text is preserved in the local DB, excluded from the list/comparison response, and included in the overall JSON export. For detailed usage order and support format, refer to [Defense Verification Guide](purple-validation.md).
 
-### 기존 로컬 Juice Shop에서 실제 파일 만들기
+### Create a physical file from an existing local Juice Shop
 
-이 절은 공개 화면 증적을 만든 **별도 실습 환경**의 재현 보조 자료입니다. 기본 제품 설치에 Juice Shop은 포함되지 않으며, 새 체크아웃의 실행·테스트에 이 단계가 필요하지 않습니다. 아래 스크립트가 Juice Shop 자체를 설치하지는 않습니다.
+This section is a reproduction aid from a **separate lab environment** where public screen transcripts were created. Juice Shop is not included in the base product installation, and this step is not required to run and test new checkouts. The script below does not install Juice Shop itself.
 
-이미 `artex-local-artex-1`과 별도로 준비한 `artex-practice-juice-shop-1`이 실행 중인 로컬 구성에서만 사용합니다.
+For use only in a local configuration where `artex-practice-juice-shop-1`, already prepared separately from `artex-local-artex-1`, is running.
 
 ```sh
 sh scripts/practice-logs-start.sh
 ```
 
-기존 Juice Shop 컨테이너와 데이터를 보존하면서 ARTEX의 `http://juice-shop:3000` 요청을 기록 프록시로 연결합니다. Docker Desktop의 포트 연결 복구가 필요한 경우 ARTEX 컨테이너만 재시작합니다. 브라우저에서 프록시를 통과하려면 `http://localhost:8791`을 사용합니다. 기존 `8790` 직접 접근은 이 수집기에 기록되지 않습니다.
+Connects `http://juice-shop:3000` requests from ARTEX to the historical proxy while preserving existing Juice Shop containers and data. If you need to restore port connectivity in Docker Desktop, just restart the ARTEX container. To go through the proxy in your browser, use `http://localhost:8791`. Existing `8790` direct accesses will not be logged to this collector.
 
-1. 수집기 시작 후 최소 30초 기다립니다. 취약점의 방어 계획에는 실제 적용한 `ftp-access-v1` 경로 탐지를 적습니다.
-2. **파일 업로드**를 선택하고 출처 이름을 입력합니다. 기본 필드 매핑을 유지하고 **ARTEX 진단 + 방어 검증 시작**을 누릅니다.
-3. 정상 완료 후 70초 기다린 다음, 취약점 번호를 지정해 내보냅니다.
+1. Wait at least 30 seconds after starting the collector. In the vulnerability defense plan, the actual applied `ftp-access-v1` path detection is written down.
+2. Select **Upload File** and enter a name for the source. Keep the default field mappings and press **Start ARTEX Diagnostics + Defense Verification**.
+3. After normal completion, wait 70 seconds, then specify the vulnerability number and export it.
 
 ```sh
 python3 scripts/practice-export-latest.py 3
 ```
 
-출력된 폴더의 `audit.jsonl`을 감사로그 파일에, `alerts.jsonl`을 경보 파일에 넣습니다. 명령에 표시된 수집 범위를 입력하고 전체 수집 확인 후 **파일 등록하고 판정**을 누릅니다. 내보내기가 거부되면 전체 수집 확인을 체크하지 말고 표시된 원인을 해결합니다. 파일은 Git에서 제외된 `evidence-local/juice-shop-defense/`에 저장됩니다.
+Insert `audit.jsonl` from the output folder into the audit log file and `alerts.jsonl` into the alarm file. Enter the collection range indicated in the command, confirm the entire collection, and press **Register file and confirm**. If the export is rejected, uncheck Confirm full collection and resolve the indicated cause. The file is stored in `evidence-local/juice-shop-defense/`, which is excluded from Git.
 
-이 수집기는 실제 `/ftp` 및 하위 경로 요청에만 단순 경로 규칙을 실행합니다. 요청 차단, 인증 여부 판단, 기업 SIEM 검증은 수행하지 않습니다. `allowed`는 프록시가 응답을 전달했다는 뜻이며, 원본 서비스의 권한 통과를 증명하지 않습니다. 불완전한 응답은 `unknown`으로 기록합니다. UUID가 없는 설정 확인 요청은 실제 재검증 증거에 포함되지 않으며, 별도 UUID의 확인 요청도 내보내기에서 제외됩니다. 내보내기는 실제 실행 UUID와 시간만 사용하고, 5초 heartbeat로 연속 수집을 확인합니다. 수집기 중단·재시작·공백이 해당 구간에 걸치면 새 검증이 필요합니다.
+This collector executes simple path rules only for actual `/ftp` and subpath requests. It does not block requests, determine whether they are authenticated, or perform enterprise SIEM verification. `allowed` means that the proxy forwarded the response and does not prove that the original service's authority has passed. Incomplete responses are recorded as `unknown`. Configuration confirmation requests without a UUID are not included in the actual revalidation evidence, and confirmation requests with separate UUIDs are also excluded from export. The export uses only the actual run UUID and time, and confirms continuous collection with a 5 second heartbeat. If a collector stop, restart, or blank spans the interval, a new verification is required.
 
-## 선택적으로 기존 Splunk 연결
+## Optionally connect to an existing Splunk
 
-1. **방어 검증 → Splunk 로그 연결**에서 기존 관리 API의 HTTPS 주소와 검색 계정 또는 토큰을 입력합니다. ARTEX는 새 Splunk 계정이나 인덱스를 생성하지 않습니다.
-2. 기존 인덱스 하나에 수집되는 서로 다른 감사·경보 sourcetype과 UUID 필드 `artex_verification_id`, 실제 조치 필드를 지정합니다. 대상 감사 로그와 실제 탐지 경보 모두에 실행 UUID가 보존되어야 합니다.
-3. 연결을 저장·활성화하고 통신·인증을 확인합니다. Docker로 실행할 때는 ARTEX 컨테이너에서 관리 API에 접근할 수 있어야 합니다. 컨테이너 안의 `localhost`는 호스트 컴퓨터나 다른 Splunk 컨테이너를 가리키지 않습니다.
-4. LLM을 설정하고 허가된 대상에서 발견된 취약점을 엽니다. 방어 계획을 저장한 뒤 **ARTEX 진단 + 방어 검증 시작**을 누릅니다. UUID는 원래 취약점 재현 요청에만 붙이고, 로그인·정상 대조 요청에는 붙이지 않습니다.
-5. 진단 종료 60초 후 증거를 수집합니다. 근거가 부족하면 판단 불가로 남으며, 개선 전후 비교는 같은 대상·제약·소스 설정에서 새 실행을 연결해 진행합니다.
+1. Under **Defense Validation → Splunk Log Connection**, enter the HTTPS address of your existing management API and your search account or token. ARTEX does not create new Splunk accounts or indexes.
+2. Specify different audit/alert sourcetypes, UUID field `artex_verification_id`, and actual action field collected in one existing index. The execution UUID must be preserved in both the target audit log and the actual detection alert.
+3. Save/activate the connection and confirm communication/authentication. When running with Docker, the management API must be accessible from the ARTEX container. `localhost` inside the container does not point to the host computer or any other Splunk container.
+4. Set up LLM and open vulnerabilities found on authorized targets. After saving your defense plan, press **ARTEX Diagnostics + Start Defense Verification**. The UUID is only attached to requests to reproduce the original vulnerability, and is not attached to login or normal verification requests.
+5. Evidence is collected 60 seconds after completion of diagnosis. If there is insufficient evidence, judgment remains impossible, and comparisons before and after improvement are made by connecting new runs with the same target, constraint, and source settings.
 
-연결 테스트만으로 진단이나 방어 검증이 완료되지는 않습니다. 자세한 필드 설정, 판정 기준과 원문 내보내기는 [방어 검증 가이드](purple-validation.md)를 참고합니다.
+Connection testing alone does not complete diagnosis or verification of defenses. For detailed field settings, judgment criteria, and original text export, refer to the [Defense Verification Guide](purple-validation.md).
 
-## 과거 로그 침해 조사
+## Investigation of past log breaches
 
-취약점 상세의 **침해 조사**는 **1. 로그 근거 준비 → 2. AI 조사** 순서로 사용합니다. 먼저 파일 또는 기존 Splunk 연결로 대상·기간·경로를 지정하고 원본 근거를 저장합니다. 이 단계의 파싱·기초 분석에는 ARTEX 검증 UUID나 LLM 연결이 필요하지 않습니다.
+**Breach investigation** of vulnerability details is **1. Prepare log evidence → 2. AI investigation** Use in this order. First, specify the target, duration, and path as a file or existing Splunk connection and save the original evidence. This step of parsing/basic analysis does not require ARTEX-verified UUIDs or LLM concatenation.
 
-저장된 근거를 선택한 뒤 **AI 조사 시작**을 누르면, 현재 활성 LLM을 사용하는 ARTEX 에이전트가 가설·작업 계획, 읽기 전용 조회, 원문 확인, 관측·추론, 후속 계획을 반복합니다. 선택된 취약점 근거와 로그 발췌가 설정한 LLM에 전송됩니다. 페이지 열기나 근거 저장만으로 모델을 호출하지 않습니다.
+After selecting the saved evidence and pressing **Start AI Investigation**, the ARTEX agent using the currently active LLM will iterate through hypothesis/action planning, read-only inquiry, textual confirmation, observation/inference, and follow-up planning. Selected vulnerability evidence and log excerpts are sent to the LLM you set up. The model is not called just by opening the page or saving the rationale.
 
-파일 모드는 저장된 이벤트만 검색하며, Splunk 모드는 처음 지정한 연결·대상·시간·경로 안에서 후속 조회할 수 있습니다. 새 침투 점검이나 운영 정책 변경은 실행하지 않습니다. 없는 로그는 추가 자료로 제안하고, 관측·추정·자료 부족을 구분합니다. 조회 한도, 중지·이력·원문 내보내기와 결과 해석은 [침해 조사 가이드](cert-investigation.md)를 참고합니다.
+File mode searches only stored events, and Splunk mode allows subsequent searches within the initially specified connection, destination, time, and path. We do not implement new penetration checks or operational policy changes. Missing logs are suggested as additional data, and observations, estimates, and data shortages are distinguished. Please refer to the [Infringement Investigation Guide](cert-investigation.md) for viewing limits, suspension, history, original text export, and result interpretation.
 
-## 개발 테스트의 범위
+## Scope of Development Testing
 
-`local-test.sh`는 실제 앱과 다른 `artex-purple-test` 프로젝트에서 실행하며, 테스트 종료 시 테스트용 컨테이너와 임시 DB를 정리합니다. 재검증 생명주기, 파일 파싱·범위 확인·행 근거·원인 진단, SIEM 응답 처리, 증거 판정·비교, 보관·복원과 로그 재생을 검사합니다. 에이전트 조사에서는 모의 모델로 계획·조회·원문 확인·관측·후속 계획, 예산·중지·재시작, Splunk 후속 조회의 범위·연결 변경 검사와 근거 보존을 확인합니다. SIEM 통신 테스트는 테스트용 HTTPS 서버를 사용하고, 실제 대상이나 저장된 Splunk 계정으로 진단하지 않습니다. 빌드·테스트 성공을 실제 탐지·차단 성공으로 간주하지 않습니다.
+`local-test.sh` runs in the `artex-purple-test` project, which is different from the actual app, and cleans up the test container and temporary DB at the end of the test. It inspects the revalidation life cycle, file parsing, range confirmation, action basis and cause diagnosis, SIEM response processing, evidence judgment and comparison, storage and restoration, and log playback. Agent investigation uses a mock model to check plan, query, source check, observation, follow-up plan, budget, stop, restart, Splunk follow-up query, scope, connection change check, and basis preservation. SIEM communication tests use HTTPS servers for testing purposes and do not diagnose with real targets or saved Splunk accounts. Build/test success is not considered actual detection/blocking success.
 
-## 소스 기준
+## By source
 
-- 제공 ZIP: `artex-ko-main.zip`, GitHub 아카이브 커밋 `867ea55c2690cdbc4cff8230325613d97b398bf7`.
-- 현재 Git 기준: `ee978f84f7a82ba87bbd04b33b766395559bf6cd` (`jiwoochris/artex-ko`).
-- 두 버전의 애플리케이션 핵심 코드와 의존성 파일은 동일합니다. 기존 Git 이력과 이후 문서·CI 수정은 유지했습니다.
-- 원본 ARTEX 및 한국어판의 저작권·AGPL-3.0 라이선스를 유지합니다.
+- Provided ZIP: `artex-ko-main.zip`, GitHub archive commit `867ea55c2690cdbc4cff8230325613d97b398bf7`.
+- Current Git standard: `ee978f84f7a82ba87bbd04b33b766395559bf6cd` (`jiwoochris/artex-ko`).
+- The core code and dependency files for both versions of the application are identical. The existing Git history and subsequent document/CI modifications were maintained.
+- We maintain the copyright and AGPL-3.0 license of the original ARTEX and Korean version.

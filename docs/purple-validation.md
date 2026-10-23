@@ -1,144 +1,144 @@
-# ARTEX 진단과 실제 방어 검증
+# ARTEX diagnostics and actual defense verification
 
-기존 ARTEX 재검증 에이전트로 발견된 취약점을 다시 확인하고, 같은 실행 UUID의 감사 로그와 실제 경보를 파일 업로드 또는 Splunk 조회로 연결합니다. 수집한 근거로 탐지와 차단을 따로 판정하고, 확인된 문제와 추가 점검할 원인을 구분하며, 개선 조치를 적용한 후의 실행과 비교합니다.
+Re-check vulnerabilities found with the existing ARTEX revalidation agent, and link audit logs and actual alarms with the same execution UUID through file upload or Splunk query. Based on the evidence collected, detection and blocking are judged separately, distinguishing between identified problems and causes for further inspection, and comparing performance after applying improvement actions.
 
-| 방식 | 근거와 의미 |
+| method | Basis and meaning |
 | --- | --- |
-| 파일 업로드 검증 | ARTEX 재검증과 사용자가 업로드한 감사 로그·경보를 연결. 내보내기 범위는 사용자의 확인에 의존 |
-| Splunk 조회 검증 | ARTEX 재검증과 연결된 Splunk에서 조회한 감사 로그·경보를 연결 |
-| 수동 검증 기록 | 사람이 관측하고 입력한 결과와 근거를 보존 |
-| 로그 재생 | 업로드한 로그가 저장된 이벤트 조건에 일치하는지 평가 |
+| File upload verification | Connects ARTEX re-verification with user-uploaded audit logs and alarms. Export scope depends on user's confirmation |
+| Splunk query validation | Connect audit logs and alarms retrieved from Splunk linked to ARTEX re-verification |
+| Manual verification records | Preserve the results and evidence of human observations and input |
+| log replay | Evaluate whether the uploaded log matches the stored event conditions |
 
-파일 업로드와 Splunk 조회는 같은 실행·판정 기능을 사용하고 출처를 표시합니다. 수동 기록과 로그 재생은 별도 이력·집계입니다. LLM의 진단 결론, 수동 입력, 로그 재생 통과를 실제 경보로 바꾸어 기록하지 않습니다. ARTEX 재검증에는 LLM 설정과 허가된 대상이 필요하고, 수동 기록과 로그 재생은 LLM 키 없이 사용할 수 있습니다.
+File uploads and Splunk queries use the same execution and evaluation functions and indicate the source. Manual recording and log playback are separate histories and tallies. It does not record LLM's diagnostic conclusions, manual entries, or log replay passes by turning them into actual alarms. ARTEX revalidation requires LLM setup and an authorized target, while manual recording and log replay can be used without an LLM key.
 
-## 먼저 사용하기: 파일 업로드
+## Try it first: Upload a file
 
-1. 취약점 상세의 **방어 검증**에서 계획을 저장하고 연결 방식을 **파일 업로드**로 선택합니다. Splunk 계정은 필요하지 않습니다.
-2. 로그 출처 이름과 필드 이름을 지정합니다. 기본 필드는 시각 `timestamp`, 실행 UUID `artex_verification_id`, 실제 조치 `action`, 이벤트 ID `id`입니다. 점으로 구분한 중첩 필드도 지원합니다. 출처와 필드 설정은 실행 당시 값으로 보존됩니다.
-3. ARTEX 재검증을 시작합니다. 화면의 실행 UUID가 실제 재현 요청의 헤더와 대상 감사 로그·경보까지 전달되도록 로그 수집 설정을 준비합니다. 원래 진단 대상과 작업 제약이 적용됩니다.
-4. 실행 종료 후 60초까지의 감사 로그와 경보를 내보내 업로드합니다. UTF-8 JSON 배열, JSONL, CSV를 지원합니다. 감사 로그는 필수이며 경보 파일이 없다면 **조회 범위에 경보가 없음을 확인**한 경우에만 해당 항목을 선택합니다.
-5. 내보낸 기간은 실행 시작 30초 전부터 종료 60초 후까지 포함해야 합니다. 최대 24시간이며 미래 시각은 지정할 수 없습니다. 그 기간의 감사·경보 내역을 모두 포함했는지 확인합니다. 확인되지 않은 상태도 분석할 수 있지만 미탐지로 단정하지 않고 판단 불가로 남습니다.
-6. 탐지·차단 결과, 확인된 문제, 추가 확인할 원인과 권장 조치를 확인합니다. 같은 실행에 수정된 파일을 올리면 이전 근거를 덮어쓰지 않고 새 판정을 추가합니다.
+1. In the vulnerability details, under **Defense Verification**, save the plan and select **File Upload** as the connection method. You don't need a Splunk account.
+2. Specify the log source name and field name. The default fields are Time `timestamp`, Execution UUID `artex_verification_id`, Actual Action `action`, Event ID `id`. Dotted nested fields are also supported. Sources and field settings are preserved at their runtime values.
+3. ARTEX re-verification begins. Prepare log collection settings so that the execution UUID of the screen is transmitted to the header of the actual reproduction request and the target audit log/alarm. The original diagnostic target and task constraints apply.
+4. Export and upload audit logs and alarms up to 60 seconds after the end of execution. Supports UTF-8 JSON array, JSONL, and CSV. Audit log is required and if there is no alert file, select it only if you **confirm that there are no alerts in the scope of the query**.
+5. The exported period must include from 30 seconds before the start of the run to 60 seconds after the end. Up to 24 hours, no time in the future can be specified. Make sure you include all audit and alarm details for that period. Unconfirmed states can also be analyzed, but they are not determined as undetected and remain undetermined.
+6. Check detection/blocking results, identified issues, additional causes to check, and recommended actions. Uploading a modified file in the same run will add new verdicts rather than overwriting previous rationales.
 
-지원 형식 예시입니다. 아래 값은 설명용이므로 실제 로그를 대신해 업로드하지 말고, 로그 내보내기에서 실제 기록을 사용하세요.
+This is an example application format. The values ​​below are for illustrative purposes only, do not upload instead of actual logs, use the actual records in your log export.
 
 ```json
 [{"id":"실제 이벤트 ID","timestamp":"2026-10-09T09:00:00+09:00","artex_verification_id":"화면의 실행 UUID","action":"allowed"}]
 ```
 
-경보 파일은 같은 시각·UUID 필드를 포함한 **실제 탐지 경보**여야 합니다. `action`은 감사 로그에서 차단을 평가할 때 사용하며 `blocked`/`block`/`denied`/`deny`, `allowed`/`allow`/`passed`/`pass`를 인식합니다. 조치 필드 누락은 차단 판단 불가로 표시합니다. 이벤트 ID가 없으면 파일 근거에서 식별자를 계산합니다. 일반 텍스트·압축파일·이미지는 지원하지 않습니다.
+Alert files must be **actual detection alerts** with the same time/UUID fields. `action` is used when evaluating blocks in the audit log and recognizes `blocked`/`block`/`denied`/`deny`, `allowed`/`allow`/`passed`/`pass`. Missing action fields indicate blocking decisions as impossible. If an event ID is not found, an identifier is calculated from file basis. Plain text, compressed files, and images are not supported.
 
-원본 두 파일의 합계는 최대 4 MiB, 총 5,000개 이벤트이며 이벤트 하나는 최대 128 KiB입니다. 이 입력 한도를 넘으면 업로드를 거부합니다. 평가 대상은 감사·경보 각각 200개 이벤트까지이며 이 한도를 초과하면 불완전한 근거로 판정합니다. 다른 실행 UUID와 범위 밖의 이벤트는 제외하고 개수를 표시하며, 잘못된 형식이나 필요한 필드 누락은 오류 또는 판단 불가의 원인으로 안내합니다.
+The two original files total up to 4 MiB, for a total of 5,000 events, with one event up to 128 KiB. If this input limit is exceeded, the upload will be rejected. The evaluation target is up to 200 events each for audit and alarm, and if this limit is exceeded, it is judged as incomplete basis. Displays the count, excluding other execution UUIDs and out-of-range events, and incorrect formatting or missing required fields will indicate errors or inability to determine.
 
-파일명·SHA-256·원문·필드 설정과 입력 범위를 보존합니다. 화면 미리보기는 원문을 제외하며 전체 JSON 내보내기에는 원문을 포함합니다. 파일 내용은 로컬에서 파싱하며 이 기능이 외부 LLM으로 보내지 않습니다. 서버 경로나 URL을 열거나 파일에 적힌 명령을 실행하지 않습니다.
+Saves file name, SHA-256, original text, field settings and input range. The screen preview excludes the original text, and the full JSON export includes the original text. File content is parsed locally and is not sent to an external LLM by this function. It does not open server paths or URLs or execute commands written in files.
 
-### 탐지 실패 원인을 읽는 방법
+### How to read the cause of detection failure
 
-- **확인된 사실:** 실행 UUID 불일치, 필드 누락, 수집 범위 부족, 감사 로그 없음, 해당 실행의 경보 없음, 감사 로그에 허용 조치 기록 등입니다. 파일·행 또는 이벤트 근거와 함께 확인합니다.
-- **추가 확인할 원인:** 탐지 규칙 비활성화, 조건·필드 불일치, 경보 전달 누락 등입니다. 경보가 없다는 이유만으로 어느 하나를 확정하지 않습니다. 실제 규칙·수집기 설정을 점검하고 다시 검증합니다.
-- **판단 불가:** 로그가 부족하거나 범위가 확인되지 않은 상태입니다. 공격을 탐지하지 못했다는 결론과 구분합니다.
+- **Facts found:** Mismatched execution UUID, missing fields, insufficient collection scope, no audit log, no alerts for that execution, allowable actions logged in audit log, etc. Check with file, line or event basis.
+- **Additional causes to check:** Disabled detection rules, mismatched conditions/fields, missing alert delivery, etc. We do not confirm one or the other just because there are no alerts. Check and re-verify the actual rule/collector settings.
+- **Unable to determine:** There are insufficient logs or the scope has not been confirmed. Distinguish it from a conclusion that the attack was not detected.
 
-파일 기반 판정은 사용자가 제공한 기록과 범위 확인에 근거합니다. 제품이 원본 시스템의 전체 로그나 파일 진위를 독립적으로 검증한 결과는 아닙니다.
+File-based decisions are based on user-provided records and scope checks. The product is not the result of independent verification of the authenticity of complete logs or files from the source system.
 
-## 1. 기존 Splunk 연결
+## 1. Existing Splunk connection
 
-**방어 검증 → Splunk 로그 연결**에서 이미 사용하는 검색 계정을 직접 연결합니다. ARTEX는 Splunk 계정이나 인덱스를 생성하지 않습니다.
+Directly connect the search account you already use in **Defense Validation → Splunk Log Connection**. ARTEX does not create Splunk accounts or indexes.
 
-| 입력 항목 | 설정할 값 |
+| Entry | value to set |
 | --- | --- |
-| Splunk 관리 API 주소 | 기존 관리 API의 HTTPS 주소. 경로·계정·쿼리를 붙이지 않음 |
-| 인덱스 | 감사 로그와 경보를 검색할 기존 인덱스 하나 |
-| 감사로그 sourcetype | 실제 대상 요청의 감사 로그 출처 |
-| 경보 sourcetype | 배포된 탐지 규칙이 실제로 발생시킨 경보 출처. 감사 로그와 다른 값이어야 함 |
-| 검증 ID 필드 | 양쪽 로그에서 실행 UUID를 읽을 필드. 기본값 `artex_verification_id` |
-| 차단·허용 결과 필드 | 감사 로그의 실제 제어 결과 필드. 예: `action`에 `blocked` 또는 `allowed` |
-| 인증 방식 | 기존 검색 계정의 사용자 이름·비밀번호 또는 기존 Bearer 토큰 |
-| 인증서 SHA-256 지문 | 사설 인증서를 사용하는 경우 신뢰하는 서버 인증서의 정확한 지문 |
+| Splunk Management API Address | HTTPS address for the existing management API. Do not attach path/account/query |
+| index | One existing index to search for audit logs and alerts |
+| Audit log sourcetype | Audit log source for actual target request |
+| alert sourcetype | The source of the alert that the deployed detection rule actually raised. Must be different value from audit log |
+| Verification ID field | Field to read execution UUID from both logs. Default `artex_verification_id` |
+| Block/Allow result field | Actual Control Results field in the audit log. Example: `action` to `blocked` or `allowed` |
+| Authentication method | Username/password for an existing search account or an existing Bearer token |
+| Certificate SHA-256 Fingerprint | If you are using a private certificate, the exact fingerprint of the trusted server certificate |
 
-현재 커넥터는 **같은 인덱스의 서로 다른 감사·경보 sourcetype**을 지원합니다. 연결 계정에는 해당 로그의 검색 API 권한이 필요합니다. **연결 테스트**는 서버 정보 API의 통신·인증만 확인하므로, 성공해도 대상 로그의 수집이나 경보 발생이 확인된 것은 아닙니다.
+Currently, the connector supports **different audit and alert sourcetypes** for the same index. The connected account needs Search API permissions for its logs. **Connection test** only verifies communication and authentication of the server information API, so even if it succeeds, it does not confirm the collection of target logs or occurrence of alarms.
 
-연결을 저장하고 활성화합니다. 인증 정보는 ARTEX의 JWT 키에서 파생한 키로 암호화하여 DB에 저장하며, 조회·내보내기 응답에 포함하지 않습니다. 로컬 구성에서는 DB와 함께 `.local-runtime/jwt.key`를 보존해야 합니다. 키를 잃거나 교체하면 저장된 인증 정보를 다시 입력해야 합니다. 연결 주소를 변경할 때도 인증 정보를 다시 입력합니다.
+Save and activate the connection. Authentication information is encrypted with a key derived from ARTEX's JWT key and stored in the DB, and is not included in inquiry/export responses. In local configuration, `.local-runtime/jwt.key` must be preserved with the DB. If you lose or replace your key, you will need to re-enter your saved credentials. Re-enter your authentication information when you change the connection address.
 
-## 2. 요청과 로그에 실행 UUID 전달
+## 2. Pass execution UUID to requests and logs
 
-실행을 시작하면 서버가 UUID를 생성하고 재검증 에이전트에 `X-ARTEX-Verification-ID` 헤더로 전달합니다. 에이전트는 **허가된 원래 대상에서 취약점을 실제로 재현하는 HTTP 요청에만** 이 값을 붙이도록 지시받습니다. 로그인·세션 준비·정상 대조 요청은 이 UUID를 붙이지 않고 기존 재검증 흐름에서 별도로 확인합니다. 원래 인증 상태와 요청 조건, 작업 제약은 유지합니다.
+When you start running, the server generates a UUID and passes it to the revalidation agent as a `X-ARTEX-Verification-ID` header. Agents are instructed to attach this value **only to HTTP requests that actually reproduce the vulnerability on the original, authorized target. Login, session preparation, and normal verification requests are checked separately in the existing revalidation flow without attaching this UUID. The original authentication status, request conditions, and operation constraints are maintained.
 
-대상 서비스 또는 앞단 장비의 로그 설정에서 다음 연결이 준비되어 있어야 합니다.
+The following connections must be prepared in the log settings of the target service or front-end device.
 
-1. 요청 헤더 값을 감사 로그의 `artex_verification_id`에 보존합니다. 다른 필드명을 사용한다면 연결의 **검증 ID 필드**에 그 이름을 지정합니다.
-2. 감사 로그에 실제 조치 `blocked` 또는 `allowed`를 남기고 **차단·허용 결과 필드**에 매핑합니다. HTTP 403 같은 상태 코드만으로 차단을 판정하지 않습니다.
-3. 배포된 탐지 규칙이 경보를 발생시키면 **그 경보에도 같은 UUID를 보존**하여 지정한 경보 sourcetype으로 수집합니다. 감사 로그를 경보로 복제하거나 UUID가 있다는 이유만으로 탐지됐다고 간주하지 않습니다.
+1. Retain request header values ​​in `artex_verification_id` in the audit log. If you use a different field name, specify that name in the **Validation ID field** of the connection.
+2. Leave the actual action `blocked` or `allowed` in the audit log and map it to the **Block/Allow result field**. Blocking is not determined solely based on status codes such as HTTP 403.
+3. When a deployed detection rule generates an alarm, **the same UUID is preserved in that alarm** and collected into the specified alarm sourcetype. It does not replicate audit logs as alerts or assume detections just because a UUID is present.
 
-ARTEX는 대상의 로그 설정, 수집기, 탐지 규칙을 자동 변경하지 않습니다. 헤더 전달 지시는 성공 증거가 아니며, 비 HTTP 진단이나 헤더를 전달할 수 없는 요청은 상관 근거가 없으면 판단 불가로 남습니다.
+ARTEX does not automatically change the target's log settings, collectors, or detection rules. Header delivery instructions are not proof of success, and non-HTTP diagnostics or requests for which headers cannot be delivered will remain inadmissible without a correlating basis.
 
-## 3. Splunk에서 실행하고 증거 수집
+## 3. Run in Splunk and collect evidence
 
-1. **방어 검증** 목록에서 취약점을 열고 상세의 **방어 검증** 탭으로 이동합니다.
-2. 탐지 가설, 확인할 로그와 방어 조치를 계획에 저장합니다. 저장된 규칙 초안은 SIEM에 자동 배포되거나 검색문으로 실행되지 않습니다.
-3. 활성화된 Splunk 연결을 선택하고 **ARTEX 진단 + 방어 검증 시작**을 누릅니다. 기존 ARTEX 재검증 에이전트가 실행되며, 이력에서 진단 대화를 열 수 있습니다.
-4. 진단이 종료되면 **종료 후 60초**를 기다린 뒤 로그·경보 수집 버튼을 누릅니다. 상태 새로고침은 진단 진행 상태만 확인하며, SIEM 증거는 버튼을 눌러 수집합니다.
-5. 탐지와 차단 판정, 조회 구간, 감사·경보 개수와 다음 조치를 확인합니다. 로그가 늦게 들어왔다면 같은 실행에서 다시 수집합니다. 이전 판정은 덮어쓰지 않고 새 판정을 추가합니다.
+1. Open the vulnerability in the **Defense Verification** list and go to the **Defense Verification** tab in Details.
+2. Save detection hypotheses, logs to check and defensive actions to the plan. Saved rule drafts are not automatically deployed to your SIEM or executed as search statements.
+3. Select an active Splunk connection and press **Start ARTEX Diagnostics + Defense Verification**. The existing ARTEX revalidation agent will run and you can open a diagnostic dialog in its history.
+4. When the diagnosis is complete, wait **60 seconds after completion** and press the log/alarm collection button. Status refresh only checks diagnostic progress, and SIEM evidence is collected at the push of a button.
+5. Check detection and blocking decisions, inquiry sections, number of audits and alerts, and next actions. If logs come in late, they are collected again in the same run. Adds new rolls without overwriting previous rolls.
 
-조회 구간은 진단 시작 30초 전부터 종료 60초 후까지입니다. 일찍 수집하면 현재 시각까지만 조회하고 불완전한 근거로 표시합니다. 60초는 고정 관측 구간이며 로그 전달 완료를 보장하는 시간은 아닙니다. 경보 자체가 이 구간보다 늦게 생성되면 현재 실행의 조회 범위에 포함되지 않습니다.
+The inquiry section is from 30 seconds before the start of diagnosis to 60 seconds after the end. If you collect it early, it will only look up to the current time and mark it as incomplete. 60 seconds is a fixed observation interval and does not guarantee log delivery completion. If the alert itself is generated later than this interval, it will not be included in the current execution's view scope.
 
-| 판정 | 필요한 근거 |
+| Judgment | Required Evidence |
 | --- | --- |
-| 탐지됨 | 정상 완료된 재검증, 충분한 조회 구간, 같은 UUID의 감사 로그와 실제 경보 |
-| 미탐지 | 위 조건에서 감사 로그는 있으나 같은 UUID의 경보가 없음 |
-| 차단됨 | 평가 가능한 감사 로그의 조치가 모두 명시적인 차단 |
-| 미차단 | 평가 가능한 감사 로그의 조치가 모두 명시적인 허용 |
-| 판단 불가 (`inconclusive`) | 실행 실패·중단, 감사 로그 없음, 불완전한 조회, 시각·UUID 불일치, 조치 누락·혼합 등 |
+| Detected | Normally completed re-verification, sufficient inquiry section, audit log with same UUID and actual alarm |
+| undetected | In the above conditions, there is an audit log, but there is no alarm with the same UUID |
+| blocked | Explicitly block all actions in the evaluable audit log |
+| Not blocked | Explicitly allow all actions in evaluable audit logs |
+| No judgment (`inconclusive`) | Execution failure/interruption, no audit log, incomplete query, time/UUID mismatch, missing/mixed actions, etc. |
 
-탐지됐어도 차단되지 않을 수 있습니다. 조치 필드가 없거나 차단·허용이 섞였다면 탐지 결과를 확인했어도 차단 쪽은 판단 불가로 남습니다. LLM이 저장한 `재현됨·수정됨·판단 불가`는 **취약점 진단 결론**이며 위 판정과 별개입니다. 기존 재검증이 수정됨으로 완료되면 기존 동작대로 취약점 상태가 바뀔 수 있지만, SIEM 판정은 수집한 근거로 따로 결정합니다.
+Even if detected, it may not be blocked. If there is no action field or if block and allow are mixed, the blocking side remains undetermined even if the detection result is confirmed. `재현됨·수정됨·판단 불가` stored by LLM is **Vulnerability Diagnosis Conclusion** and is separate from the above judgment. Once the existing revalidation is completed as modified, the vulnerability status may change as per existing behavior, but the SIEM decision is made separately based on the collected evidence.
 
-조회는 최대 24시간 구간, 감사·경보 각각 200개 이벤트까지 처리합니다. 한도 초과나 검색 경고는 불완전한 근거로 표시합니다. 연결·조회 실패를 탐지 성공이나 차단 성공으로 저장하지 않습니다.
+Inquiry processes up to 24 hours and up to 200 audit and alarm events each. Exceeded limits or search warnings will be marked as incomplete. Connection/inquiry failures are not saved as detection success or blocking success.
 
-## 4. 개선 전후 비교와 내보내기
+## 4. Compare and export before and after improvement
 
-개선 전 실행의 진단과 증거 수집을 마친 뒤, 대상의 방어 조치나 탐지 규칙을 적용합니다. 같은 취약점에서 **개선 전 기준 실행**을 선택하고 적용한 개선 설명을 적어 새 실행을 시작합니다. 두 실행의 UUID는 서로 다릅니다.
+After diagnosing and gathering evidence for pre-improvement execution, the target's defense measures or detection rules are applied. Select **Run baseline before improvements** on the same vulnerability and start a new run by writing down the description of the improvements you applied. The UUIDs for the two runs are different.
 
-비교하려면 기준 실행이 먼저 종료되어야 하며, 두 진단이 정상 완료되고 각각의 최신 탐지·차단 판정이 판단 불가가 아니어야 합니다. 원본 대상 자산·취약점 유형·작업 제약, 증거 소스와 설정 버전도 같아야 합니다. 개선 후 실행은 현재 계획·취약점 증거·소스 설정과 일치해야 합니다. 조건이 부족하면 이유를 표시하고 개선 효과를 확정하지 않습니다.
+To compare, the baseline run must finish first, both diagnostics must be completed normally, and the latest detection/blocking judgments for each must not be undecidable. The original target asset/vulnerability type/operation constraints, evidence source, and configuration version must also be the same. Post-remediation implementation should be consistent with current plans, vulnerability evidence, and source settings. If the conditions are insufficient, the reason will be indicated and the improvement effect will not be confirmed.
 
-실행에는 당시 원본 진단, 대상·제약, 방어 계획과 소스 설정 사본을 저장합니다. 계획이나 취약점 근거, 대상 주소·IP·작업 제약, 연결 설정이 바뀌면 과거 기록은 남기고 현재 성과 집계에서 제외합니다. 소스 설정이 바뀐 과거 실행은 추가 수집할 수 없으므로 현재 설정으로 새 실행을 시작합니다. `현재 버전`은 기록의 버전이 일치한다는 뜻이며 방어 성공을 뜻하지 않습니다.
+Execution saves a copy of the original diagnosis, targets/constraints, defense plan and source settings at the time. If the plan, vulnerability basis, target address, IP, task constraints, or connection settings change, past records are kept and excluded from current performance tally. Past runs with changed source settings cannot be further collected, so a new run is started with the current settings. `현재 버전` means that the version of the record matches and does not mean that the defense was successful.
 
-화면과 비교 결과에는 최근 실행 30개, 실행별 최근 판정 5개와 판정별 이벤트 20개를 미리 표시하며 업로드 원문은 제외합니다. 개수와 판정은 전체 수집 근거를 기준으로 합니다. **JSON 내보내기**에는 선택한 실행의 원본 진단 사본, 계획·소스 설정, 재검증 결론, 모든 판정과 보존된 파일 또는 Splunk 결과 원문을 포함합니다. 소스 인증 정보는 포함하지 않습니다. 새 수집은 새 이력으로 추가하며 개별 판정 수정 기능은 없습니다. 파일 방식의 전후 비교는 출처 이름과 필드 설정도 같아야 하며 파일 방식과 Splunk 방식 사이의 효과 비교는 확정하지 않습니다.
+The screen and comparison results pre-display 30 recent executions, 5 recent judgments for each execution, and 20 events for each judgment, and exclude the original upload text. Counts and decisions are based on the entire collection basis. **JSON export** includes a copy of the original diagnostics of the selected run, plan/source settings, revalidation conclusions, all verdicts and archived files, or the original Splunk results. Does not include source authentication information. New collections are added as new histories and there is no ability to modify individual judgments. A before-and-after comparison of the file method must also have the same source names and field settings, and does not confirm the effectiveness comparison between the file method and the Splunk method.
 
-작업 보관·복원에는 실행과 판정 이력도 포함됩니다. 진행 중인 방어 재검증이 있으면 먼저 종료해야 작업을 보관할 수 있습니다. 취약점을 삭제하면 연결된 계획과 검증 이력도 삭제됩니다.
+Job storage and restoration also includes execution and judgment history. If there is a defense revalidation in progress, it must be terminated first to archive the work. Deleting a vulnerability also deletes the associated plan and verification history.
 
-## 수동 기록과 로그 재생
+## Manual recording and log playback
 
-수동 기록은 관측 시각과 로그·경보 ID 등 근거를 적고 탐지·차단 결과를 따로 선택합니다. 한쪽만 확인했다면 다른 쪽은 미확인으로 남깁니다. 실제 SIEM 수집 결과의 집계와 합치지 않습니다.
+For manual recording, you write down the observation time, log/alarm ID, etc. and select the detection/blocking results separately. If only one side is confirmed, the other side is left unconfirmed. It is not combined with an aggregate of actual SIEM collection results.
 
-로그 재생은 계획의 규칙 형식을 **이벤트 조건(JSON)**으로 저장한 뒤 탐지 대상 로그와 정상 대조 로그를 입력하여 실행합니다. 입력은 JSON 객체 배열 또는 JSONL이며, 양쪽 합계 1 MiB·2,000개 이벤트까지 처리합니다. 입력 원문은 재현용으로 로컬 DB에 보관하고 외부 LLM으로 보내지 않습니다.
+Log replay is executed by saving the rule format of the plan as **event condition (JSON)** and then inputting the detection target log and normal comparison log. The input is an array of JSON objects, or JSONL, and processes up to 1 MiB and 2,000 events in total. The input original text is stored in the local DB for reproduction purposes and is not sent to an external LLM.
 
 ```json
 {"version":1,"all":[{"field":"access.cross_owner","op":"eq","value":true}]}
 ```
 
-최대 16개 `all` 조건을 모두 만족하면 일치합니다. `eq`·`neq`는 문자열·숫자·불리언의 같은 타입끼리 비교하고 `contains`는 문자열 포함을 검사합니다. 점이 있는 필드명은 동일한 최상위 키를 먼저 사용하고, 없으면 중첩 경로를 읽습니다. 검색 쿼리·Sigma·기타 형식은 초안으로 보존하며 이 엔진에서 실행하지 않습니다.
+A match occurs if up to 16 `all` conditions are met. `eq`·`neq` compares the same types of strings, numbers, and Boolean, and `contains` checks whether strings are included. Field names with dots use the same top-level key first; otherwise, nested paths are read. Search queries, Sigma, and other formats are kept as drafts and will not be executed by this engine.
 
-양쪽 입력이 있고 모든 대상 이벤트가 일치하며 정상 이벤트가 모두 불일치해야 통과합니다. 누락·오탐은 실패이며, 빈 입력이나 필드 부족·타입 불일치가 하나라도 있으면 판단 불가입니다. 화면은 최근 50개 실행과 이벤트 상세 50개를 미리 표시하고, 내보내기는 전체 원문·조건·결과·SHA-256 해시를 포함합니다. 이 결과는 업로드 로그의 조건 평가이며 실제 SIEM 탐지·차단의 증거가 아닙니다.
+To pass, both inputs must exist, all target events match, and all normal events must mismatch. Missing or false positives are failures, and if there is any empty input, insufficient field, or type mismatch, judgment cannot be made. The screen previews the 50 most recent executions and 50 event details, and the export includes the full text, conditions, results, and SHA-256 hash. These results are a conditional evaluation of upload logs and are not evidence of actual SIEM detection or blocking.
 
-## API와 개발 테스트
+## API and development testing
 
-기존 ARTEX 인증을 사용합니다. 실행·소스·취약점 ID는 JSON 문자열이며, 기존 재검증 ID는 숫자입니다.
+Uses existing ARTEX certification. The execution/source/vulnerability ID is a JSON string, and the existing revalidation ID is a number.
 
-| 경로 | 용도 |
+| path | Use |
 | --- | --- |
-| `GET/POST /api/purple/sources` | 기존 Splunk 연결 조회·저장 |
-| `PUT /api/purple/sources/{sourceID}` | 연결 수정, `expected_revision` 검사 |
-| `POST /api/purple/sources/{sourceID}/test` | 관리 API 통신·인증 확인 |
-| `GET/PUT /api/exploration/findings/{id}/defense` | 방어 계획·수동 이력 조회 및 계획 저장 |
-| `GET/POST /api/exploration/findings/{id}/defense/executions` | 실행 이력 조회 및 기존 ARTEX 재검증 시작 |
-| `POST /api/exploration/findings/{id}/defense/executions/{executionID}/collect` | 실제 Splunk 조회와 새 판정 추가 |
-| `POST /api/exploration/findings/{id}/defense/executions/{executionID}/upload` | 감사·경보 파일 업로드, 근거 연결과 원인 점검 |
-| `GET /api/exploration/findings/{id}/defense/executions/{executionID}/export` | 선택한 실행의 전체 근거 JSON |
-| `GET /api/exploration/findings/{id}/defense/executions/compare?baseline_id=…&current_id=…` | 명시적으로 연결한 개선 전후 실행 비교 |
-| `POST /api/exploration/findings/{id}/defense/validations` | 수동 기록 추가 |
-| `GET/POST /api/exploration/findings/{id}/defense/replays` | 로그 재생 이력 조회 및 평가 |
-| `GET /api/exploration/findings/{id}/defense/replays/{runID}/export` | 재생 입력·규칙·결과 JSON |
-| `GET /api/purple/overview?page=1&limit=20` | 방식별 집계와 취약점별 상태 |
+| `GET/POST /api/purple/sources` | View and save existing Splunk connections |
+| `PUT /api/purple/sources/{sourceID}` | Fix connection, check `expected_revision` |
+| `POST /api/purple/sources/{sourceID}/test` | Management API communication/authentication confirmation |
+| `GET/PUT /api/exploration/findings/{id}/defense` | Defense plan/manual history inquiry and plan saving |
+| `GET/POST /api/exploration/findings/{id}/defense/executions` | Start execution history inquiry and re-verification of existing ARTEX |
+| `POST /api/exploration/findings/{id}/defense/executions/{executionID}/collect` | Add real Splunk queries and new verdicts |
+| `POST /api/exploration/findings/{id}/defense/executions/{executionID}/upload` | Upload audit/alert files, connect evidence and check cause |
+| `GET /api/exploration/findings/{id}/defense/executions/{executionID}/export` | Full rationale for selected execution JSON |
+| `GET /api/exploration/findings/{id}/defense/executions/compare?baseline_id=…&current_id=…` | Comparison of execution before and after explicitly linked improvements |
+| `POST /api/exploration/findings/{id}/defense/validations` | Add manual records |
+| `GET/POST /api/exploration/findings/{id}/defense/replays` | View and evaluate log playback history |
+| `GET /api/exploration/findings/{id}/defense/replays/{runID}/export` | Playback input/rule/result JSON |
+| `GET /api/purple/overview?page=1&limit=20` | Aggregation by method and status by vulnerability |
 
-실행 생성은 `source_kind`(`file` 또는 `splunk`), `plan_revision`, `expected_evidence_version`, `expected_source_fingerprint`를 검사합니다. 파일 방식은 `source_id:"0"`과 `file_config`를 사용하고, Splunk 방식은 기존 `source_id`를 사용합니다. 이전 클라이언트의 `source_kind` 생략은 Splunk로 해석합니다. 파일 업로드에는 `audit_file:{name,content}`, 선택적인 `alert_file`, `no_alerts`, `coverage_start`, `coverage_end`, `coverage_complete`를 전달합니다. 개선 실행은 `baseline_id`와 `remediation_note`를 추가합니다. 활성 재검증이 있으면 새 실행을 중복 시작하지 않습니다.
+The run generation checks `source_kind` (`file` or `splunk`), `plan_revision`, `expected_evidence_version`, and `expected_source_fingerprint`. The file method uses `source_id:"0"` and `file_config`, and the Splunk method uses the existing `source_id`. The omission of `source_kind` from older clients is interpreted by Splunk. For file upload, pass `audit_file:{name,content}`, optionally `alert_file`, `no_alerts`, `coverage_start`, `coverage_end`, `coverage_complete`. The enhancement run adds `baseline_id` and `remediation_note`. If there is an active revalidation, no new executions are started redundantly.
 
-[로컬 개발 안내](local-development.md)의 `./scripts/local-test.sh`는 별도 임시 PostgreSQL과 테스트용 HTTP 응답으로 동작을 검사합니다. 자동화 테스트 통과는 실제 대상에서 진단·탐지·차단을 검증했다는 의미가 아닙니다. 실제 결과는 사용자가 연결한 환경에서 실행하고 수집한 이력으로 확인합니다.
+`./scripts/local-test.sh` in [Local Development Guide](local-development.md) checks the behavior with separate ad-hoc PostgreSQL and HTTP responses for testing. Passing an automated test does not mean that the diagnosis, detection, or blocking has been verified on a real target. Actual results are confirmed by execution and collected history in the user-connected environment.

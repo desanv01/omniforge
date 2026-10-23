@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/investigation"
 	"github.com/Autumn-27/norma/llm"
 	actool "github.com/Autumn-27/norma/tool"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 type certScriptCall struct {
@@ -52,7 +52,7 @@ func (p *certScriptProvider) Complete(ctx context.Context, req llm.CompletionReq
 		return llm.Message{}, "", llm.Usage{}, c.err
 	}
 	if c.tool == "" {
-		return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("단계 종료")}}, "end_turn", llm.Usage{InputTokens: 10, OutputTokens: 3}, nil
+		return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("Step end")}}, "end_turn", llm.Usage{InputTokens: 10, OutputTokens: 3}, nil
 	}
 	return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{{Type: llm.BlockToolUse, ID: fmt.Sprintf("call-%d", p.calls), Name: c.tool, Input: json.RawMessage(c.input)}}}, "tool_use", llm.Usage{InputTokens: 10, OutputTokens: 3}, nil
 }
@@ -97,19 +97,19 @@ func certFixture() InvestigatorOptions {
 	e2.Line = 2
 	e2.Raw = `{"path":"/ftp/b.txt"}`
 	e2.KnownARTEX = true
-	return InvestigatorOptions{Finding: investigation.FindingContext{Name: "정적 파일 노출", Evidence: "GET /ftp"}, Collection: investigation.Collection{SourceKind: "file", Scope: scope, Complete: true, Events: []investigation.Event{e1, e2}}, NonStreaming: true}
+	return InvestigatorOptions{Finding: investigation.FindingContext{Name: "Exposure of static files", Evidence: "GET /ftp"}, Collection: investigation.Collection{SourceKind: "file", Scope: scope, Complete: true, Events: []investigation.Event{e1, e2}}, NonStreaming: true}
 }
 func certHappyScript() []certScriptCall {
 	return []certScriptCall{
-		{"plan_investigation", `{"action":"investigate","reason":"노출 경로 접근 기록 확인","hypothesis":"과거 파일 접근이 있을 수 있다","objective":"첫 파일 접근 확인"}`, nil},
+		{"plan_investigation", "{\"action\":\"investigate\",\"reason\":\"Check exposure path access records\",\"hypothesis\":\"There may be past file access\",\"objective\":\"Check first file access\"}", nil},
 		{"search_evidence", `{"path_contains":"a.txt"}`, nil},
 		{"read_evidence", `{"refs":["ref-one"]}`, nil},
-		{"record_observation", `{"kind":"observed","summary":"/ftp/a.txt 요청이 로그에 기록됨. 내용 탈취 여부는 알 수 없음","evidence_refs":["ref-one"],"alternatives":["정상 사용자 접근일 수 있음"],"next_steps":["같은 출발지의 추가 파일 접근 확인"]}`, nil},
-		{"plan_investigation", `{"action":"investigate","reason":"첫 접근 뒤 다른 파일 요청 확인","hypothesis":"같은 IP에서 후속 접근이 있을 수 있다","objective":"추가 파일 요청의 재현 트래픽 여부 확인","evidence_refs":["ref-one"]}`, nil},
+		{"record_observation", "{\"kind\":\"observed\",\"summary\":\"/ftp/a.txt request logged. Unknown if content was stolen\",\"evidence_refs\":[\"ref-one\"],\"alternatives\":[\"This could be normal user access\"],\"next_steps\":[\"Check for additional file access from the same origin\"]}", nil},
+		{"plan_investigation", "{\"action\":\"investigate\",\"reason\":\"Check for other file requests after the first access\",\"hypothesis\":\"There may be subsequent accesses from the same IP\",\"objective\":\"Check for repeat traffic for additional file requests\",\"evidence_refs\":[\"ref-one\"]}", nil},
 		{"search_evidence", `{"path_contains":"b.txt","source_ip":"192.0.2.4"}`, nil},
 		{"read_evidence", `{"refs":["ref-two"]}`, nil},
-		{"record_observation", `{"kind":"inferred","summary":"두 요청의 출발 IP는 같지만 동일 공격자 여부는 확인되지 않음","evidence_refs":["ref-one","ref-two"],"alternatives":["공유 IP이며 ARTEX 재현 요청도 포함"],"next_steps":["인증 로그가 필요함"]}`, nil},
-		{"plan_investigation", `{"action":"complete","reason":"허용된 파일 로그 조사를 완료했고 후속 인증 판단에는 별도 로그가 필요함","evidence_refs":["ref-one","ref-two"],"needed_logs":["인증 감사 로그"],"next_steps":["별도 인증 경로 범위로 조사"]}`, nil},
+		{"record_observation", "{\"kind\":\"inferred\",\"summary\":\"The origin IP of both requests is the same, but it is not confirmed whether they are the same attacker\",\"evidence_refs\":[\"ref-one\",\"ref-two\"],\"alternatives\":[\"Shared IP and includes ARTEX replay requests\"],\"next_steps\":[\"Authentication log required\"]}", nil},
+		{"plan_investigation", "{\"action\":\"complete\",\"reason\":\"Allowed file log investigation completed, subsequent authentication decisions require separate logs\",\"evidence_refs\":[\"ref-one\",\"ref-two\"],\"needed_logs\":[\"Authentication audit log\"],\"next_steps\":[\"Separate investigation into authentication path scope\"]}", nil},
 	}
 }
 
@@ -311,7 +311,7 @@ func TestInvestigatorMissingLogsEndsWithoutFabricatedObservation(t *testing.T) {
 	o := certFixture()
 	o.Collection.Events = nil
 	o.Collection.Complete = false
-	o.Provider = &certScriptProvider{t: t, script: []certScriptCall{{"plan_investigation", `{"action":"insufficient_data","reason":"확인할 로그가 없음","needed_logs":["해당 시간 웹 감사 로그"],"next_steps":["로그를 업로드한 뒤 재조사"]}`, nil}, {}}}
+	o.Provider = &certScriptProvider{t: t, script: []certScriptCall{{"plan_investigation", "{\"action\":\"insufficient_data\",\"reason\":\"There are no logs to check\",\"needed_logs\":[\"Web audit logs at that time\"],\"next_steps\":[\"Upload logs and then reinvestigate them\"]}", nil}, {}}}
 	r, err := RunInvestigation(t.Context(), o)
 	if err != nil || r.Status != "insufficient_data" || len(r.Observations) != 0 || len(r.Gaps) < 2 {
 		t.Fatalf("report=%+v err=%v", r, err)

@@ -6,65 +6,24 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/norma/agentcore"
 	"github.com/Autumn-27/norma/llm"
 	acperm "github.com/Autumn-27/norma/permission"
 	actool "github.com/Autumn-27/norma/tool"
 	"github.com/Autumn-27/norma/transcript"
+	"github.com/desanv01/omniforge/db"
 )
 
 // goalsDefaultTmpl is the built-in EDITABLE body (段 [A]) of the goals-decomposer
 // prompt, seeded into agent_prompts. No template vars are used today.
-const goalsDefaultTmpl = `你是渗透测试目标分解器。你的职责是从用户输入中识别出**最终要达成的结果**，而不是规划攻击步骤。
-
-**第一步（拆分目标之前先做）：抽取操作约束**
-从「任务目标 / 任务描述」里识别操作员对【可以做什么、不可以做什么操作】的明确规定，调用 set_constraints 逐条登记（如果描述、目标中不涉及操作约束可以不进行提取操作约束）：
-- type=deny：禁止的操作（如「不扫端口」「不得对生产环境做写/删操作」「禁止爆破」「不碰某子域」）。
-- type=allow：明确允许/限定的操作范围（如「只允许被动侦察」「仅针对某域名」）。
-- 约束 ≠ 目标，也 ≠ 攻击步骤：它是对操作行为边界的规定。
-- **约束必须【自包含、写死具体目标】**：把「当前目标/当前端口/当前IP/当前域名/本站」这类**指代词**替换成任务目标/描述里的**具体值**。约束会被单独注入到执行阶段的提示里，脱离上下文后指代词无法判断指谁。
-  例：目标是 https://abc.example.net → 写「只允许测试 abc.example.net」而不是「只允许测试当前目标」；「仅测目标端口 443，不扫其他端口」而不是「只测当前端口」。若原文只说「当前目标」但目标地址已明确，就把地址填进去。
-- **只登记目标/描述里【明确写出或强调】的约束，严禁臆造**；拿不准类型时用 deny（更保守）。
-- 若目标/描述里确实没有任何操作约束，则**不要**调用 set_constraints。
-登记完约束（如有）后，再进行下面的目标拆分。
-
-**目标 = 最终可交付/可核验的结果**
-
-**不是目标的内容（禁止列为子目标）**：
-- 信息收集、侦察、端点扫描
-- 漏洞分析与验证过程
-- 攻击步骤、利用手段
-- 结果验证步骤
-
-**拆分原则**：
-- 用户描述的最终目标只有一个 → 输出一个
-- 存在多个**相互独立**的最终交付物 → 分别列出
-- 能对应明确漏洞类的标注 vulnclass；信息收集/业务逻辑类目标留空
-- 严禁臆造用户未提及的目标
-
-调用 set_goals 提交结果。`
+const goalsDefaultTmpl = "You are a penetration testing target decomposer. Your job is to identify the **ultimate result** from user input, not to plan the attack steps.\n\n**The first step (do it before splitting the target): Extract operational constraints**\nIdentify the operator's clear regulations on [what operations can and cannot be done] from the \"task goal/task description\", and call set_constraints to register them one by one (if the description and goal do not involve operation constraints, you do not need to extract the operation constraints):\n- type=deny: prohibited operations (such as \"no port scanning\", \"no write/deletion operations on the production environment\", \"no blasting\", \"no touching a certain subdomain\").\n- type=allow: clearly allow/restrict the scope of operations (such as \"only allow passive reconnaissance\" and \"only target a certain domain name\").\n- Constraint ≠ target, also ≠ attack step: it is the regulation of the boundaries of operational behavior.\n- **Constraints must be [self-contained, hard-coded specific goals]**: Replace **referential words** such as \"current target/current port/current IP/current domain name/this site\" with **specific values** in the task goal/description. Constraints will be injected separately into the prompts in the execution phase, and it is impossible to determine who the referent refers to after being separated from the context.\n  Example: The target is https://abc.example.net → write \"Only allow testing abc.example.net\" instead of \"Only allow testing of the current target\"; \"Only test target port 443, do not scan other ports\" instead of \"Only test the current port\". If the original text only says \"current target\" but the target address is clear, fill in the address.\n- **Only register the constraints [clearly written or emphasized] in the target/description, and it is strictly forbidden to make up**; use deny (more conservative) when you are not sure about the type.\n- Don't call set_constraints if there are indeed no operational constraints in the target/description.\nAfter registering the constraints (if any), proceed with the following target splitting.\n\n**Goal = Final deliverable/verifiable result**\n\n**Content that is not a goal (not allowed as a sub-goal)**:\n- Information collection, reconnaissance, endpoint scanning\n- Vulnerability analysis and verification process\n- Attack steps and exploitation methods\n- Result verification steps\n\n**Split Principle**:\n- There is only one ultimate goal described by the user → output one\n- There are multiple **mutually independent** final deliverables → listed separately\n- Mark vulnclass that can correspond to a clear vulnerability class; leave information collection/business logic targets blank\n- It is strictly prohibited to invent goals that have not been mentioned by the user\n\nCall set_goals to submit the results."
 
 // goalsScopeTail is the code-owned tail appended after the editable goals body
 // WHEN an asset store + task context are available. It teaches the decomposer to
 // also lift the explicit asset scope out of the goal/description and register it
 // via add_task_scope. Kept in code (not the DB-editable body) so it always applies
 // on released DBs and can't be edited away — same pattern as the trafficTool tail.
-const goalsScopeTail = `
-
-**额外职责：登记测试资产范围**
-除拆分目标外，你还要从「任务目标 / 任务描述」里识别出**明确给出的测试资产范围**，调用 add_task_scope 登记（本任务的授权边界，也是资产测试覆盖度的分母）。**最小范围原则：只登记用户明确点到的那一个目标，绝不擅自放大。**
-- 目标是 URL 或带主机名的地址（如 https://xxx.example.com/path、app.example.com）→ 取其**完整主机名**，kind=subdomain，value=完整主机名。
-  例：目标 https://a1b2c3.lab.example.net/path → kind=subdomain，value=a1b2c3.lab.example.net（**不是** example.net）。
-  **严禁**把带子域的主机名缩成根域名——看到 xxx.example.com 就登记整个 example.com 会把范围扩到用户目标之外，违背最小范围原则。
-- 仅当用户给的就是**裸根域名、且不含任何子域**（如直接写 example.com），或明确说“整个站点 / 所有子域 / 全域名” → 才用 kind=root_domain，value=example.com。
-- 纯 IP 或网段 → kind=ip / cidr，value=IP 或 CIDR。
-- **不要**登记公司范围（company）——任务刚建立、资产系统里通常还没有这家公司，登记不上，公司级范围交由后续 plan 阶段处理。
-其它规则：
-- 只登记**目标/描述里明确写出**的范围；严禁臆造或推断未提及的域名/IP。
-- reason 简述依据来自哪句话，便于审计。
-- 若目标/描述中没有任何明确资产范围，则**不要**调用 add_task_scope。
-先用 add_task_scope 登记范围（如有），再调用 set_goals 提交目标。`
+const goalsScopeTail = "\n\n**Additional Responsibilities: Register Test Asset Scope**\nIn addition to splitting the goals, you must also identify the **clearly given test asset scope** from the \"task goal/task description\" and call add_task_scope to register (the authorization boundary of this task is also the denominator of the asset test coverage). ** Minimum scope principle: Only register the target that the user has clearly clicked on, and never enlarge it without authorization. **\n- The target is a URL or an address with a hostname (e.g. https://xxx.example.com/path、app.example.com）→, take its **full hostname**, kind=subdomain, value=full hostname.\n  Example: target https://a1b2c3.lab.example.net/path → kind=subdomain, value=a1b2c3.lab.example.net (**not** example.net).\n  **It is strictly prohibited** to shorten the host name with subdomains to the root domain name - registering the entire example.com when you see xxx.example.com will expand the scope beyond the user's target, violating the principle of minimum scope.\n- Use kind=root_domain, value=example.com only when the user gives a **bare root domain name and does not include any subdomain** (such as writing example.com directly), or explicitly says \"entire site/all subdomains/full domain name\" →.\n- Pure IP or network segment → kind=ip/cidr, value=IP or CIDR.\n- **Don't** register the company scope (company) - the task has just been created and the company usually does not exist in the asset system, so it cannot be registered, and the company-level scope will be processed in the subsequent plan stage.\nOther rules:\n- Only register the scope of the target/description that is clearly stated; inventing or inferring unmentioned domain names/IPs is strictly prohibited.\n- reason briefly states which sentence the basis comes from to facilitate auditing.\n- **Don't** call add_task_scope without any explicit asset scope in the target/description.\nFirst use add_task_scope to register the scope (if any), and then call set_goals to submit the goal."
 
 // goalsSystem assembles the goals-decomposer system prompt: the rendered body
 // [A] (DB-overridable), the code-owned scope-extraction tail when add_task_scope
@@ -153,9 +112,9 @@ func DecomposeGoalsWithProvider(ctx context.Context, prov llm.Provider, dataDir,
 	if withScope {
 		tools = append(tools, tsx.addTaskScope())
 	}
-	userMsg := "任务目标：\n" + goalText
+	userMsg := "Mission objectives:\n" + goalText
 	if d := strings.TrimSpace(desc); d != "" {
-		userMsg += "\n\n任务描述（背景信息，可能含靶标范围/flag 数量/交战说明；仅供参考，不要臆造其中未提及的内容）：\n" + d
+		userMsg += "\n\nMission description (background information, may include target range/number of flags/engagement instructions; for reference only, do not infer content not mentioned in it):\n" + d
 	}
 	// Use captureRun so every LLM step is emitted as an activity record (visible in
 	// the plan tab under the round-0 marker). Falls back gracefully when emit is nil.

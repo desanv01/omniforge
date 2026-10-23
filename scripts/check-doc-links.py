@@ -183,20 +183,20 @@ def main() -> int:
                             broken_anchors.append((md, lineno, target, target_md))
 
     print(
-        f"추적 마크다운 {len(md_files)}개 · 파일 참조 {checked_files}개 · "
-        f"앵커 참조 {checked_anchors}개 검사"
+        f"Checked {len(md_files)} Markdown files, {checked_files} file references, "
+        f"and {checked_anchors} anchors"
     )
     if broken_files:
-        print(f"깨진 파일 참조 {len(broken_files)}개 — 가리키는 파일이 저장소에 없습니다:")
+        print(f"Missing file references: {len(broken_files)}")
         for md, lineno, target in broken_files:
             print(f"  {md}:{lineno} -> {target}")
     if broken_anchors:
-        print(f"깨진 앵커 참조 {len(broken_anchors)}개 — 대상 문서에 그 헤딩이 없습니다:")
+        print(f"Broken anchors: {len(broken_anchors)}")
         for md, lineno, target, target_md in broken_anchors:
-            print(f"  {md}:{lineno} -> {target}  (대상: {target_md})")
+            print(f"  {md}:{lineno} -> {target}  (document: {target_md})")
     if broken_files or broken_anchors:
         return 1
-    print("깨진 참조 0 — 모든 내부 링크·이미지·앵커가 실존 대상을 가리킵니다.")
+    print("No broken internal file, image, or anchor references.")
     return 0
 
 

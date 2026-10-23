@@ -238,11 +238,12 @@ func TestPurpleConcurrentPlanEditAndValidation(t *testing.T) {
 
 func TestPurpleInputValidation(t *testing.T) {
 	plan := purplePlan()
-	plan.Hypothesis = strings.Repeat("검", 4000)
+	// Keep a multibyte, single-rune fixture: this limit counts characters.
+	plan.Hypothesis = strings.Repeat("界", 4000)
 	if _, err := normalizeDefensePlan(plan); err != nil {
 		t.Fatal("valid unicode rejected", err)
 	}
-	plan.Hypothesis += "증"
+	plan.Hypothesis += "界"
 	if _, err := normalizeDefensePlan(plan); !errors.Is(err, ErrDefenseInvalid) {
 		t.Fatal("oversized hypothesis accepted", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 // TestTaskTemplateErrorConstantsLocalized guards the F3b task-template bundle:
@@ -15,11 +15,11 @@ import (
 // leftover Chinese Han characters. The format constant is checked after
 // formatting so the %s/%d verbs resolve to a concrete message.
 func TestTaskTemplateErrorConstantsLocalized(t *testing.T) {
-	assertKoreanError(t, "request-too-large", errTaskTemplateRequestTooLarge)
-	assertKoreanError(t, "name-conflict", errTaskTemplateNameConflict)
-	assertKoreanError(t, "rule-invalid", errTaskTemplateRuleInvalid)
-	assertKoreanError(t, "no-fields", errTaskTemplateNoFields)
-	assertKoreanError(t, "field-too-long",
+	assertEnglishError(t, "request-too-large", errTaskTemplateRequestTooLarge)
+	assertEnglishError(t, "name-conflict", errTaskTemplateNameConflict)
+	assertEnglishError(t, "rule-invalid", errTaskTemplateRuleInvalid)
+	assertEnglishError(t, "no-fields", errTaskTemplateNoFields)
+	assertEnglishError(t, "field-too-long",
 		fmt.Sprintf(errTaskTemplateFieldTooLongFmt, "name", db.MaxTaskTemplateNameRunes))
 }
 
@@ -35,21 +35,21 @@ func TestTaskTemplateResponsesLocalized(t *testing.T) {
 	rec := httptest.NewRecorder()
 	var decoded taskTemplateRequest
 	if _, ok := decodeTaskTemplateRequest(rec, req, &decoded); ok {
-		t.Fatalf("too-large: 디코딩이 통과해서는 안 됩니다 (status=%d)", rec.Code)
+		t.Fatalf("too-large: decoding should not pass (status=%d)", rec.Code)
 	}
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("too-large status=%d, want 413", rec.Code)
 	}
-	assertKoreanError(t, "too-large", decodeErrorField(t, rec.Body.Bytes()))
+	assertEnglishError(t, "too-large", decodeErrorField(t, rec.Body.Bytes()))
 
 	// validateTaskTemplateRequest — a name past the rune limit returns the
 	// Korean field-too-long error (surfaced via writeErr in the handlers).
-	longName := strings.Repeat("가", db.MaxTaskTemplateNameRunes+1)
+	longName := strings.Repeat("go", db.MaxTaskTemplateNameRunes+1)
 	err := validateTaskTemplateRequest(taskTemplateRequest{Name: &longName})
 	if err == nil {
-		t.Fatal("name-too-long: 검증이 통과해서는 안 됩니다")
+		t.Fatal("name-too-long: validation must not pass")
 	}
-	assertKoreanError(t, "name-too-long", err.Error())
+	assertEnglishError(t, "name-too-long", err.Error())
 
 	// writeTaskTemplateErr — the name-conflict sentinel maps to the Korean 409.
 	rec = httptest.NewRecorder()
@@ -57,5 +57,5 @@ func TestTaskTemplateResponsesLocalized(t *testing.T) {
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("name-conflict status=%d, want 409", rec.Code)
 	}
-	assertKoreanError(t, "name-conflict-response", decodeErrorField(t, rec.Body.Bytes()))
+	assertEnglishError(t, "name-conflict-response", decodeErrorField(t, rec.Body.Bytes()))
 }

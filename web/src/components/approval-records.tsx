@@ -52,7 +52,7 @@ function fmtTime(value?: string) {
 function source(row: InterceptApprovalRow) {
   if (row.decision_source) return row.decision_source;
   if (row.rule_id) return "rule";
-  return row.reason?.startsWith("[模型]") ? "model" : "unknown";
+  return row.reason?.startsWith("[Model]") ? "model" : "unknown";
 }
 
 function originLabel(row: InterceptApprovalRow, t: Translator) {

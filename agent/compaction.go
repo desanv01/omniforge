@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/norma/llm"
 	"github.com/Autumn-27/norma/transcript"
+	"github.com/desanv01/omniforge/db"
 )
 
 // Compactor performs background cold-node compaction for many explorations.
@@ -462,7 +462,7 @@ func buildCompressionInput(g *coldGraph, b block, nodeByID map[int64]*db.Node) s
 		memberSet[m] = true
 	}
 	var sb strings.Builder
-	sb.WriteString("【成员节点（要压缩的）】：\n")
+	sb.WriteString("[Member node (to be compressed)]:\n")
 	for _, m := range b.Members {
 		n := nodeByID[m]
 		kind := "fact"
@@ -485,18 +485,18 @@ func buildCompressionInput(g *coldGraph, b block, nodeByID map[int64]*db.Node) s
 	for _, m := range b.Members {
 		for _, to := range g.children[m] {
 			if memberSet[to] {
-				edgeLines = append(edgeLines, fmt.Sprintf("- #%d 产出/派生→ #%d", m, to))
+				edgeLines = append(edgeLines, fmt.Sprintf("- #%d output/derivative → #%d", m, to))
 			}
 		}
 	}
 	if len(edgeLines) > 0 {
-		sb.WriteString("\n【成员之间的血缘边（父→子）】：\n")
+		sb.WriteString("\n[The blood relationship between members (father → son)]:\n")
 		sort.Strings(edgeLines)
 		sb.WriteString(strings.Join(edgeLines, "\n"))
 		sb.WriteByte('\n')
 	}
 	if len(b.Anchors) > 0 {
-		sb.WriteString("\n【共同父 / 上下文锚（不是成员，只用于理解这些结果从哪个意图探出）】：\n")
+		sb.WriteString("\n[Common parent/context anchor (not a member, only used to understand which intent these results come from)]:\n")
 		for _, a := range b.Anchors {
 			n := nodeByID[a]
 			state := ""
@@ -530,19 +530,4 @@ func (c *Compactor) compress(ctx context.Context, g *coldGraph, b block, nodeByI
 }
 
 // compressionSystemPrompt is the §4 body prompt.
-const compressionSystemPrompt = `你在压缩一组【彼此关联】的探索节点，产出一段综合结论(body)，供规划者快速掌握"这一片已经探明了什么"。
-
-输入是一个连通子图：
-- 节点：每条是一个意图或事实的 summary（一句话），带 id、类型(intent/fact)、state、confidence(若有)。
-- 关系：节点之间的血缘边（A 派生自 B / A 产出 B），说明它们如何串联。
-- 若节点间没有直接血缘边、但同属一个上游意图（会另给出该上游意图作为"共同父 #p"），则按"这个意图（#p）探到了什么"来综合它们——共同父只是上下文锚、不是要压缩的成员。
-
-据此写一段 body：
-1. 综合、不罗列：顺着关系把因果串起来（哪个事实催生哪个意图、哪条意图产出了哪个结论），讲成"这一片探索得出了什么"，不要把每条 summary 抄一遍。
-2. 保留区分度：彼此不同的结论分别说清，别揉成一句笼统的话。
-3. 保留证据强度：带 confidence 的结论标出 observed / inferred；inferred 的否定/存疑结论要点明它只是推断、可复核，别写成定论。
-4. 带上 id：每条结论后标注来源节点 id（如"…（#12,#28）"），让规划者能按 id 还原原节点。
-5. 正向陈述、只写输入里有的：不脑补、不引入输入中没有的判断。
-6. 长度随内容自适应：结论少就短，多且互不相同就写够——但整体显著短于所有输入 summary 的总和。
-
-只输出 body 正文本身。`
+const compressionSystemPrompt = "You are compressing a set of [interrelated] exploration nodes and producing a comprehensive conclusion (body) for planners to quickly grasp \"what has been discovered in this area.\"\n\nThe input is a connected subgraph:\n- Node: Each item is a summary (one sentence) of an intention or fact, with id, type (intent/fact), state, and confidence (if any).\n- Relationships: ancestry edges between nodes (A derives from B / A produces B), describing how they are connected in series.\n- If there is no direct blood edge between nodes, but they belong to the same upstream intent (the upstream intent will be given as \"common parent #p\"), then they will be synthesized based on \"what this intent (#p) detects\" - the common parent is just a context anchor, not a member to be compressed.\n\nWrite a body based on this:\n1. Comprehensive, not listing: connect the cause and effect along the relationship (which fact gave rise to which intention, which intention produced which conclusion), and talk about \"what was obtained from this exploration\". Don't copy each summary.\n2. Preserve distinction: state different conclusions separately, do not lump them into a general statement.\n3. Preserve the strength of evidence: Conclusions with confidence are marked observed/inferred; negative/doubtful conclusions with inferred should indicate that they are only inferences and can be reviewed, and do not write them as conclusive conclusions.\n4. Bring id: Mark the source node id (such as \"...(#12, #28)\") after each conclusion, so that planners can restore the original node by id.\n5. Forward statements, only write what is in the input: do not make up your mind, and do not introduce judgments that are not in the input.\n6. The length adapts to the content: if there are few conclusions, it should be short; if there are many and different conclusions, write enough - but the overall length will be significantly shorter than the sum of all input summaries.\n\nOnly the body text itself is output."

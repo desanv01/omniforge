@@ -27,15 +27,15 @@ func hasHan(s string) bool {
 	return false
 }
 
-// assertKorean fails if s lacks Hangul or still carries Han ideographs. Reverting
+// assertEnglish fails if s lacks Hangul or still carries Han ideographs. Reverting
 // any localized message back to Chinese trips hasHan, so the test is not vacuous.
-func assertKorean(t *testing.T, label, s string) {
+func assertEnglish(t *testing.T, label, s string) {
 	t.Helper()
-	if !hasHangul(s) {
-		t.Errorf("%s: 한글이 없습니다: %q", label, s)
+	if hasHangul(s) {
+		t.Errorf("%s: Unexpected Korean text: %q", label, s)
 	}
 	if hasHan(s) {
-		t.Errorf("%s: 한자가 남아 있습니다: %q", label, s)
+		t.Errorf("%s: Chinese characters remain: %q", label, s)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestInterceptMessagesLocalized(t *testing.T) {
 		{"reasonManualAllow", reasonManualAllow},
 		{"ErrAlreadyDecided", ErrAlreadyDecided.Error()},
 	} {
-		assertKorean(t, c.name, c.s)
+		assertEnglish(t, c.name, c.s)
 	}
 }
 
@@ -63,7 +63,7 @@ func TestInterceptMessagesLocalized(t *testing.T) {
 // passes through untranslated.
 func TestJudgeActionLabelLocalized(t *testing.T) {
 	for _, action := range []string{"allow", "deny", "ask"} {
-		assertKorean(t, "judgeActionLabel("+action+")", judgeActionLabel(action))
+		assertEnglish(t, "judgeActionLabel("+action+")", judgeActionLabel(action))
 	}
 	if got := judgeActionLabel("weird"); got != "weird" {
 		t.Errorf("judgeActionLabel(weird) = %q, want passthrough", got)
@@ -75,7 +75,7 @@ func TestJudgeActionLabelLocalized(t *testing.T) {
 func TestDefaultMessageLocalized(t *testing.T) {
 	for _, action := range []string{"deny", "ask"} {
 		msg := defaultMessage(action, "R1")
-		assertKorean(t, "defaultMessage("+action+")", msg)
+		assertEnglish(t, "defaultMessage("+action+")", msg)
 		if !strings.Contains(msg, "R1") {
 			t.Errorf("defaultMessage(%s) dropped rule name: %q", action, msg)
 		}
@@ -90,11 +90,11 @@ func TestDefaultMessageLocalized(t *testing.T) {
 // the tool name via /도구\s+(\S+)\s+승인/.
 func TestToolApprovalSummaryLocalized(t *testing.T) {
 	s := fmt.Sprintf(msgToolApprovalRequestFmt, "Bash", 42)
-	assertKorean(t, "msgToolApprovalRequestFmt", s)
+	assertEnglish(t, "msgToolApprovalRequestFmt", s)
 	if !strings.Contains(s, "(#42)") {
 		t.Errorf("summary lost the (#N) marker (transcript.tsx pending_id regex): %q", s)
 	}
-	if !strings.Contains(s, "도구 Bash 승인") {
-		t.Errorf("summary lost the '도구 X 승인' shape (transcript.tsx toolName regex): %q", s)
+	if !strings.Contains(s, "Tool Bash Approval") {
+		t.Errorf("Summary lost the 'Approve tool X' shape (transcript.tsx toolName regex): %q", s)
 	}
 }

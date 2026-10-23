@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func historicalScope() investigation.Scope {
@@ -77,7 +77,7 @@ func TestInvestigationSourceHistoricalReadOnlyQuery(t *testing.T) {
 	if out.Files[1].Name != "splunk-export.jsonl" || out.Files[1].SHA256 == "" || !strings.Contains(out.Files[1].Content, `"lastrow":true`) {
 		t.Fatal("exact stream provenance missing")
 	}
-	if strings.Contains(strings.Join(out.Warnings, " "), "업로더") {
+	if strings.Contains(strings.Join(out.Warnings, " "), "uploader") {
 		t.Fatal("actual Splunk query incorrectly described as uploader attestation")
 	}
 	rebuilt, err := BuildInvestigationSearch(c, out.Scope, out.Mapping, nil)

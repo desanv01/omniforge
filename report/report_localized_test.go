@@ -7,7 +7,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 // containsHan 은 문자열에 CJK 한자(중국어)가 섞여 있으면 true 를 돌려준다.
@@ -25,13 +25,13 @@ func sampleFindingNode(t *testing.T) *db.Node {
 	t.Helper()
 	payload, err := json.Marshal(map[string]any{
 		"vulnclass": "SQL Injection",
-		"name":      "로그인 폼 SQL 주입",
+		"name":      "Login Form SQL Injection",
 		"severity":  "high",
-		"summary":   "로그인 파라미터에서 오류 기반 SQL 주입이 확인되었습니다.",
+		"summary":   "Error-based SQL injection identified in login parameters.",
 		"evidence":  map[string]string{"poc": "' OR '1'='1"},
 	})
 	if err != nil {
-		t.Fatalf("payload 직렬화 실패: %v", err)
+		t.Fatalf("Payload serialization failed: %v", err)
 	}
 	return &db.Node{ID: 1, Kind: "finding", Payload: payload}
 }
@@ -40,20 +40,20 @@ func sampleDBFinding() *db.DBFinding {
 	return &db.DBFinding{
 		ID:              123,
 		VulnClass:       "SQL Injection",
-		Name:            "로그인 폼 SQL 주입",
+		Name:            "Login Form SQL Injection",
 		Severity:        "high",
-		Summary:         "로그인 파라미터에서 오류 기반 SQL 주입이 확인되었습니다.",
+		Summary:         "Error-based SQL injection identified in login parameters.",
 		Evidence:        "' OR '1'='1",
 		Status:          "confirmed",
-		Report:          "상세 분석 본문.",
+		Report:          "Detailed analysis text.",
 		CreatedAt:       time.Date(2026, 10, 4, 2, 30, 0, 0, time.UTC),
 		EvidenceVersion: 2,
-		TaskDescription: "데모 대상 침투 테스트",
+		TaskDescription: "Demo Target Penetration Testing",
 		TrafficBindings: []db.FindingTrafficBinding{
 			{
 				ID:   9,
 				Role: "request",
-				Note: "주입 페이로드 전송 지점",
+				Note: "Injection payload transfer point",
 				Snapshot: db.TrafficEvidenceSnapshot{
 					Method: "POST",
 					URL:    "https://sandbox.local/login",
@@ -68,38 +68,38 @@ func sampleDBFinding() *db.DBFinding {
 // 중국어 한자가 전혀 없음을 검증한다.
 func TestReportMarkdownLocalized(t *testing.T) {
 	out := Markdown(Input{
-		Title:       "데모 작업",
-		Goal:        "샌드박스 전수 점검",
+		Title:       "demo work",
+		Goal:        "Sandbox inspection",
 		GeneratedAt: time.Date(2026, 10, 4, 2, 30, 0, 0, time.UTC),
 		AssetCounts: map[string]int{"host": 2, "url": 5},
 		Findings:    []*db.Node{sampleFindingNode(t)},
 	})
 	if r, ok := containsHan(out); ok {
-		t.Fatalf("보고서 골격에 중국어 한자 %q 가 남아 있다:\n%s", string(r), out)
+		t.Fatalf("The Chinese character %q remains in the report skeleton:\n%s", string(r), out)
 	}
 	for _, want := range []string{
-		"# 침투 테스트 보고서: 데모 작업",
-		"- **작업 목표**: 샌드박스 전수 점검",
-		"- **생성 시각**:",
-		"## 요약",
-		"- 확인된 취약점: **1**건",
-		"## 취약점",
-		"**PoC / 증거:**",
+		"# Penetration Test Report: demo work",
+		"- **Task Target**: Sandbox inspection",
+		"- **Creation Time**:",
+		"## Summary",
+		"- Confirmed vulnerabilities: **1**",
+		"## Vulnerability",
+		"**PoC / Proof:**",
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("보고서 골격에 %q 가 없다", want)
+			t.Errorf("%q is missing in the report skeleton", want)
 		}
 	}
 }
 
 // TestReportMarkdownEmptyLocalized 는 취약점이 없을 때의 안내 문구가 한국어임을 검증한다.
 func TestReportMarkdownEmptyLocalized(t *testing.T) {
-	out := Markdown(Input{Title: "빈 작업", GeneratedAt: time.Now()})
+	out := Markdown(Input{Title: "empty task", GeneratedAt: time.Now()})
 	if r, ok := containsHan(out); ok {
-		t.Fatalf("빈 보고서에 중국어 한자 %q 가 남아 있다:\n%s", string(r), out)
+		t.Fatalf("The Chinese character %q remains in the blank report:\n%s", string(r), out)
 	}
-	if !strings.Contains(out, "_이번에 확인된 취약점이 없습니다._") {
-		t.Errorf("빈 보고서 안내 문구가 한국어가 아니다:\n%s", out)
+	if !strings.Contains(out, "_There are no vulnerabilities identified at this time._") {
+		t.Errorf("Blank report instructions are not in Korean:\n%s", out)
 	}
 }
 
@@ -109,44 +109,44 @@ func TestFindingsMarkdownLocalized(t *testing.T) {
 	f := sampleDBFinding()
 	out := FindingsMarkdown([]*db.DBFinding{f}, time.Date(2026, 10, 4, 2, 30, 0, 0, time.UTC))
 	if r, ok := containsHan(out); ok {
-		t.Fatalf("취약점 요약 보고서에 중국어 한자 %q 가 남아 있다:\n%s", string(r), out)
+		t.Fatalf("The Chinese character %q remains in the vulnerability summary report:\n%s", string(r), out)
 	}
 	for _, want := range []string{
-		"# 취약점 요약 보고서",
-		"- **생성 시각**:",
-		"- **취약점 총계**: 1건",
-		"## 요약",
-		"| 심각도 | 개수 |",
-		"| 심각 |", "| 높음 |", "| 중간 |", "| 낮음 |", // 심각도 라벨(UI status.severity 와 동일)
-		"## 취약점 상세",
-		"- **유형**: SQL Injection",
-		"- **상태**: confirmed",
-		"- **소속 작업**: 데모 대상 침투 테스트",
-		"- **발견 시각**:",
-		"**증거:**",
-		"**상세 보고서:**",
-		"## 관련 트래픽 증거",
-		"증거 버전: 2, 바인딩 개수: 1.",
+		"# Vulnerability Summary Report",
+		"- **Creation Time**:",
+		"- **Total Vulnerabilities**: 1",
+		"## Summary",
+		"| Severity | count |",
+		"| Critical |", "| High |", "| Medium |", "| Low |", // 심각도 라벨(UI status.severity 와 동일)
+		"## Vulnerability details",
+		"- **Type**: SQL Injection",
+		"- **Status**: confirmed",
+		"- **Affiliation**: Demo Target Penetration Testing",
+		"- **Time of discovery**:",
+		"**evidence:**",
+		"**Detailed Report:**",
+		"## Evidence of relevant traffic",
+		"Proof version: 2, Number of bindings: 1.",
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("요약 보고서에 %q 가 없다", want)
+			t.Errorf("%q is missing in the summary report", want)
 		}
 	}
 
 	single := SingleFindingMarkdown(f, time.Date(2026, 10, 4, 2, 30, 0, 0, time.UTC))
 	if r, ok := containsHan(single); ok {
-		t.Fatalf("단건 보고서에 중국어 한자 %q 가 남아 있다:\n%s", string(r), single)
+		t.Fatalf("The Chinese character %q remains in the single report:\n%s", string(r), single)
 	}
 	for _, want := range []string{
-		"- **심각도**: high",
-		"## 개요",
-		"## 증거",
-		"## 상세 보고서",
-		"[요청 메시지](evidence/123/9/request.http)",
-		"[응답 메시지](evidence/123/9/response.http)",
+		"- **Severity**: high",
+		"## outline",
+		"## evidence",
+		"## Detailed report",
+		"[Request message](evidence/123/9/request.http)",
+		"[Response message](evidence/123/9/response.http)",
 	} {
 		if !strings.Contains(single, want) {
-			t.Errorf("단건 보고서에 %q 가 없다", want)
+			t.Errorf("There is no %q in the single report.", want)
 		}
 	}
 }
@@ -158,11 +158,11 @@ func TestFindingsCSVLocalized(t *testing.T) {
 	out := strings.TrimPrefix(string(raw), "\xEF\xBB\xBF")
 	header := strings.SplitN(out, "\n", 2)[0]
 	if r, ok := containsHan(header); ok {
-		t.Fatalf("CSV 헤더에 중국어 한자 %q 가 남아 있다: %s", string(r), header)
+		t.Fatalf("The Chinese character %q remains in the CSV header: %s", string(r), header)
 	}
-	for _, col := range []string{"ID", "이름", "유형", "심각도", "상태", "소속 작업", "발견 시각", "개요", "트래픽 증거 개수", "트래픽 증거 ID"} {
+	for _, col := range []string{"ID", "name", "category", "severity", "situation", "affiliation work", "time of discovery", "outline", "Traffic Evidence Count", "Traffic Evidence ID"} {
 		if !strings.Contains(header, col) {
-			t.Errorf("CSV 헤더에 %q 열이 없다: %s", col, header)
+			t.Errorf("Column %q is missing in CSV header: %s", col, header)
 		}
 	}
 }

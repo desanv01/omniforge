@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/Autumn-27/artex/investigation"
 	"github.com/Autumn-27/norma/llm"
 	"github.com/Autumn-27/norma/transcript"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 const InvestigatorVersion = "cert-agent-v1"

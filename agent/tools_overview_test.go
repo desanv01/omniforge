@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 func TestOverviewTextBudgetIsFairAndUTF8Safe(t *testing.T) {
@@ -18,7 +18,7 @@ func TestOverviewTextBudgetIsFairAndUTF8Safe(t *testing.T) {
 	}
 
 	budget := overviewTextBudget{remaining: 5}
-	got := budget.take(strings.Repeat("中", 10), 20)
+	got := budget.take(strings.Repeat("middle", 10), 20)
 	if !utf8.ValidString(got) {
 		t.Fatalf("budget truncation produced invalid UTF-8: %q", got)
 	}

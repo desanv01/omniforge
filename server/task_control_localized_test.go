@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 // task_control.go 의 작업·의도 제어 API 에러 응답을 한국어로 유지하는 회귀 방어 테스트다.
-// 한국어 판정은 F3a 의 assertKoreanError(한글 포함·중국어 한자 0)를, 응답 본문 추출은
+// 한국어 판정은 F3a 의 assertEnglishError(한글 포함·중국어 한자 0)를, 응답 본문 추출은
 // task_categories 테스트의 decodeErrorField 를 재사용한다(같은 package server).
 
 // TestTaskControlErrorConstantsLocalized 는 제어 응답 상수 10종이 전부 한국어임을
@@ -35,7 +35,7 @@ func TestTaskControlErrorConstantsLocalized(t *testing.T) {
 		"intent_reason_required": errIntentCtrlReasonRequired,
 	}
 	for label, msg := range cases {
-		assertKoreanError(t, label, msg)
+		assertEnglishError(t, label, msg)
 	}
 }
 
@@ -78,12 +78,12 @@ func TestTaskControlApplyResponsesLocalized(t *testing.T) {
 			s, tk := c.setup()
 			_, err := s.applyTaskControl(tk, "pause")
 			if err == nil {
-				t.Fatalf("오류를 기대했으나 nil 이 반환되었습니다")
+				t.Fatalf("Expected an error but returned nil")
 			}
 			if err.Error() != c.want {
-				t.Fatalf("반환 오류 = %q, 기대 = %q", err.Error(), c.want)
+				t.Fatalf("Returns error = %q, expected = %q", err.Error(), c.want)
 			}
-			assertKoreanError(t, c.name, err.Error())
+			assertEnglishError(t, c.name, err.Error())
 		})
 	}
 }
@@ -101,17 +101,17 @@ func TestControlTasksBatchResponsesLocalized(t *testing.T) {
 		rec := httptest.NewRecorder()
 		s.controlTasksBatch(rec, req)
 		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("상태 코드 = %d, 기대 = 400 (본문 %q)", rec.Code, rec.Body.String())
+			t.Fatalf("status code = %d, expect = 400 (body %q)", rec.Code, rec.Body.String())
 		}
 		got := decodeErrorField(t, rec.Body.Bytes())
 		want := fmt.Sprintf(errTaskCtrlBatchSizeFmt, maxBatchControlIDs)
 		if got != want {
-			t.Fatalf("응답 문구 = %q, 기대 = %q", got, want)
+			t.Fatalf("Response phrase = %q, Expectation = %q", got, want)
 		}
 		if !strings.Contains(got, "100") {
-			t.Fatalf("크기 상한 100 이 문구에 반영되지 않았습니다: %q", got)
+			t.Fatalf("Size upper limit 100 is not reflected in this text: %q", got)
 		}
-		assertKoreanError(t, "size-error", got)
+		assertEnglishError(t, "size-error", got)
 	})
 
 	t.Run("item-error-surfaces", func(t *testing.T) {
@@ -122,7 +122,7 @@ func TestControlTasksBatchResponsesLocalized(t *testing.T) {
 		rec := httptest.NewRecorder()
 		s.controlTasksBatch(rec, req)
 		if rec.Code != http.StatusOK {
-			t.Fatalf("상태 코드 = %d, 기대 = 200 (본문 %q)", rec.Code, rec.Body.String())
+			t.Fatalf("status code = %d, expect = 200 (body %q)", rec.Code, rec.Body.String())
 		}
 		var out struct {
 			Items []struct {
@@ -132,15 +132,15 @@ func TestControlTasksBatchResponsesLocalized(t *testing.T) {
 			} `json:"items"`
 		}
 		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-			t.Fatalf("응답 JSON 파싱 실패: %v (본문 %q)", err, rec.Body.String())
+			t.Fatalf("Response JSON parsing failed: %v (body %q)", err, rec.Body.String())
 		}
 		if len(out.Items) != 1 {
-			t.Fatalf("items 개수 = %d, 기대 = 1", len(out.Items))
+			t.Fatalf("number of items = %d, expectation = 1", len(out.Items))
 		}
 		if out.Items[0].OK || out.Items[0].Error != errTaskCtrlTerminalPause {
-			t.Fatalf("items[0] = %+v, error 기대 = %q", out.Items[0], errTaskCtrlTerminalPause)
+			t.Fatalf("items[0] = %+v, error expected = %q", out.Items[0], errTaskCtrlTerminalPause)
 		}
-		assertKoreanError(t, "item-error", out.Items[0].Error)
+		assertEnglishError(t, "item-error", out.Items[0].Error)
 	})
 }
 
@@ -150,10 +150,10 @@ func TestControlTasksBatchResponsesLocalized(t *testing.T) {
 func TestIntentStateConflictWrapsSentinel(t *testing.T) {
 	err := fmt.Errorf(errIntentCtrlStateConflictFmt, db.ErrIntentStateConflict)
 	if !errors.Is(err, db.ErrIntentStateConflict) {
-		t.Fatalf("errors.Is(.., ErrIntentStateConflict) = false, %%w 래핑이 깨졌습니다: %q", err.Error())
+		t.Fatalf("errors.Is(.., ErrIntentStateConflict) = false, %%w wrapping is broken: %q", err.Error())
 	}
 	if !strings.Contains(err.Error(), "paused") {
-		t.Fatalf("enum paused 가 문구에 보존되지 않았습니다: %q", err.Error())
+		t.Fatalf("enum paused is not preserved in phrase: %q", err.Error())
 	}
-	assertKoreanError(t, "state-conflict", err.Error())
+	assertEnglishError(t, "state-conflict", err.Error())
 }

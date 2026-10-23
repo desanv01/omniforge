@@ -10,16 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 func TestCompanyScopeInputsAcceptStructuredAndLegacyRules(t *testing.T) {
 	var inputs companyScopeInputs
-	if err := json.Unmarshal([]byte(`[
-		"example.com",
-		{"kind":"icp","value":"京 ICP备 123号"},
-		{"kind":"keyword","value":"Acme Security"}
-	]`), &inputs); err != nil {
+	if err := json.Unmarshal([]byte("[\n\t\t\"example.com\",\n\t\t{\"kind\":\"icp\",\"value\":\"京ICP备123号\"},\n\t\t{\"kind\":\"keyword\",\"value\":\"Acme Security\"}\n\t]"), &inputs); err != nil {
 		t.Fatal(err)
 	}
 	if len(inputs) != 3 {
@@ -137,7 +133,7 @@ func TestCompanyScopeHTTPErrorClassificationAndBounds(t *testing.T) {
 		body, err := json.Marshal(map[string]any{
 			"name": "Oversized Scope",
 			"scope": []map[string]string{{
-				"kind": "keyword", "value": strings.Repeat("界", db.MaxCompanyScopeRawRunes+1),
+				"kind": "keyword", "value": strings.Repeat("boundary", db.MaxCompanyScopeRawRunes+1),
 			}},
 		})
 		if err != nil {

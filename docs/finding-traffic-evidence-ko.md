@@ -1,22 +1,22 @@
-# 취약점 다중 트래픽 증거
+# Vulnerability Multiple Traffic Evidence
 
-> 이 문서는 상류(원본) ARTEX 의 설계 문서를 한국어로 옮긴 것입니다. 취약점과 트래픽 증거를 연결하는
-> 기능의 설계를 기여자·메인테이너를 위해 정리합니다. 원문(중국어)은
-> [`finding-traffic-evidence-zh.md`](finding-traffic-evidence-zh.md) 에 보존돼 있습니다.
+> This document is a Korean translation of the upstream (original) ARTEX design document. Linking Vulnerabilities and Traffic Evidence
+> Organize the functional design for contributors and maintainers. The original text (Chinese) is
+> It is saved in [`finding-traffic-evidence-zh.md`](finding-traffic-evidence-zh.md).
 >
 > English: **[Vulnerability multi-traffic evidence (finding-traffic-evidence-en.md)](finding-traffic-evidence-en.md)**.
 
-취약점 상세 화면의 「연결된 트래픽」은 여러 페이지에 걸친 다중 선택, 용도와 설명 입력, 정렬, 바인딩 해제를 지원합니다. 트래픽 페이지에서도 여러 레코드를 한 번에 선택해 이미 있는 취약점 하나에 연결할 수 있습니다. 작업이 상속한 취약점 증거는 읽기 전용이며, 수정하려면 원본 작업으로 들어가야 합니다.
+“Connected Traffic” on the vulnerability detail screen supports multiple selection across multiple pages, input of purpose and description, sorting, and unbinding. The Traffic page also allows you to select multiple records at once and link them to a single existing vulnerability. Vulnerability evidence inherited by a task is read-only, and modifications require entering the original task.
 
-시스템 설정의 「Agent 자동 트래픽 바인딩」은 기본값이 꺼짐이며, 읽기·수정 인터페이스는 `/api/settings` 의 `agent_traffic_binding` 입니다. 이 기능을 켜면 요청/응답 조회, 도구 호출, 프롬프트에서 비롯되는 Token 소비가 늘어나고, 다음 회차의 Agent 부터 새 설정을 사용합니다. 꺼져 있을 때는 자동 바인딩 파라미터와 보완 바인딩 도구를 숨기고, 자동 바인딩 안내를 주입하지 않으며, 이미 실행 중인 세션이 새로 제출하는 자동 바인딩을 거부합니다. 수동 바인딩, 트래픽 캡처, 저장된 증거의 읽기와 내보내기는 영향을 받지 않습니다.
+The default value for “Agent automatic traffic binding” in system settings is off, and the read/modify interface is `agent_traffic_binding` of `/api/settings`. If you turn on this feature, token consumption resulting from request/response queries, tool calls, and prompts will increase, and the new settings will be used from the next Agent. When off, it hides autobinding parameters and supplemental binding tools, does not inject autobinding instructions, and rejects newly submitted autobindings from already running sessions. Manual binding, traffic capture, and reading and exporting of stored evidence are not affected.
 
-기능을 켠 뒤의 기본 흐름은 「발견 사항 저장 → 보고서 Agent 자동 트리거 → 트래픽 대조·바인딩 → 최신 증거 버전으로 보고서 작성」 입니다. 보고자는 `evidence` 에 검증 명령, 핵심 출력, 이미 확보한 실제 트래픽 ID 와 용도를 남깁니다. 보고서 Agent 는 취약점 상세와 실행 기록을 종합해 `traffic_search` / `traffic_get` 으로 확인한 뒤 `bind_finding_traffic` 을 호출하고, 최신 `version` 을 읽어 보고서를 저장합니다. 스위치를 끄면 보고서 Agent 는 원본 트래픽 검색/읽기 도구를 추가로 받지 않고 자동 바인딩도 하지 않으며, 그래도 수동으로 바인딩한 스냅샷을 읽어 보고서를 생성할 수 있습니다.
+The basic flow after turning on the function is “Save findings → Auto-trigger Report Agent → Traffic collation/binding → Create report with the latest evidence version.” The reporter leaves verification commands, key outputs, and the actual traffic ID and purpose already obtained in `evidence`. The Report Agent compiles vulnerability details and execution records, checks `traffic_search` / `traffic_get`, calls `bind_finding_traffic`, reads the latest `version`, and saves the report. If you turn off the switch, the Report Agent will not receive any additional source traffic search/reading tools and will not perform automatic binding, but will still be able to read manually bound snapshots and generate reports.
 
-기존 호출자와도 호환됩니다. `report_finding` 의 `traffic_refs` / `evidence_hint_id` 로 여전히 명시적으로 즉시 바인딩할 수 있습니다. 바인딩은 선택 사항입니다. TCP 같은 비 HTTP 취약점이거나, 아직 수집하지 않았거나, 정확한 레코드를 찾지 못한 경우에는 참조를 생략해도 정상적으로 보고하고 보고서를 작성할 수 있습니다. 명령 출력, 로그 등 검증 가능한 다른 증거는 남기고, 바인딩하지 않은 이유를 함께 설명하기를 권장하며, 필수 입력 필드는 새로 추가하지 않습니다. 제출한 ID 는 모두 유효해야 하고 본문이 온전해야 합니다. 그중 하나라도 실패하면 이번 바인딩 작업 전체를 롤백합니다. 보고와 함께 명시적으로 바인딩하다가 실패하면 보고 전체를 롤백합니다. 같은 스냅샷을 중복해서 덧붙여도 바인딩이 늘어나지 않고 설명도 덮어쓰지 않습니다.
+It is also compatible with existing callers. You can still explicitly bind `report_finding` to `traffic_refs` / `evidence_hint_id` immediately. Binding is optional. If it's a non-HTTP vulnerability, such as TCP, or you haven't collected it yet, or if you can't find the exact record, you can omit the reference and report it as normal. It is recommended that you leave other verifiable evidence, such as command output and logs, and explain the reason for not binding, and do not add new required input fields. All submitted IDs must be valid and the text must be complete. If any of them fail, this entire binding operation is rolled back. If you explicitly bind with a report and fail, it rolls back the entire report. Adding the same snapshot multiple times does not increase the binding and does not overwrite the description.
 
-## Agent ID 체계와 보고서 버전
+## Agent ID system and report version
 
-`report_finding` 에 선택 파라미터를 새로 추가했으며, 배열 순서가 곧 초기 증거 순서입니다:
+A new selection parameter has been added to `report_finding`, and the arrangement order is the initial evidence order:
 
 ```json
 {
@@ -27,53 +27,53 @@
 }
 ```
 
-용도는 `baseline`(정상 대조), `proof`(취약점 증명), `verification`(보완 검증), `supporting`(보조 증거, 기본값) 입니다. 먼저 `traffic_search` / `traffic_get` 으로 실제 레코드를 대조합니다. 도메인과 시각은 후보를 추리는 용도로만 쓰고, 작업 귀속을 단정하지 않습니다.
+The uses are `baseline` (normal control), `proof` (vulnerability proof), `verification` (supplementary verification), and `supporting` (supplementary evidence, default). First, we compare the actual record with `traffic_search` / `traffic_get`. Domain and perspective are used only to identify candidates and do not determine work attribution.
 
-프롬프트는 [CyberStrikeAI 의 취약점 보고 도구 안내](https://github.com/RuoJi6/CyberStrikeAI/blob/54d56774b8bd285817d16d48b70a4a5e6e0963f7/internal/app/vulnerability_tools.go) 를 참고했고, 이 프로젝트의 선택적 바인딩 규약과 결합하되 바인딩하지 않은 이유를 필수로 검증하는 규칙은 두지 않습니다. ID 를 추측해서는 안 되며, 단지 증거를 채우려고 반복해서 탐지해서도 안 됩니다.
+The prompt refers to [CyberStrikeAI's Vulnerability Reporting Tool Guide](https://github.com/RuoJi6/CyberStrikeAI/blob/54d56774b8bd285817d16d48b70a4a5e6e0963f7/internal/app/vulnerability_tools.go) and combines it with this project's optional binding protocol, but does not have a rule to mandatory verify the reason for not binding. IDs should not be guessed, and detections should not be repeated just to fill in the evidence.
 
-반환값의 첫 줄은 여전히 `finding recorded: <탐색 노드 ID>` 입니다. 이어지는 JSON 은 독립 취약점 레코드의 `finding_id`, 탐색 노드의 `finding_node_id`, 바인딩 요약을 제공합니다.
+The first line of the return value is still `finding recorded: <탐색 노드 ID>`. The JSON that follows provides `finding_id` for the independent vulnerability record, `finding_node_id` for the navigation node, and a binding summary.
 
-- `get_finding_traffic(finding_id)` 는 **독립 취약점 레코드 ID** 를 사용하며, 순서가 있는 목록과 `version` 을 반환합니다. `binding_id`, `side=request|response`, `offset`, `length` 를 넘기면 구간별로 나눠 읽을 수 있고, 한 구간은 최대 8192 바이트입니다.
-- `update_finding_report` 의 `finding_id` 는 **계속 탐색 노드 ID 를 사용합니다.** 새로 추가한 `evidence_version` 에는 실제로 읽은 버전을 채웁니다. 보고서를 생성하는 동안 증거가 바뀌면 옛 버전의 쓰기를 거부하므로, 다시 읽어서 생성해야 합니다.
-- 옛 보고서 호출이 버전을 넘기지 않으면, 이미 있는 트래픽 증거를 덮어썼다고 표시하지 않습니다. 바인딩, 설명, 용도, 정렬이 바뀌면 기존 보고서에 업데이트가 필요하다는 표시가 붙습니다.
+- `get_finding_traffic(finding_id)` takes an **independent vulnerability record ID** and returns an ordered list and `version` . If you exceed `binding_id`, `side=request|response`, `offset`, and `length`, you can read it divided into sections, and one section can be up to 8192 bytes.
+- `finding_id` in `update_finding_report` **continues to use the navigation node ID.** The newly added `evidence_version` is populated with the version actually read. If the evidence changes while the report is being generated, the old version will be rejected and must be re-read and generated.
+- If an old report call doesn't override the version, it won't show that any existing traffic evidence has been overwritten. Changes in binding, description, purpose, or alignment flag existing reports as requiring updates.
 
-자동 바인딩을 켜면 `add_hint` / `add_task_hint` 가 단일 힌트나 일괄 `hints` 의 각 요소에 `traffic_refs` 를 저장하도록 지원합니다. 플래너가 대신 보고할 때는 `evidence_hint_id` 를 넘겨, 이 작업에 해당하는 힌트 안의 참조를 명확히 선택할 수 있고, 상속받은 힌트는 참조할 수 없습니다. 시스템은 도메인, 시각, 조회 기록으로 바인딩을 추측하지 않습니다. 제출이 실패하면 일부만 생성된 취약점을 만들거나 보고서를 앞당겨 트리거하지 않습니다.
+When you turn on autobinding, `add_hint` / `add_task_hint` supports storing `traffic_refs` in each element of `hints` as a single hint or in batches. When the planner reports on your behalf, you can pass `evidence_hint_id` to clearly select references in the hint corresponding to this task, and cannot reference inherited hints. The system does not guess bindings based on domain, time, or lookup history. A failed submission creates a partially created vulnerability or does not trigger a report ahead of time.
 
-이미 있는 취약점에 바인딩이 빠졌을 때는 `bind_finding_traffic(finding_id, traffic_refs)` 로 보완 바인딩할 수 있고, 다시 등록할 필요가 없습니다. `list_findings` / `list_task_findings` / `node_detail` / `get_task_node_detail` 는 명확한 `finding_id` 와 `finding_node_id` 를 반환하며, 옛 `id` 는 탐색 노드 의미를 유지합니다.
+If the binding is missing for an existing vulnerability, you can make up for it with `bind_finding_traffic(finding_id, traffic_refs)` and there is no need to register again. `list_findings` / `list_task_findings` / `node_detail` / `get_task_node_detail` returns definite `finding_id` and `finding_node_id`, and the old `id` retains the navigation node meaning.
 
-기동 시에는 옛 도구 schema 에 선택 속성만 추가하고, 원래의 기본 트래픽 도구 바인딩을 보고서 Agent 까지 확장하며, 보완 바인딩 도구는 기본적으로 보고서 Agent 에 맡깁니다. 사용자 지정 바인딩 목록, 프롬프트, 설명, 활성화 상태는 그대로 유지합니다. 안내는 최종 도구 조립이 끝난 뒤 한꺼번에 추가합니다. 보고 역할은 이미 확보한 증거를 넘겨주는 일을 맡고, 보고서 Agent 는 대조·바인딩·보고서 작성을 맡습니다. 플랫폼 대화에 작업 맥락이 없을 때는 구조화된 힌트로 작업 Agent 에 넘겨야 하고, 직접 보고하지 않습니다. 작업 완료를 판정하기 전에 먼저 이미 있는 증거를 넘겨야 하며, 바인딩할 트래픽이 없으면 기다리도록 강제하지 않습니다. 실패한 `report_finding` 은 보고서 Agent 를 트리거하지 않습니다.
+At startup, only optional properties are added to the old tool schema, the original default traffic tool binding is extended to the Report Agent, and the supplemental binding tools are left to the Report Agent by default. Custom binding lists, prompts, descriptions, and activation status remain intact. Instructions are added all at once after final tool assembly is completed. The reporting role is responsible for handing over evidence already obtained, and the reporting agent is responsible for collating, binding, and writing reports. When there is no task context in the platform conversation, it must be passed to the task agent as a structured hint and is not reported directly. It must first hand over evidence that is already present before determining that the operation is complete, and will not force you to wait if there is no traffic to bind. A failed `report_finding` does not trigger the Report Agent.
 
 ## API
 
-기본 경로는 `/api/exploration/findings/{finding_id}/traffic` 이며, 독립 취약점 ID 를 사용합니다. 인증은 기존 방식을 그대로 따르고, `context_task` 가 작업 가시성과 상속 읽기 전용 여부를 검증합니다.
+The default path is `/api/exploration/findings/{finding_id}/traffic` and uses an independent vulnerability ID. Authentication follows the traditional method, and `context_task` verifies task visibility and whether the inheritance is read-only.
 
-메서드와 상대 경로별 요청·반환은 다음과 같습니다:
+Requests and returns for each method and relative path are as follows:
 
-- `GET`: 순서가 있는 요약, 증거 버전, 보고서가 채택한 버전을 반환합니다.
-- `POST`: `{"traffic_refs":[...]}` 를 한 번에 일괄 추가합니다.
-- `PATCH /{binding_id}`: `{"version":1,"role":"proof","note":"설명"}` 로 수정합니다.
-- `DELETE /{binding_id}`: `{"version":1}` 로 삭제합니다.
-- `PUT /order`: `{"version":1,"binding_ids":["2","1"]}` 로 정렬하며, 완전한 목록이어야 합니다.
-- `GET /{binding_id}`: 스냅샷 메타데이터와 길이가 제한된 본문 미리 보기를 반환합니다.
-- `GET /{binding_id}/body`: `side`, `offset`, `length` 를 받고, `download=1` 이면 완전한 원본 바이트를 내려받습니다.
+- `GET`: Returns the ordered summary, evidence version, and version accepted by the report.
+- `POST`: Add `{"traffic_refs":[...]}` all at once.
+- `PATCH /{binding_id}`: Modify to `{"version":1,"role":"proof","note":"설명"}`.
+- `DELETE /{binding_id}`: Delete as `{"version":1}`.
+- `PUT /order`: Sort by `{"version":1,"binding_ids":["2","1"]}` and must be a complete list.
+- `GET /{binding_id}`: Returns snapshot metadata and a limited-length body preview.
+- `GET /{binding_id}/body`: Receive `side`, `offset`, `length`, and if it is `download=1`, download the complete original bytes.
 
-버전/정렬 집합 충돌이나 보관 진행 중 쓰기는 `409` 를 반환하고, 상속 항목에 대한 쓰기는 `403` 을, 존재하지 않거나 해당 취약점에 속하지 않는 바인딩은 `404` 를 반환합니다. 트래픽/첨부 읽기와 검증이 실패하면 명확하게 오류를 반환합니다.
+A version/alignment set conflict or an archive in progress write will return `409`, a write to an inheritance will return `403`, and a binding that does not exist or is not part of the vulnerability will return `404`. If the traffic/attachment read and validation fails, it returns an error clearly.
 
-## 저장과 마이그레이션
+## Storage and Migration
 
-기동 시 PostgreSQL 에 멱등 마이그레이션을 수행합니다. `traffic_evidence_snapshots`, `finding_traffic_bindings` 테이블과 `findings.evidence_version` / `report_evidence_version`(기본값 0) 컬럼을 새로 추가합니다. 과거 텍스트를 근거로 보완 바인딩을 추측하지 않습니다.
+Performs an idempotent migration to PostgreSQL at startup. Add new tables `traffic_evidence_snapshots`, `finding_traffic_bindings` and `findings.evidence_version` / `report_evidence_version` (default value 0) columns. Don't guess complementary bindings based on past text.
 
-스냅샷은 원본 트래픽 ID, 수집 시각, URL, 메서드, 상태, 요청/응답 헤더, 본문 길이, SHA-256 을 저장합니다. 본문은 해시에 따라 `<data>/evidence/blobs/<앞 두 자리>/<hash>.bin` 에 보관하며, 정리 대상인 `data/traffic` 와 분리돼 있어 여러 취약점이 스냅샷/본문을 공유할 수 있습니다. 스냅샷은 내용 갱신 인터페이스를 제공하지 않으며, 검증이 일치하지 않으면 읽기와 내보내기가 실패합니다.
+Snapshots save original traffic ID, collection time, URL, method, status, request/response headers, body length, and SHA-256. The text is stored in `<data>/evidence/blobs/<앞 두 자리>/<hash>.bin` according to the hash, and is separated from `data/traffic`, which is the subject of cleaning, so multiple vulnerabilities can share the snapshot/text. Snapshots do not provide a content update interface, and reads and exports will fail if validation does not match.
 
-원본 트래픽 쓰기 잠금 아래에서 큰 본문 blob 과 옛 디렉터리 레코드를 포함해 본문 전체를 읽습니다. 먼저 파일을 영속화하고 검증한 뒤, 하나의 PostgreSQL 트랜잭션으로 탐색 노드, 의도 관계, 취약점, 스냅샷, 바인딩을 기록하고, 커밋한 뒤에야 플래너에게 통지합니다. 실패하면 참조되지 않는 파일이 남을 수는 있으나, 일부만 기록된 업무 레코드는 만들지 않습니다.
+Under the source traffic write lock, the entire body is read, including large body blobs and old directory records. It first persists and verifies the files, then records navigation nodes, intent relationships, vulnerabilities, snapshots, and bindings in a single PostgreSQL transaction, and only after committing, notifies the planner. Failure may leave unreferenced files, but will not create partial business records.
 
-PostgreSQL advisory lock `7337741004` 이 증거 파일과 SQL 참조를 조율합니다. 작업 행 잠금은 보관 대기열에 올린 뒤의 증거 수정을 금지합니다. 복원은 본문 설치부터 메타데이터 커밋까지 전 과정에서 증거 잠금을 유지합니다. 취약점을 삭제하면 바인딩도 연쇄로 제거됩니다.
+PostgreSQL advisory lock `7337741004` coordinates the evidence files and SQL references. A task row lock prevents modification of evidence after it has been placed in the archive queue. Restore maintains an evidence lock throughout the entire process, from body installation to metadata commit. Deleting the vulnerability will also cascade the binding.
 
-정리기는 매시간 실행되며, 참조가 없고 진행 중이지 않은 작업의 내용만 회수하되 최소 24시간을 지연합니다. 일반 트래픽 정리는 증거 디렉터리를 건드리지 않습니다. 핫 데이터를 백업할 때는 PostgreSQL 과 `data/evidence` 를 함께 백업합니다.
+The pruner runs hourly, reclaiming only the contents of tasks that have no references and are not in progress, but with a delay of at least 24 hours. Regular traffic pruning does not touch the evidence directory. When backing up hot data, back up PostgreSQL and `data/evidence` together.
 
-## 내보내기와 보관
+## Export and Archive
 
-Markdown 에는 순서가 있는 증거 목록과 버전이 들어가고, JSON 에는 메타데이터가, CSV 에는 개수와 바인딩 ID 가 추가됩니다. `md-zip` 은 취약점 Markdown 을 유지하면서 다음 구조를 함께 제공합니다:
+An ordered list of evidence and versions are added to Markdown, metadata is added to JSON, and counts and binding IDs are added to CSV. `md-zip` maintains the vulnerable Markdown and provides the following structure:
 
 ```text
 evidence/<finding_id>/<binding_id>/
@@ -84,13 +84,13 @@ evidence/<finding_id>/<binding_id>/
   response.bin
 ```
 
-Markdown 은 상대 링크로 패킷을 참조합니다. 다운로드를 보내기 전에 첨부 복사, 해시 검증, 압축, 디스크 동기화, 그리고 모든 ZIP 항목의 CRC 읽기 검증을 마칩니다. 항목이 누락되거나 손상되면 다운로드 전체가 실패합니다. 완전한 첨부는 이진 원본 바이트를 그대로 보존합니다.
+Markdown refers to packets by relative links. Before sending your download, we'll copy attachments, verify hashes, compress, sync to disk, and read-verify the CRC of all ZIP items. If any item is missing or corrupted, the entire download will fail. A complete attachment preserves the binary original bytes intact.
 
-보관 v3 는 취약점 바인딩 관계에 따라 스냅샷과 본문을 수집하며, 원본 트래픽이나 도메인에 의존하지 않습니다. 패키지 검증을 마친 뒤에야 핫 데이터를 정리하고, 공유 증거는 계속 보존합니다. 복원은 먼저 설치한 본문을 검증한 뒤 트랜잭션으로 메타데이터와 바인딩을 복원하며, 실패하면 재시도를 지원합니다. v1/v2 도 계속 복원할 수 있고, 빠진 새 필드는 명시적으로 0 으로 채웁니다.
+Archive v3 collects snapshots and bodies based on vulnerability binding relationships and does not depend on the origin traffic or domain. Only after package verification is completed, hot data is cleaned up and shared evidence is still preserved. Restoration first verifies the installed body and then restores metadata and bindings as a transaction, and supports retry if failure. v1/v2 can also still be restored, with any new missing fields explicitly filled with 0.
 
-## 검증과 경계
+## Verification and boundaries
 
-테스트 패키지마다 독립적으로 새로 만든 PostgreSQL 테스트 데이터베이스를 두고 `ARTEX_PG_DSN` 으로 지정해, 남아 있는 작업/모델 픽스처가 백그라운드 실행을 트리거하지 않게 합니다. 관련 패키지의 전체 테스트를 실행하고, 설정 누락 때문에 건너뛴 테스트가 없는지 확인합니다:
+Have a newly created PostgreSQL test database independent of each test package and specify it as `ARTEX_PG_DSN` to ensure that any remaining task/model fixtures do not trigger background execution. Run full tests of the relevant packages, making sure no tests are skipped due to missing settings:
 
 ```sh
 # 각 패키지를 실행하기 전에 ARTEX_PG_DSN 을 해당 독립 테스트 데이터베이스로 설정합니다. 명시적 설정이 실패하면 반드시 오류를 내야 합니다.
@@ -98,8 +98,8 @@ go test ./<package> -count=1
 go test -race -p 1 ./evidence ./db ./agent ./server -run 'TestEvidence|TestFindingTraffic|TestFindingEvidence|TestReportFindingAtomicContract|TestTaskArchive'
 ```
 
-프런트엔드 검증에는 `npx tsc --noEmit`, 영향받은 파일의 Biome 검사, Webpack 빌드, `NEXT_EXPORT=1` 정적 내보내기가 포함됩니다. 독립 캐시 디렉터리를 사용해 실행 중인 개발 서버를 덮어쓰지 않도록 합니다.
+Frontend verification includes `npx tsc --noEmit`, Biome inspection of affected files, Webpack build, and static export of `NEXT_EXPORT=1`. Use an independent cache directory to avoid overwriting a running development server.
 
-로컬 엔드투엔드 인수 검증은 독립 포트, 통제된 HTTP / 도메인 HTTPS 대상, 임시 데이터 디렉터리를 사용하며, 두 가지 바인딩 진입점, 여러 페이지에 걸친 선택, 정렬/설명, 오류 안내, 상속 읽기 전용, 다운로드를 다룹니다. 또한 원본 트래픽을 삭제한 뒤의 내보내기, 보관, 핫 본문 회수, 복원과 해시 검증까지 포함합니다.
+Local end-to-end argument validation uses independent ports, controlled HTTP / domain HTTPS destinations, temporary data directories, and covers two binding entry points, selection across multiple pages, sorting/description, error guidance, inheritance read-only, and downloads. It also includes export, archiving, hot body retrieval, restoration and hash verification after discarding the original traffic.
 
-첫 버전은 전역 증거 조율 잠금을 사용합니다. 대량 바인딩/내보내기나 느린 첨부 다운로드가 진행되는 동안 다른 증거 작업은 대기할 수 있습니다. 녹화 레코드나 완전한 본문이 없으면 증거를 지어낼 수 없습니다. 이 기능은 캡처 스위치를 바꾸지 않으며, HTTPS 로 IP 에 직접 접근할 때의 인증서 문제도 다루지 않습니다.
+The first version uses global evidence coordination locking. Other evidence tasks can wait while a bulk bind/export or slow attachment download occurs. Without recorded records or complete text, evidence cannot be fabricated. This feature does not change the capture switch, nor does it address certificate issues when accessing IP directly over HTTPS.

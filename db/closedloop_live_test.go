@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/closedloop"
-	"github.com/Autumn-27/artex/investigation"
-	"github.com/Autumn-27/artex/securitysource"
+	"github.com/desanv01/omniforge/closedloop"
+	"github.com/desanv01/omniforge/investigation"
+	"github.com/desanv01/omniforge/securitysource"
 	"github.com/google/uuid"
 )
 

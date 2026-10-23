@@ -1,12 +1,12 @@
 # ARTEX detection rules (Sigma / host · log · SIEM)
 
-English · [한국어](README.ko.md)
+English · [Korean](README.ko.md)
 
-> 한국어: 이 디렉터리는 [방어·탐지 가이드(docs/defense-ko.md)](../../docs/defense-ko.md) 4절
-> "탐지 규칙"의 의사 규칙을 실제로 배포 가능한 [Sigma](https://sigmahq.io) 규칙으로 옮긴 것입니다.
-> 네트워크 계층은 [`../suricata/`](../suricata/)가 담당합니다. 모든 규칙은 자신이 소유하거나 서면
-> 허가를 받은 시스템을 지키는 **방어·탐지 목적에만** 사용하십시오. 한국어 전체 문서는
-> **[README.ko.md](README.ko.md)** 를, 전체 탐지 묶음 개요는 **[../README.ko.md](../README.ko.md)** 를 보십시오.
+> Korean: This directory is section 4 of [Defense/Detection Guide (docs/defense-ko.md)](../../docs/defense-ko.md)
+> We've moved the pseudo-rules from "Detection Rules" into actually deployable [Sigma](https://sigmahq.io) rules.
+> The network layer is handled by [`../suricata/`](../suricata/). All rules are your own or written
+> Use **only for defense/detection purposes** to protect authorized systems. The full Korean document is
+> See **[README.ko.md](README.ko.md)** and **[../README.ko.md](../README.ko.md)** for a full overview of detection bundles.
 
 The host, log, and SIEM layer of the ARTEX detection set. These [Sigma](https://sigmahq.io) rules
 formalize the pseudo-rules in the defense guide ([Korean](../../docs/defense-ko.md) ·

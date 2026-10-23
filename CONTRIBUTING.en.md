@@ -1,6 +1,6 @@
 # Contributing
 
-[한국어](CONTRIBUTING.md) · English
+[Korean](CONTRIBUTING.md) · English
 
 Thank you for your interest in the Korean edition of ARTEX (`artex-ko`). This document
 gathers the scope, policies, and procedures you should know before you start contributing.

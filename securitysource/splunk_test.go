@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,7 +16,19 @@ import (
 
 func sourceFixture(t *testing.T, h http.HandlerFunc) (Config, Credentials) {
 	t.Helper()
-	s := httptest.NewTLSServer(h)
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse test request: %v", err)
+			return
+		}
+		// Consume the request before writing a large response. Closing a TLS
+		// connection with unread POST data can truncate the response on some hosts.
+		if _, err := io.Copy(io.Discard, r.Body); err != nil {
+			t.Errorf("read test request: %v", err)
+			return
+		}
+		h(w, r)
+	}))
 	t.Cleanup(s.Close)
 	fp := sha256.Sum256(s.Certificate().Raw)
 	return Config{BaseURL: s.URL, Index: "security", AuditSourcetype: "app:audit", AlertSourcetype: "waf:alert", CorrelationField: "artex_verification_id", ActionField: "action", TLSFingerprint: hex.EncodeToString(fp[:])}, Credentials{Username: "reader", Password: "test-only"}

@@ -3,7 +3,7 @@ package server
 import "testing"
 
 // triggers.go 의 트리거 설정 검증 오류 문구를 한국어로 유지하는 회귀 방어 테스트다.
-// 한국어 판정은 F3a 가 만든 assertKoreanError(한글 포함·중국어 한자 0)를 재사용한다.
+// 한국어 판정은 F3a 가 만든 assertEnglishError(한글 포함·중국어 한자 0)를 재사용한다.
 
 // TestTriggerErrorConstantsLocalized 는 오류 상수 3종이 전부 한국어임을 단언한다.
 func TestTriggerErrorConstantsLocalized(t *testing.T) {
@@ -16,7 +16,7 @@ func TestTriggerErrorConstantsLocalized(t *testing.T) {
 		{"custom_only", errTriggerCustomOnly},
 	}
 	for _, c := range cases {
-		assertKoreanError(t, c.name, c.msg)
+		assertEnglishError(t, c.name, c.msg)
 	}
 }
 
@@ -25,15 +25,15 @@ func TestTriggerErrorConstantsLocalized(t *testing.T) {
 // pgCreateTrigger·pgUpdateTrigger 가 writeErr(400, msg) 로 사용자에게 그대로 노출한다.
 func TestValidateTriggerLocalized(t *testing.T) {
 	if msg := validateTrigger(&triggerReq{}); msg != errTriggerNoCondition {
-		t.Fatalf("조건 누락 문구 = %q, 기대 = %q", msg, errTriggerNoCondition)
+		t.Fatalf("Condition Missing Statement = %q, Expectation = %q", msg, errTriggerNoCondition)
 	}
 	if msg := validateTrigger(&triggerReq{OnToolCall: true}); msg != errTriggerToolSetEmpty {
-		t.Fatalf("도구 미선택 문구 = %q, 기대 = %q", msg, errTriggerToolSetEmpty)
+		t.Fatalf("Tool not selected phrase = %q, expected = %q", msg, errTriggerToolSetEmpty)
 	}
 	if msg := validateTrigger(&triggerReq{OnFinding: true}); msg != "" {
-		t.Fatalf("유효 입력 문구 = %q, 기대 = 빈 문자열", msg)
+		t.Fatalf("Valid input phrase = %q, expected = empty string", msg)
 	}
 	if msg := validateTrigger(&triggerReq{OnToolCall: true, ToolNames: []string{"nmap"}}); msg != "" {
-		t.Fatalf("유효 도구 호출 문구 = %q, 기대 = 빈 문자열", msg)
+		t.Fatalf("Valid tool call phrase = %q, expected = empty string", msg)
 	}
 }

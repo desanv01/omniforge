@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func TestInvestigatorInventoryUsesActualKindsAndRareVerificationSamples(t *testing.T) {
 	r := certTestRun(t)
 	r.events = map[string]investigation.Event{}
-	r.opts.Title = "/ftp 노출 조사"
+	r.opts.Title = "/ftp Exposure Survey"
 	r.opts.Collection.Mapping = investigation.DefaultMapping()
 	for i := 0; i < 891; i++ {
 		e := r.opts.Collection.Events[0]
@@ -66,9 +66,9 @@ func TestInvestigatorInventoryUsesActualKindsAndRareVerificationSamples(t *testi
 
 func TestInvestigatorWorkerPreviewsAreBoundedAuditableAndCitable(t *testing.T) {
 	r := certTestRun(t)
-	r.opts.Question = "허용과 차단의 차이를 확인"
+	r.opts.Question = "Check the difference between allow and block"
 	for ref, e := range r.events {
-		e.Raw = strings.Repeat("한", 2000)
+		e.Raw = strings.Repeat("one", 2000)
 		e.SourceAmbiguous = true
 		r.events[ref] = e
 	}
@@ -96,7 +96,7 @@ func TestInvestigatorWorkerPreviewsAreBoundedAuditableAndCitable(t *testing.T) {
 	if len(r.report.Trace) != 1 || r.report.Trace[0].Kind != "evidence_preview" || len(r.report.Trace[0].EvidenceRefs) != 2 {
 		t.Fatal("provided raw preview was not recorded")
 	}
-	out := certCall(t, r.observationTool(), `{"kind":"observed","summary":"제공된 원문 발췌를 확인함","evidence_refs":["ref-one"]}`)
+	out := certCall(t, r.observationTool(), "{\"kind\":\"observed\",\"summary\":\"Confirms provided original text excerpt\",\"evidence_refs\":[\"ref-one\"]}")
 	if out.IsError || len(r.report.Observations) != 1 {
 		t.Fatalf("provided raw cannot be cited: %s", out.Flatten())
 	}
@@ -175,8 +175,8 @@ func TestInvestigatorSavesObservationBeforeNextPaidCallAndPreservesOnBudget(t *t
 	o := certFixture()
 	o.Budget.MaxModelCalls = 2
 	p := &certScriptProvider{t: t, script: []certScriptCall{
-		{"plan_investigation", `{"action":"investigate","reason":"저장된 실제 접근 근거 확인","hypothesis":"파일 요청이 관측됐을 수 있음","objective":"제공된 원본 확인"}`, nil},
-		{"record_observation", `{"kind":"observed","summary":"파일 요청 기록이 있음; 전달 성공은 미확인","evidence_refs":["ref-one"]}`, nil},
+		{"plan_investigation", "{\"action\":\"investigate\",\"reason\":\"Check actual basis for stored access\",\"hypothesis\":\"File request may have been observed\",\"objective\":\"Check source provided\"}", nil},
+		{"record_observation", "{\"kind\":\"observed\",\"summary\":\"File request history exists; delivery success unknown\",\"evidence_refs\":[\"ref-one\"]}", nil},
 	}}
 	o.Provider = p
 	observedAtCall := 0
@@ -186,7 +186,7 @@ func TestInvestigatorSavesObservationBeforeNextPaidCallAndPreservesOnBudget(t *t
 		}
 	}
 	report, err := RunInvestigation(t.Context(), o)
-	if err == nil || report.Status != "budget_exhausted" || observedAtCall != 2 || len(report.Observations) != 1 || !strings.Contains(report.Summary, "관측 1건") {
+	if err == nil || report.Status != "budget_exhausted" || observedAtCall != 2 || len(report.Observations) != 1 || !strings.Contains(report.Summary, "observation 1") {
 		t.Fatalf("report=%+v err=%v at=%d", report, err, observedAtCall)
 	}
 }

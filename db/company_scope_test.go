@@ -56,15 +56,15 @@ func TestParseAutoScopeLine(t *testing.T) {
 		{name: "ipv4", input: "203.0.113.10", kind: "ip", normalized: "203.0.113.10/32"},
 		{name: "ipv6", input: "2001:db8::10", kind: "ip", normalized: "2001:db8::10/128"},
 		{name: "cidr", input: "198.51.100.0/24", kind: "cidr", normalized: "198.51.100.0/24"},
-		{name: "icp latin", input: "京 ICP备 123号", kind: "icp", normalized: "京icp备123号"},
-		{name: "icp chinese", input: "沪网备案 9988", kind: "icp", normalized: "沪网备案9988"},
+		{name: "icp latin", input: "Beijing ICP No. 123", kind: "icp", normalized: "Beijing ICP No. 123"},
+		{name: "icp chinese", input: "Shanghai Net Registration 9988", kind: "icp", normalized: "Shanghai Net Registration 9988"},
 		{name: "icp domain", input: "icp.example.com", kind: "domain", normalized: "icp.example.com"},
 		{name: "icp url query", input: "https://example.com/path?icp=1", kind: "domain", normalized: "example.com"},
 		// 备案号不含点号：掺了域名/版本号的描述性文字归关键词，否则会存成一条
 		// 永远匹配不上的死 ICP 规则。
-		{name: "icp with domain text", input: "备案 www.example.com", kind: "keyword", normalized: "备案 www.example.com"},
-		{name: "icp with version text", input: "某公司 ICP v1.0", kind: "keyword", normalized: "某公司 icp v1.0"},
-		{name: "icp fullwidth dot", input: "备案 例．com", kind: "keyword", normalized: "备案 例．com"},
+		{name: "icp with domain text", input: "Registration www.example.com", kind: "keyword", normalized: "Registration www.example.com"},
+		{name: "icp with version text", input: "A company ICP v1.0", kind: "keyword", normalized: "A company icp v1.0"},
+		{name: "icp fullwidth dot", input: "Filing case. com", kind: "keyword", normalized: "Filing case. com"},
 		{name: "keyword", input: "  ACME   Security  ", kind: "keyword", normalized: "acme security"},
 		{name: "colon keyword", input: "ACME: Cloud: Security", kind: "keyword", normalized: "acme: cloud: security"},
 		{name: "empty", input: "  ", wantErr: true},
@@ -209,11 +209,11 @@ func TestExplicitCompanyAttributionSurvivesScopeRebuild(t *testing.T) {
 }
 
 func TestParseStructuredCompanyScope(t *testing.T) {
-	icp, err := ParseScopeInput(ScopeInput{Kind: "ICP", Value: " 京ICP 备 123号-1\t"})
+	icp, err := ParseScopeInput(ScopeInput{Kind: "ICP", Value: " Beijing ICP No. 123-1\t"})
 	if err != nil {
 		t.Fatalf("parse ICP: %v", err)
 	}
-	if icp.Kind != "icp" || icp.Value != "京icp备123号-1" {
+	if icp.Kind != "icp" || icp.Value != "Beijing ICP No. 123-1" {
 		t.Fatalf("unexpected normalized ICP: %+v", icp)
 	}
 	keyword, err := ParseScopeInput(ScopeInput{Kind: "keyword", Value: "  ACME   Security  "})
@@ -256,16 +256,16 @@ func TestCompanyICPAttribution(t *testing.T) {
 	t.Cleanup(func() {
 		// 不吞错误：清理失败会污染后续用例，必须让它在本次运行里显形。
 		if _, err := d.Exec(`DELETE FROM assets WHERE task_ids @> ARRAY[$1]::bigint[]`, suffix); err != nil {
-			t.Errorf("清理测试资产失败: %v", err)
+			t.Errorf("Failed to clean test assets: %v", err)
 		}
 		if _, err := d.Exec(`DELETE FROM companies WHERE id=$1`, companyID); err != nil {
-			t.Errorf("清理测试公司失败: %v", err)
+			t.Errorf("Cleanup test company failed: %v", err)
 		}
 	})
 
 	// A keyword can guide an Agent, but must never claim an asset by its name.
 	added, _, invalid, errs := cs.AddScopeInputs(companyID, []ScopeInput{
-		{Kind: "icp", Value: "京 ICP备 998877号"},
+		{Kind: "icp", Value: "Beijing ICP No. 998877"},
 		{Kind: "keyword", Value: "ICP Scope"},
 	}, "unit test")
 	if added != 2 || invalid != 0 || len(errs) != 0 {
@@ -273,7 +273,7 @@ func TestCompanyICPAttribution(t *testing.T) {
 	}
 
 	rootID, err := as.UpsertRootDomain(UpsertRootDomainReq{
-		Domain: fmt.Sprintf("icp-scope-%d.example", suffix), ICP: "京icp备998877号", TaskID: suffix,
+		Domain: fmt.Sprintf("icp-scope-%d.example", suffix), ICP: "Beijing ICP No. 998877", TaskID: suffix,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -285,7 +285,7 @@ func TestCompanyICPAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	icpAppID, err := as.UpsertApp(UpsertAppReq{
-		Name: fmt.Sprintf("ICP Matched App %d", suffix), ICP: " 京 ICP备 998877号 ", TaskID: suffix,
+		Name: fmt.Sprintf("ICP Matched App %d", suffix), ICP: " Beijing ICP No. 998877 ", TaskID: suffix,
 	})
 	if err != nil {
 		t.Fatal(err)

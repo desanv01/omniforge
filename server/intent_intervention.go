@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 const maxWorkerMessageBytes = 64 << 10
@@ -16,17 +16,17 @@ const maxWorkerMessageBytes = 64 << 10
 // 에러 응답 문구다. 한국어 UI 에서 토스트로 그대로 노출되므로 한국어로 둔다. Worker 는
 // 엔진 역할 이름이라 로마자를 유지하고(용어집), request_id 는 요청 필드명이라 원문 보존.
 const (
-	errIntentRequestTooLarge   = "요청 본문이 너무 큽니다"
-	errIntentMessageEmpty      = "메시지는 비워 둘 수 없습니다"
-	errIntentMessageTooLong    = "메시지는 4000자를 초과할 수 없습니다"
-	errIntentBadRequestID      = "request_id 는 1~128자의 영문자, 숫자, -, _, ., : 만 사용할 수 있습니다"
-	errIntentTaskDeleting      = "작업을 삭제하는 중이라 Worker 에게 메시지를 보낼 수 없습니다"
-	errIntentTaskPaused        = "작업이 일시정지되어 있습니다. 먼저 작업을 재개한 뒤 Worker 에게 메시지를 보내세요"
-	errIntentTaskQueued        = "대기 중인 작업에는 Worker 에게 메시지를 보낼 수 없습니다"
-	errIntentTaskTerminal      = "종료된 작업에는 Worker 에게 메시지를 보낼 수 없습니다"
-	errIntentTaskSettling      = "작업을 마무리하는 중이라 Worker 에게 메시지를 보낼 수 없습니다"
-	errIntentInheritedReadonly = "상속된 의도는 읽기 전용이라 Worker 에게 메시지를 보낼 수 없습니다"
-	errIntentNotPaused         = "일시정지된 Worker 에게만 메시지를 보낼 수 있습니다. 먼저 일시정지하세요"
+	errIntentRequestTooLarge   = "Request body is too large"
+	errIntentMessageEmpty      = "Message cannot be empty"
+	errIntentMessageTooLong    = "Message cannot exceed 4000 characters"
+	errIntentBadRequestID      = "request_id can only use 1 to 128 English letters, numbers, -, _, ., :"
+	errIntentTaskDeleting      = "A message cannot be sent to the Worker because the task is being deleted."
+	errIntentTaskPaused        = "The operation is paused. Resume work first and then send a message to the Worker"
+	errIntentTaskQueued        = "Messages cannot be sent to Workers when tasks are waiting."
+	errIntentTaskTerminal      = "Messages cannot be sent to workers for terminated tasks."
+	errIntentTaskSettling      = "A message cannot be sent to the Worker because the task is being finalized."
+	errIntentInheritedReadonly = "The inherited intent is read-only, so messages cannot be sent to the Worker."
+	errIntentNotPaused         = "Messages can only be sent to temporarily suspended Workers. Pause first"
 )
 
 func validWorkerMessageRequestID(id string) bool {

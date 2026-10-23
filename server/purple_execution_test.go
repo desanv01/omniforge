@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/intercept"
-	"github.com/Autumn-27/artex/securitysource"
 	"github.com/Autumn-27/norma/llm"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/intercept"
+	"github.com/desanv01/omniforge/securitysource"
 )
 
 func TestPurpleExecutionAuthentication(t *testing.T) {

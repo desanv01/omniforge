@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/securitysource"
 	"github.com/Autumn-27/norma/llm"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/securitysource"
 )
 
 // These responses exercise the real planner/worker harness and server callback;
@@ -37,7 +37,7 @@ func (p *investigationSplunkRunProvider) Complete(ctx context.Context, req llm.C
 	tool, input := "", ""
 	switch n {
 	case 1:
-		tool, input = "plan_investigation", `{"action":"investigate","reason":"추가 원본 로그를 확인합니다.","hypothesis":"공개 파일에 대한 후속 접근이 있을 수 있습니다.","objective":"지정한 출발지의 후속 파일 요청을 확인합니다."}`
+		tool, input = "plan_investigation", "{\"action\":\"investigate\",\"reason\":\"Check for additional source logs.\",\"hypothesis\":\"There may be subsequent accesses to public files.\",\"objective\":\"Check for subsequent file requests from the specified origin.\"}"
 	case 2:
 		if p.beforeSearch != nil {
 			if err := p.beforeSearch(); err != nil {
@@ -47,7 +47,7 @@ func (p *investigationSplunkRunProvider) Complete(ctx context.Context, req llm.C
 		tool, input = "search_evidence", `{"remote":true,"source_ip":"192.0.2.44","path_contains":"followup.txt"}`
 	case 3:
 		if p.revoked {
-			tool, input = "record_observation", `{"kind":"insufficient_data","summary":"연결 설정 변경으로 후속 로그를 조회하지 못했습니다.","next_steps":["최신 연결로 로그 근거를 다시 준비하세요."]}`
+			tool, input = "record_observation", "{\"kind\":\"insufficient_data\",\"summary\":\"Change in connection settings failed to view subsequent logs.\",\"next_steps\":[\"Re-prepare log evidence with latest connection.\"]}"
 		} else {
 			body, err := json.Marshal(req.Messages)
 			if err != nil {
@@ -69,20 +69,20 @@ func (p *investigationSplunkRunProvider) Complete(ctx context.Context, req llm.C
 			if !strings.Contains(string(body), "original-remote-evidence-marker") {
 				return llm.Message{}, "", llm.Usage{}, fmt.Errorf("worker did not read original remote event")
 			}
-			tool, input = "record_observation", fmt.Sprintf(`{"kind":"observed","summary":"지정한 출발지의 파일 요청이 기록되었습니다. 실제 내용 탈취 여부는 확인되지 않습니다.","evidence_refs":[%q],"alternatives":["승인된 정상 접근일 수 있습니다."],"next_steps":["인증 기록을 대조하세요."]}`, p.ref)
+			tool, input = "record_observation", fmt.Sprintf("{\"kind\":\"observed\",\"summary\":\"The file request from the specified origin has been logged. It is not confirmed whether the actual contents were stolen.\",\"evidence_refs\":[%q],\"alternatives\":[\"This may be normal, authorized access.\"],\"next_steps\":[\"Check the authentication records.\"]}", p.ref)
 		}
 	case 5:
 		if p.revoked {
-			tool, input = "plan_investigation", `{"action":"insufficient_data","reason":"연결 변경으로 후속 로그 확인을 완료하지 못했습니다.","needed_logs":["최신 연결에서 다시 수집한 원본 로그"]}`
+			tool, input = "plan_investigation", "{\"action\":\"insufficient_data\",\"reason\":\"Connection changes did not allow subsequent log checks to complete\",\"needed_logs\":[\"Original logs re-collected from latest connection\"]}"
 		} else {
-			tool, input = "plan_investigation", fmt.Sprintf(`{"action":"complete","reason":"허용된 범위의 후속 접근을 원본으로 확인했습니다.","evidence_refs":[%q]}`, p.ref)
+			tool, input = "plan_investigation", fmt.Sprintf("{\"action\":\"complete\",\"reason\":\"Subsequent accesses within the permitted scope have been confirmed to the source.\",\"evidence_refs\":[%q]}", p.ref)
 		}
 	default:
 		return llm.Message{}, "", llm.Usage{}, fmt.Errorf("unexpected provider call %d", n)
 	}
 	usage := llm.Usage{InputTokens: 12, OutputTokens: 8}
 	if tool == "" {
-		return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("단계를 마쳤습니다.")}}, "end_turn", usage, nil
+		return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("You have completed the steps.")}}, "end_turn", usage, nil
 	}
 	// Assert the shortened sequence still crosses the real planner/worker
 	// boundary; a stale scripted response must not pass in the wrong stage.
@@ -215,7 +215,7 @@ func TestInvestigationRunSplunkCallbackEvidenceAndRevision(t *testing.T) {
 			s.llmOn = true
 			s.llmCfg = agent.Config{Model: "local-scripted-mock", Stream: false}
 			path := fmt.Sprintf("%s/%d/agent-runs", basePath, base.ID)
-			w = request("POST", path, `{"question":"원격 후속 로그로 파일 요청을 확인하세요."}`)
+			w = request("POST", path, "{\"question\":\"Check file requests with remote follow-up logs.\"}")
 			if w.Code != 202 {
 				t.Fatal(w.Code, w.Body.String())
 			}

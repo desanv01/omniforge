@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 // TestNotifierDeliveryReasonsLocalized guards F17: every delivery failure/defer
@@ -32,7 +32,7 @@ func TestNotifierDeliveryReasonsLocalized(t *testing.T) {
 		{"batchAllUnparseable", fmt.Sprintf(errDeliveryBatchAllUnparseable, 2)},
 	}
 	for _, c := range cases {
-		assertKoreanError(t, c.label, c.msg)
+		assertEnglishError(t, c.label, c.msg)
 	}
 }
 
@@ -42,18 +42,18 @@ func TestNotifierDeliveryReasonsLocalized(t *testing.T) {
 func TestNotifierParseSnapshotErrorsLocalized(t *testing.T) {
 	// Empty snapshot.
 	if _, err := parseSnapshot(&db.NotificationDelivery{ID: 7}); err == nil {
-		t.Fatal("빈 스냅샷이 오류 없이 통과해서는 안 됩니다")
+		t.Fatal("Empty snapshots should not pass without errors")
 	} else {
-		assertKoreanError(t, "parseSnapshot.empty", err.Error())
+		assertEnglishError(t, "parseSnapshot.empty", err.Error())
 		if !strings.Contains(err.Error(), "7") {
-			t.Fatalf("parseSnapshot.empty: 전달 항목 ID 7 이 메시지에 없습니다: %q", err.Error())
+			t.Fatalf("parseSnapshot.empty: Delivery item ID 7 is not in this message: %q", err.Error())
 		}
 	}
 	// Malformed JSON snapshot.
 	if _, err := parseSnapshot(&db.NotificationDelivery{ID: 9, Snapshot: []byte("{bad")}); err == nil {
-		t.Fatal("깨진 JSON 스냅샷이 오류 없이 통과해서는 안 됩니다")
+		t.Fatal("Broken JSON snapshots should not pass without errors")
 	} else {
-		assertKoreanError(t, "parseSnapshot.malformed", err.Error())
+		assertEnglishError(t, "parseSnapshot.malformed", err.Error())
 	}
 }
 
@@ -65,8 +65,8 @@ func TestNotifierRenderBatchAllUnparseableLocalized(t *testing.T) {
 	n := &Notifier{}
 	deliveries := []*db.NotificationDelivery{{ID: 1}, {ID: 2}}
 	if _, _, err := n.renderBatch(context.Background(), deliveries, "", 30); err == nil {
-		t.Fatal("모든 스냅샷이 해석 불가일 때 오류가 나와야 합니다")
+		t.Fatal("An error should occur when all snapshots are uninterpretable")
 	} else {
-		assertKoreanError(t, "renderBatch.allUnparseable", err.Error())
+		assertEnglishError(t, "renderBatch.allUnparseable", err.Error())
 	}
 }

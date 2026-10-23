@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/db"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func TestAegisOverviewRequiresAuthentication(t *testing.T) {

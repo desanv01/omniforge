@@ -14,13 +14,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Autumn-27/artex/closedloop"
-	"github.com/Autumn-27/artex/investigation"
-	"github.com/Autumn-27/artex/securitysource"
+	"github.com/desanv01/omniforge/closedloop"
+	"github.com/desanv01/omniforge/investigation"
+	"github.com/desanv01/omniforge/securitysource"
 	"github.com/google/uuid"
 )
 
-var ErrClosedLoopLiveConflict = errors.New("실행 또는 규칙 버전이 변경됐거나 현재 단계에서 허용되지 않는 작업입니다. 새로고침해 주세요")
+var ErrClosedLoopLiveConflict = errors.New("The execution or rule version has changed, or the action is not allowed at this stage. Please refresh")
 
 type ClosedLoopLiveInput struct {
 	RequestID    string                 `json:"request_id"`
@@ -137,7 +137,7 @@ func liveRuleValid(rule closedloop.Rule, m investigation.Mapping) error {
 		return err
 	}
 	if !utf8.ValidString(rule.Name) || strings.ContainsAny(rule.Name, "\x00\r\n") {
-		return fmt.Errorf("%w: 규칙 이름을 확인하세요", closedloop.ErrInvalid)
+		return fmt.Errorf("%w: Check rule name", closedloop.ErrInvalid)
 	}
 	allowed := map[string]bool{}
 	for _, f := range securitysource.ClosedLoopRuleFields(m) {
@@ -146,7 +146,7 @@ func liveRuleValid(rule closedloop.Rule, m investigation.Mapping) error {
 	for _, b := range rule.Any {
 		for _, cond := range b.All {
 			if !allowed[cond.Field] || !utf8.ValidString(cond.Value) || strings.ContainsAny(cond.Value, "\x00\r\n") {
-				return fmt.Errorf("%w: 원본 감사 로그의 허용된 행동 필드만 규칙에 사용할 수 있습니다", closedloop.ErrInvalid)
+				return fmt.Errorf("%w: Only allowed action fields from the original audit log can be used in rules", closedloop.ErrInvalid)
 			}
 		}
 	}
@@ -191,7 +191,7 @@ func liveScope(e *DefenseExecution, target, path string, mapping *investigation.
 		target = inferred
 	}
 	if target == "" || !targets[strings.ToLower(target)] {
-		return "", "", investigation.Mapping{}, fmt.Errorf("%w: 로그 대상은 원본 취약점의 허가된 자산과 같아야 합니다", closedloop.ErrInvalid)
+		return "", "", investigation.Mapping{}, fmt.Errorf("%w: Log destination must be the same as the licensed asset of the original vulnerability", closedloop.ErrInvalid)
 	}
 	if path == "" {
 		path = "/"
@@ -217,7 +217,7 @@ func liveScope(e *DefenseExecution, target, path string, mapping *investigation.
 		return "", "", m, fmt.Errorf("%w: %v", closedloop.ErrInvalid, err)
 	}
 	if m.Target == "" || m.Path == "" || m.VerificationID == "" {
-		return "", "", m, fmt.Errorf("%w: 대상·경로·실행 ID 매핑이 필요합니다", closedloop.ErrInvalid)
+		return "", "", m, fmt.Errorf("%w: Target/Path/Execution ID mapping is required", closedloop.ErrInvalid)
 	}
 	return target, path, m, nil
 }
@@ -226,19 +226,19 @@ func liveScope(e *DefenseExecution, target, path string, mapping *investigation.
 // Reusing a request key never creates or dispatches a second actual execution.
 func (d *DB) CreateClosedLoopLiveCycle(ctx context.Context, in ClosedLoopLiveInput) (*ClosedLoopLiveCycle, *FindingRetest, *Conversation, *DefenseExecution, bool, error) {
 	if _, err := uuid.Parse(in.RequestID); err != nil || in.FindingID <= 0 {
-		return nil, nil, nil, nil, false, fmt.Errorf("%w: 요청 UUID와 취약점 ID가 필요합니다", closedloop.ErrInvalid)
+		return nil, nil, nil, nil, false, fmt.Errorf("%w: Request UUID and Vulnerability ID are required", closedloop.ErrInvalid)
 	}
 	var err error
-	in.Scenario, err = defenseText(in.Scenario, "시나리오", 1, 200)
+	in.Scenario, err = defenseText(in.Scenario, "scenario", 1, 200)
 	if err != nil {
 		return nil, nil, nil, nil, false, err
 	}
-	in.Notes, err = defenseText(in.Notes, "추가 설명", 0, 4000)
+	in.Notes, err = defenseText(in.Notes, "Additional explanation", 0, 4000)
 	if err != nil {
 		return nil, nil, nil, nil, false, err
 	}
 	if in.Defense.BaselineID != nil {
-		return nil, nil, nil, nil, false, fmt.Errorf("%w: 최초 실행에 이전 실행을 지정할 수 없습니다", closedloop.ErrInvalid)
+		return nil, nil, nil, nil, false, fmt.Errorf("%w: Cannot specify previous launch for first launch", closedloop.ErrInvalid)
 	}
 	raw, err := json.Marshal(in)
 	if err != nil {
@@ -466,28 +466,28 @@ func compareLiveCycle(c *ClosedLoopLiveCycle) ClosedLoopLiveComparison {
 		}
 	}
 	if b == nil || r == nil || c.Current == nil {
-		out.Reasons = append(out.Reasons, "첫 실행과 새 재실행의 수집 근거가 모두 필요합니다")
+		out.Reasons = append(out.Reasons, "A collection basis for both the first run and the new rerun is required")
 		return out
 	}
 	if c.Status == "stopped" || c.Baseline.State != "current" || c.Current.State != "current" {
-		out.Reasons = append(out.Reasons, "실행이 중지됐거나 원본·연결 설정이 변경됐습니다")
+		out.Reasons = append(out.Reasons, "Execution has stopped or source/connection settings have been changed.")
 	}
 	if c.Baseline.CorrelationID == c.Current.CorrelationID || c.Baseline.ID == c.Current.ID || c.Baseline.Retest == nil || c.Current.Retest == nil || c.Baseline.Retest.FinishedAt == nil || !c.Current.CreatedAt.After(*c.Baseline.Retest.FinishedAt) {
-		out.Reasons = append(out.Reasons, "새 실행 ID와 기준 실행 이후의 독립 실행 시각이 확인되지 않았습니다")
+		out.Reasons = append(out.Reasons, "New run ID and standalone run time since baseline run not confirmed")
 	}
 	for _, e := range []*DefenseExecution{c.Baseline, c.Current} {
 		if e.Retest == nil || e.Retest.Status != "completed" || e.Retest.Error != "" {
-			out.Reasons = append(out.Reasons, "ARTEX 실행이 정상 완료되지 않았습니다")
+			out.Reasons = append(out.Reasons, "ARTEX execution did not complete successfully")
 			break
 		}
 	}
 	if b.Native == nil || r.Native == nil || b.Native.Detection == "inconclusive" || r.Native.Detection == "inconclusive" || shadowState(b.Shadow, false) == "inconclusive" || out.BaselineShadowDetection == "inconclusive" || out.CandidateShadowDetection == "inconclusive" {
-		out.Reasons = append(out.Reasons, "수집 범위 또는 탐지 판정 근거가 불완전합니다")
+		out.Reasons = append(out.Reasons, "Collection scope or detection basis is incomplete")
 	}
 	out.Comparable = len(out.Reasons) == 0
-	out.Reasons = append(out.Reasons, "새 재실행의 같은 감사 로그에 두 규칙을 시험 평가합니다. 실제 경보 발생과 규칙 매칭은 별도 결과입니다", "경보 탐지 결과는 기존 모든 원격 탐지기의 결과이며, 후보 규칙 SHA가 일치하는 명시적 경보만 후보의 실제 탐지 근거로 구분합니다", "정상 트래픽의 정답 데이터와 독립 경보 시각이 없어 정확도·오탐률·MTTD는 산출하지 않습니다")
+	out.Reasons = append(out.Reasons, "Test-evaluate both rules on the same audit log in a new rerun. Actual alarm generation and rule matching are separate results", "The alarm detection results are from all existing remote detectors, and only explicit alarms with matching candidate rule SHA are identified as the actual detection basis for the candidate.", "Accuracy, false positive rate, and MTTD are not calculated as there is no correct data for normal traffic and no independent alarm time.")
 	if c.Baseline.SourceKind == "file" {
-		out.Reasons = append(out.Reasons, "파일 평가는 업로더 출처·수집 범위 확인에 의존하며 Splunk 원격 규칙 실행이 아닙니다")
+		out.Reasons = append(out.Reasons, "File evaluation relies on verification of uploader origin/collection scope and not Splunk remote rule execution.")
 	}
 	return out
 }
@@ -512,7 +512,7 @@ func lockLiveCycle(ctx context.Context, tx *sql.Tx, id int64) (*ClosedLoopLiveCy
 	return scanLiveCycle(tx.QueryRowContext(ctx, liveSelect+`WHERE id=$1 FOR UPDATE`, id))
 }
 func (d *DB) SetClosedLoopLiveCandidate(ctx context.Context, id, revision int64, rule closedloop.Rule, note string) (*ClosedLoopLiveCycle, error) {
-	note, err := defenseText(note, "개선 설명", 1, 8000)
+	note, err := defenseText(note, "Improvement Description", 1, 8000)
 	if err != nil {
 		return nil, err
 	}
@@ -593,7 +593,7 @@ func (d *DB) RerunClosedLoopLiveCycle(ctx context.Context, id, revision int64) (
 		}
 		in.FileConfig = &cfg
 	}
-	r, conv, e, created, err := createFindingRetestTx(ctx, tx, c.FindingID, "Closed-loop 재실행: 원본 조건을 유지하고 새 실행 ID로 실제 재검증합니다. 규칙 개선은 별도 로그 판정으로 검증합니다.", &in)
+	r, conv, e, created, err := createFindingRetestTx(ctx, tx, c.FindingID, "Closed-loop re-execution: Retains the original conditions and actual re-verifies with a new execution ID. Rule improvements are verified through separate log judgments.", &in)
 	if err != nil {
 		return nil, nil, nil, nil, false, err
 	}
@@ -817,7 +817,7 @@ func (d *DB) SuggestClosedLoopLiveCandidate(ctx context.Context, id int64) (*Clo
 	if o.Native == nil || o.Native.Evidence == nil {
 		return nil, ErrClosedLoopLiveConflict
 	}
-	out := &ClosedLoopLiveSuggestion{CandidateRule: closedloop.Rule{Name: "기준 감사 로그 후보", Any: []closedloop.Branch{}}, Warnings: []string{"기준 실행의 실제 감사 로그만 사용한 초안입니다. 재실행과 정상 트래픽 검증 전에는 운영 배포 또는 오탐률 개선을 주장할 수 없습니다"}, AuditEventIDs: []string{}}
+	out := &ClosedLoopLiveSuggestion{CandidateRule: closedloop.Rule{Name: "Baseline Audit Log Candidates", Any: []closedloop.Branch{}}, Warnings: []string{"This is a draft using only actual audit logs from a baseline run. No operational deployment or false positive rate improvement claims can be made until re-run and normal traffic verification"}, AuditEventIDs: []string{}}
 	// Prefer the triggering request path plus method over IDs, IP memorization or labels.
 	allowed := map[string]bool{}
 	for _, f := range securitysource.ClosedLoopRuleFields(c.LogMapping) {
@@ -828,7 +828,7 @@ func (d *DB) SuggestClosedLoopLiveCandidate(ctx context.Context, id int64) (*Clo
 		return nil, ErrClosedLoopLiveConflict
 	}
 	if !o.Native.Evidence.Complete || !o.Shadow.Complete {
-		out.Warnings = append(out.Warnings, "기준 로그 수집이 불완전합니다. 이 후보는 일부 실제 감사 이벤트에만 근거합니다")
+		out.Warnings = append(out.Warnings, "Baseline log collection is incomplete. This nomination is based only on some real audit events")
 	}
 	// These rows are the adapter's original audit rows already checked against
 	// the immutable target/path/UUID/window; unrelated native audits are excluded.
@@ -868,7 +868,7 @@ func (d *DB) SuggestClosedLoopLiveCandidate(ctx context.Context, id int64) (*Clo
 		}
 	}
 	if len(out.CandidateRule.Any) == 0 {
-		return nil, fmt.Errorf("%w: 감사 로그에 후보 규칙을 만들 행동 필드가 없습니다. 필드 매핑을 확인하세요", closedloop.ErrInvalid)
+		return nil, fmt.Errorf("%w: There are no action fields in the audit log for which to create a candidate rule. Check out the field mapping", closedloop.ErrInvalid)
 	}
 	if err := liveRuleValid(out.CandidateRule, c.LogMapping); err != nil {
 		return nil, err
@@ -892,7 +892,7 @@ func (d *DB) StopClosedLoopLiveCycle(ctx context.Context, id int64) (*ClosedLoop
 	}
 	var conv *int64
 	if e != nil {
-		r, err := scanRetest(tx.QueryRowContext(ctx, `UPDATE finding_retests SET status='stopped',finished_at=clock_timestamp(),error='사용자가 Closed-loop 실행을 중지했습니다' WHERE id=$1 AND status IN ('pending','running') RETURNING `+retestCols, e.RetestID))
+		r, err := scanRetest(tx.QueryRowContext(ctx, "UPDATE finding_retests SET status='stopped',finished_at=clock_timestamp(),error='User stopped Closed-loop execution' WHERE id=$1 AND status IN ('pending','running') RETURNING "+retestCols, e.RetestID))
 		if err != nil {
 			return nil, nil, err
 		}

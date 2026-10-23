@@ -9,19 +9,23 @@ const currentYear = new Date().getFullYear();
 // 한국어(ko)·중국어(zh)를 분기한다. zh 는 상류 대조를 위해 원문을 그대로 보존한다.
 // ko 제목은 엠대시 대신 콜론을 써서 "제품명: 설명" 형태로 둔다.
 const META_BY_LOCALE = {
+  en: {
+    title: "OmniForge: Security Testing and Investigation",
+    description: "AI-assisted security testing, incident investigation, and detection validation",
+  },
   ko: {
-    title: "AegisLoop: 공격·방어 보안 운영",
-    description: "ARTEX 기반 취약점 진단·침해 조사·공격 방어 개선 콘솔",
+    title: "OmniForge: Offensive and defensive security operations",
+    description: "ARTEX-based vulnerability diagnosis, infringement investigation, and attack defense improvement console",
   },
   zh: {
-    title: "AegisLoop — 攻防安全运营",
-    description: "基于 ARTEX 的漏洞诊断、事件调查与攻防改进控制台",
+    title: "OmniForge — Offensive and defensive security operations",
+    description: "Vulnerability diagnosis, incident investigation and attack and defense improvement console based on ARTEX",
   },
 } as const;
 
 export const APP_CONFIG = {
-  name: "AegisLoop",
+  name: "OmniForge",
   version: packageJson.version,
-  copyright: `© ${currentYear}, ARTEX.`,
+  copyright: `© ${currentYear}, OmniForge contributors.`,
   meta: META_BY_LOCALE[resolveLocale()],
 };

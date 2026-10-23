@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/closedloop"
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/closedloop"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func shadowScope(q Query) investigation.Scope {
@@ -257,7 +257,7 @@ func TestClosedLoopRuleFailedQueryStillHasSafeProvenance(t *testing.T) {
 				return
 			}
 			if err == nil || out == nil || out.Complete || out.ErrorCode != tc.code || out.QueryFinishedAt.IsZero() || out.Query == "" {
-				t.Fatalf("failure attempt missing: out=%+v err=%v", out, err)
+				t.Fatalf("failure attempt missing: code=%q complete=%v files=%d err=%v", out.ErrorCode, out.Complete, len(out.Files), err)
 			}
 			if strings.Contains(err.Error(), "private") || strings.Contains(strings.Join(out.Warnings, " "), "private") || (!tc.wantFile && len(out.Files) > 0) {
 				t.Fatal("authentication diagnostics disclosed")

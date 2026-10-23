@@ -264,7 +264,7 @@ func TestPurpleUploadLimitsAndSafeConfig(t *testing.T) {
 	if _, err := ParseUpload(uploadConfig(), in, q); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("byte cap: %v", err)
 	}
-	for _, c := range []FileConfig{{}, {Label: strings.Repeat("가", 121)}, {Label: "x", ActionField: "action; exec"}, {Label: "x", EventIDField: strings.Repeat("x", 129)}, {Label: "x", TimestampField: "artex_verification_id"}} {
+	for _, c := range []FileConfig{{}, {Label: strings.Repeat("go", 121)}, {Label: "x", ActionField: "action; exec"}, {Label: "x", EventIDField: strings.Repeat("x", 129)}, {Label: "x", TimestampField: "artex_verification_id"}} {
 		if _, err := ValidateFileConfig(c); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("unsafe config accepted: %+v %v", c, err)
 		}

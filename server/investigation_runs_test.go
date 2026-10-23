@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/norma/llm"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
 )
 
 type investigationHTTPProvider struct {
@@ -32,9 +32,9 @@ func (p *investigationHTTPProvider) Complete(ctx context.Context, req llm.Comple
 		return llm.Message{}, "", llm.Usage{}, ctx.Err()
 	}
 	if n == 1 {
-		return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{{Type: llm.BlockToolUse, ID: "plan-stop", Name: "plan_investigation", Input: json.RawMessage(`{"action":"insufficient_data","reason":"인증 로그가 필요합니다.","needed_logs":["해당 계정의 인증 감사 로그"],"next_steps":["승인된 계정 활동과 대조"]}`)}}}, "tool_use", llm.Usage{InputTokens: 20, OutputTokens: 30}, nil
+		return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{{Type: llm.BlockToolUse, ID: "plan-stop", Name: "plan_investigation", Input: json.RawMessage("{\"action\":\"insufficient_data\",\"reason\":\"Authentication logs are needed\",\"needed_logs\":[\"Authentication audit logs for your account\"],\"next_steps\":[\"Check against authorized account activity\"]}")}}}, "tool_use", llm.Usage{InputTokens: 20, OutputTokens: 30}, nil
 	}
-	return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("필요 자료를 기록했습니다.")}}, "end_turn", llm.Usage{InputTokens: 30, OutputTokens: 10}, nil
+	return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("Necessary data was recorded.")}}, "end_turn", llm.Usage{InputTokens: 30, OutputTokens: 10}, nil
 }
 func (p *investigationHTTPProvider) Stream(ctx context.Context, req llm.CompletionRequest) iter.Seq2[llm.StreamEvent, error] {
 	return func(yield func(llm.StreamEvent, error) bool) {
@@ -98,7 +98,7 @@ func waitInvestigationRun(t *testing.T, s *Server, run *db.InvestigationRun) *db
 
 func TestInvestigationRunAPINoLLMNoExecution(t *testing.T) {
 	s, base, request, path := investigationRunFixture(t)
-	w := request("POST", path, `{"question":"과거 사용 여부"}`)
+	w := request("POST", path, "{\"question\":\"Past use\"}")
 	if w.Code != 503 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -122,7 +122,7 @@ func TestInvestigationRunAPIAsyncHistoryExportAndNoRetest(t *testing.T) {
 	s.llmOn = true
 	s.llmCfg = agent.Config{Model: "local-mock", Stream: false}
 	s.llmProf = "test"
-	w := request("POST", path, `{"question":"인증 자료가 충분한가?"}`)
+	w := request("POST", path, "{\"question\":\"Is there enough authentication data?\"}")
 	if w.Code != 202 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -131,7 +131,7 @@ func TestInvestigationRunAPIAsyncHistoryExportAndNoRetest(t *testing.T) {
 		t.Fatal(err)
 	}
 	done := waitInvestigationRun(t, s, &run)
-	if done.Status != "insufficient_data" || done.Usage.ModelCalls != 1 || len(done.Events) < 2 || !strings.Contains(string(done.Result), "인증 로그") {
+	if done.Status != "insufficient_data" || done.Usage.ModelCalls != 1 || len(done.Events) < 2 || !strings.Contains(strings.ToLower(string(done.Result)), "authentication log") {
 		t.Fatalf("unexpected finished run: %+v", done)
 	}
 	w = request("GET", fmt.Sprintf("%s/%d/export", path, done.ID), "")

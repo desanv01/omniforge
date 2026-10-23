@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func defensiveDB(t *testing.T) *DB {
@@ -34,7 +34,7 @@ func defensiveCaseInput(t *testing.T) DefensiveCase {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return DefensiveCase{Title: "Standalone log case", Question: "이 경보의 근거를 확인하세요.", SourceKind: "file", SourceSnapshot: json.RawMessage(`{"kind":"file","name":"original logs"}`), Scope: scope, Mapping: mapping, Collection: collection}
+	return DefensiveCase{Title: "Standalone log case", Question: "Check the basis for this alert.", SourceKind: "file", SourceSnapshot: json.RawMessage(`{"kind":"file","name":"original logs"}`), Scope: scope, Mapping: mapping, Collection: collection}
 }
 func saveDefensiveCaseForTest(t *testing.T, d *DB) *DefensiveCase {
 	t.Helper()

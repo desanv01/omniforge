@@ -359,13 +359,7 @@ WHERE id=$1 RETURNING `+taskArchiveCols, id, DeleteQueued))
 // An interrupted archive requires an explicit retry: automatic startup retries can
 // otherwise form a crash loop when the prior process was killed by resource limits.
 func (d *DB) RecoverTaskArchiveJobs() error {
-	_, err := d.Exec(`UPDATE task_archives SET
-	 state=CASE state WHEN 'archiving' THEN 'archive_failed'
-	                  WHEN 'restoring' THEN 'restore_queued'
-	                  WHEN 'deleting' THEN 'delete_queued' ELSE state END,
-	 phase='interrupted',
-	 error=CASE WHEN state='archiving' THEN '上次归档进程异常退出，请手动重试' ELSE '' END
-	WHERE state IN ('archiving','restoring','deleting')`)
+	_, err := d.Exec("UPDATE task_archives SET\n\t state=CASE state WHEN 'archiving' THEN 'archive_failed'\n\t                  WHEN 'restoring' THEN 'restore_queued'\n\t                  WHEN 'deleting' THEN 'delete_queued' ELSE state END,\n\t phase='interrupted',\n\t error=CASE WHEN state='archiving' THEN 'The last archiving process exited abnormally, please try again manually.' ELSE '' END\n\tWHERE state IN ('archiving','restoring','deleting')")
 	return err
 }
 
@@ -807,13 +801,13 @@ func ensureDefenseExecutionsFinishedTx(tx *sql.Tx, taskID int64) error {
 		return err
 	}
 	if active {
-		return fmt.Errorf("%w: 방어 검증 재검증을 종료한 뒤 작업을 보관해 주세요", ErrTaskArchiveState)
+		return fmt.Errorf("%w: Please archive your work after completing defense verification re-verification.", ErrTaskArchiveState)
 	}
 	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM finding_investigation_runs r JOIN findings f ON f.id=r.finding_id WHERE f.task_id=$1 AND r.status IN ('queued','running'))`, taskID).Scan(&active); err != nil {
 		return err
 	}
 	if active {
-		return fmt.Errorf("%w: 침해 조사를 종료한 뒤 작업을 보관해 주세요", ErrTaskArchiveState)
+		return fmt.Errorf("%w: Please archive your work after completing the infringement investigation.", ErrTaskArchiveState)
 	}
 	return nil
 }

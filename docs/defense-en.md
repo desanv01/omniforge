@@ -2,7 +2,7 @@
 
 > This document helps **defenders** understand how an **autonomous AI penetration agent** such as ARTEX operates, so that you can build the capability to **detect and block** such attacks. It is not a guide to carrying out attacks. Use everything here only to protect systems you own or have explicit written authorization to test. Probing or attacking someone else's information and communications network without authorization is itself a crime (see the [security and misuse warning in the top-level README](../README.en.md)).
 >
-> 한국어판: **[자율 AI 공격 방어·탐지 가이드 (defense-ko.md)](defense-ko.md)**.
+> Korean version: **[Autonomous AI attack defense/detection guide (defense-ko.md)](defense-ko.md)**.
 
 An autonomous AI attack tool turns a penetration test — once a manual process a single operator ran by hand — into a 24/7 automated process in which an LLM agent **breaks goals down on its own, executes real tools, and accumulates discoveries**. The adversary a defender faces shifts from "one skilled attacker" to "a swarm of agents that never tire and never rest." This guide sets out what that shift demands of detection and response.
 
@@ -10,7 +10,7 @@ An autonomous AI attack tool turns a penetration test — once a manual process 
 
 ## 1. How an autonomous AI attack differs from a traditional scanner
 
-A traditional vulnerability scanner (for example a fixed-signature tool) fires a predefined checklist in order and stops. An autonomous agent like ARTEX is structured differently. As described in the [system architecture](../README.en.md#system-architecture), the following elements combine to **run multi-stage attack chains to completion without human intervention**:
+A traditional vulnerability scanner (for example a fixed-signature tool) fires a predefined checklist in order and stops. An autonomous agent like ARTEX is structured differently. As described in the [system architecture](../README.md#how-it-works), the following elements combine to **run multi-stage attack chains to completion without human intervention**:
 
 - **Role-separated multi-agents.** The work is split across `goals` (which decomposes objectives), a `planner` (the only producer of intents, which decides the next direction), multiple `worker`s (each of which executes one intent with real tools), and a `mainagent` (the human-in-the-loop point). The planner is the sole intent generator, and the workers carry those intents out in parallel.
 - **State accumulated in a dual graph.** "What exists" (the asset graph) and "how far it has been tested" (the exploration graph) are built separately and joined by anchors. As a result the attack **deepens incrementally**, revisits the same asset from new angles, and builds each next step on prior observations.

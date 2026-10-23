@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 func TestTaskTemplateHTTPCRUD(t *testing.T) {
@@ -63,7 +63,7 @@ func TestTaskTemplateHTTPCRUD(t *testing.T) {
 		t.Fatalf("patch status=%d body=%v", code, updated)
 	}
 	code, _ = do(http.MethodPatch, fmt.Sprintf("/api/task-templates/%d", id), map[string]any{
-		"goal": strings.Repeat("界", db.MaxTaskTemplateTextRunes+1),
+		"goal": strings.Repeat("boundary", db.MaxTaskTemplateTextRunes+1),
 	})
 	if code != http.StatusBadRequest {
 		t.Fatalf("overlong patch status=%d, want %d", code, http.StatusBadRequest)
@@ -121,7 +121,7 @@ func TestConversationPatchReturnsPinState(t *testing.T) {
 		t.Fatalf("unexpected conversation patch response: %+v", updated)
 	}
 
-	body, _ = json.Marshal(map[string]any{"title": strings.Repeat("会", maxConversationTitleRunes+1)})
+	body, _ = json.Marshal(map[string]any{"title": strings.Repeat("meeting", maxConversationTitleRunes+1)})
 	req = httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/api/conversations/%d", conversation.ID), bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec = httptest.NewRecorder()
@@ -140,7 +140,7 @@ func TestConversationPatchReturnsPinState(t *testing.T) {
 	}
 
 	body, _ = json.Marshal(map[string]any{
-		"agent_key": "mainagent", "title": strings.Repeat("会", maxConversationTitleRunes+1),
+		"agent_key": "mainagent", "title": strings.Repeat("meeting", maxConversationTitleRunes+1),
 	})
 	req = httptest.NewRequest(http.MethodPost, "/api/conversations", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)

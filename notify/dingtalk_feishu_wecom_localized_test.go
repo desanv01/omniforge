@@ -29,7 +29,7 @@ func mustJSON(t *testing.T, v any) string {
 	t.Helper()
 	b, err := json.Marshal(v)
 	if err != nil {
-		t.Fatalf("카드 직렬화 실패: %v", err)
+		t.Fatalf("Card serialization failed: %v", err)
 	}
 	return string(b)
 }
@@ -40,15 +40,15 @@ func mustJSON(t *testing.T, v any) string {
 // 별개로 이 핀이 있어야 飞书 본문만 중국어로 되돌아가는 회귀를 잡는다.
 func TestFeishuItemLinesLocalized(t *testing.T) {
 	got := feishuItemLines(asciiStatusChangeItem())
-	assertKorean(t, "feishuItemLines", got)
+	assertEnglish(t, "feishuItemLines", got)
 	for _, want := range []string{
-		"**상태 변경**: 처리 대기 → 수정됨",
-		"**유형**: SQLi",
-		"**자산**: a.example.com",
-		"**개요**: SQL injection via q param",
+		"**Status change**: Pending → Fixed",
+		"**Type**: SQLi",
+		"**Asset**: a.example.com",
+		"**Overview**: SQL injection via q param",
 	} {
 		if !strings.Contains(got, want) {
-			t.Errorf("飞书 단건 본문에 %q 가 있어야 합니다:\n%s", want, got)
+			t.Errorf("Feishu The single text must contain %q:\n%s", want, got)
 		}
 	}
 }
@@ -60,20 +60,20 @@ func TestFeishuCardButtonsLocalized(t *testing.T) {
 	single, _ := feishuCard(Message{Items: []Item{asciiStatusChangeItem()}})
 	singleJSON := mustJSON(t, single)
 	if hasHan(singleJSON) {
-		t.Errorf("단건 飞书 카드에 중국어 한자가 남았습니다:\n%s", singleJSON)
+		t.Errorf("Chinese characters left on the Dangeon Feishu card:\n%s", singleJSON)
 	}
-	if !strings.Contains(singleJSON, "상세 보기") {
-		t.Errorf("단건 飞书 카드에 '상세 보기' 버튼이 있어야 합니다:\n%s", singleJSON)
+	if !strings.Contains(singleJSON, "View details") {
+		t.Errorf("Your single food card must have a 'View Details' button:\n%s", singleJSON)
 	}
 
 	// 다건: "플랫폼에서 전체 보기" 버튼(HomeURL 있을 때)
 	batch, _ := feishuCard(Message{Batch: true, HomeURL: "https://platform.example", Items: hanFreeItems(2)})
 	batchJSON := mustJSON(t, batch)
 	if hasHan(batchJSON) {
-		t.Errorf("다건 飞书 카드에 중국어 한자가 남았습니다:\n%s", batchJSON)
+		t.Errorf("The Chinese character left on the Dagan Feishu card:\n%s", batchJSON)
 	}
-	if !strings.Contains(batchJSON, "플랫폼에서 전체 보기") {
-		t.Errorf("다건 飞书 카드에 '플랫폼에서 전체 보기' 버튼이 있어야 합니다:\n%s", batchJSON)
+	if !strings.Contains(batchJSON, "View all on platform") {
+		t.Errorf("The Dagun Feishu card must have a ‘View All on Platform’ button:\n%s", batchJSON)
 	}
 }
 
@@ -87,10 +87,10 @@ func TestDingTalkActionCardButtonLocalized(t *testing.T) {
 	})
 	m := Message{Items: []Item{asciiStatusChangeItem()}}
 	if _, err := (dingTalkChannel{}).Send(context.Background(), map[string]any{"webhook": srv.URL}, m); err != nil {
-		t.Fatalf("투递 실패: %v", err)
+		t.Fatalf("Attempt to fail: %v", err)
 	}
-	if singleTitle != "상세 보기" {
-		t.Errorf("钉钉 ActionCard singleTitle 은 '상세 보기' 여야 합니다, 받은 값 %q", singleTitle)
+	if singleTitle != "View details" {
+		t.Errorf("DingTalk ActionCard singleTitle must be 'View Details', received value %q", singleTitle)
 	}
 }
 
@@ -100,29 +100,29 @@ func TestChinaPlatformValidateLocalized(t *testing.T) {
 	for _, kind := range []string{KindDingTalk, KindFeishu, KindWeCom} {
 		ch, ok := Get(kind)
 		if !ok {
-			t.Fatalf("%s 채널이 등록되어 있지 않습니다", kind)
+			t.Fatalf("%s channel is not registered", kind)
 		}
 
 		// 빈 설정: "Webhook 주소가 없습니다"
 		missing := ch.Validate(map[string]any{})
 		if missing == nil {
-			t.Fatalf("%s: 빈 설정은 검증에 실패해야 합니다", kind)
+			t.Fatalf("%s: Empty configuration must fail validation", kind)
 		}
-		assertKorean(t, kind+" missing", missing.Error())
-		if !strings.Contains(missing.Error(), "Webhook") || !strings.Contains(missing.Error(), "없습니다") {
-			t.Errorf("%s: 누락 오류는 'Webhook 주소가 없습니다' 여야 합니다, 받은 값 %q", kind, missing)
+		assertEnglish(t, kind+" missing", missing.Error())
+		if !strings.Contains(missing.Error(), "Webhook") || !strings.Contains(missing.Error(), "does not exist") {
+			t.Errorf("%s: Missing error should be 'Webhook address does not exist', received value %q", kind, missing)
 		}
 
 		// 잘못된 주소(ftp): "Webhook 주소가 올바르지 않습니다: …"
 		bad := ch.Validate(map[string]any{"webhook": "ftp://x"})
 		if bad == nil {
-			t.Fatalf("%s: ftp 주소는 검증에 실패해야 합니다", kind)
+			t.Fatalf("%s: ftp address must fail verification", kind)
 		}
 		if hasHan(bad.Error()) {
-			t.Errorf("%s: 잘못된 주소 오류에 중국어 한자가 남았습니다: %q", kind, bad)
+			t.Errorf("%s: Chinese character left in invalid address error: %q", kind, bad)
 		}
-		if !strings.Contains(bad.Error(), "Webhook 주소가 올바르지 않습니다") {
-			t.Errorf("%s: 잘못된 주소 오류는 'Webhook 주소가 올바르지 않습니다' 로 시작해야 합니다, 받은 값 %q", kind, bad)
+		if !strings.Contains(bad.Error(), "Webhook address is incorrect") {
+			t.Errorf("%s: Invalid address error should start with 'Webhook address is incorrect', received value %q", kind, bad)
 		}
 	}
 }
@@ -138,27 +138,27 @@ func TestChinaPlatformSendErrorsLocalized(t *testing.T) {
 		resp     string
 		wantSubs []string
 	}{
-		{KindDingTalk, `{"errcode":310000,"errmsg":"keyword not matched"}`, []string{"DingTalk에서 오류가 발생했습니다", "310000"}},
-		{KindFeishu, `{"code":19021,"msg":"sign error"}`, []string{"Feishu에서 오류가 발생했습니다", "19021"}},
-		{KindWeCom, `{"errcode":45009,"errmsg":"freq out of limit"}`, []string{"WeCom 요청이 제한되었습니다", "45009"}},
-		{KindWeCom, `{"errcode":93000,"errmsg":"invalid webhook"}`, []string{"WeCom에서 오류가 발생했습니다", "93000"}},
+		{KindDingTalk, `{"errcode":310000,"errmsg":"keyword not matched"}`, []string{"DingTalk encountered an error", "310000"}},
+		{KindFeishu, `{"code":19021,"msg":"sign error"}`, []string{"An error occurred in Feishu", "19021"}},
+		{KindWeCom, `{"errcode":45009,"errmsg":"freq out of limit"}`, []string{"WeCom request has been restricted", "45009"}},
+		{KindWeCom, `{"errcode":93000,"errmsg":"invalid webhook"}`, []string{"WeCom has encountered an error", "93000"}},
 	}
 	for _, tc := range bizCases {
 		srv := capturePost(t, tc.resp, nil)
 		ch, ok := Get(tc.kind)
 		if !ok {
-			t.Fatalf("%s 채널이 등록되어 있지 않습니다", tc.kind)
+			t.Fatalf("%s channel is not registered", tc.kind)
 		}
 		_, err := ch.Send(context.Background(), map[string]any{"webhook": srv.URL}, singleMsg())
 		if err == nil {
-			t.Fatalf("%s: %s 응답은 오류여야 합니다", tc.kind, tc.resp)
+			t.Fatalf("%s: %s response must be an error", tc.kind, tc.resp)
 		}
 		if hasHan(err.Error()) {
-			t.Errorf("%s: 발송 오류에 중국어 한자가 남았습니다: %q", tc.kind, err)
+			t.Errorf("%s: Chinese character left in shipping error: %q", tc.kind, err)
 		}
 		for _, sub := range tc.wantSubs {
 			if !strings.Contains(err.Error(), sub) {
-				t.Errorf("%s: 발송 오류에 %q 가 있어야 합니다, 받은 값 %q", tc.kind, sub, err)
+				t.Errorf("%s: Shipping error must contain %q, received value is %q", tc.kind, sub, err)
 			}
 		}
 	}
@@ -176,15 +176,15 @@ func TestChinaPlatformSendErrorsLocalized(t *testing.T) {
 		srv := capturePost(t, `not-json`, nil)
 		ch, ok := Get(pc.kind)
 		if !ok {
-			t.Fatalf("%s 채널이 등록되어 있지 않습니다", pc.kind)
+			t.Fatalf("%s channel is not registered", pc.kind)
 		}
 		_, err := ch.Send(context.Background(), map[string]any{"webhook": srv.URL}, singleMsg())
 		if err == nil {
-			t.Fatalf("%s: JSON 이 아닌 응답은 오류여야 합니다", pc.kind)
+			t.Fatalf("%s: Non-JSON response should be an error", pc.kind)
 		}
-		want := pc.platform + " 응답을 해석하지 못했습니다"
+		want := "Failed to interpret " + pc.platform + " response"
 		if !strings.Contains(err.Error(), want) {
-			t.Errorf("%s: 파싱 실패 오류에 %q 가 있어야 합니다, 받은 값 %q", pc.kind, want, err)
+			t.Errorf("%s: Parse failure error should have %q, received value is %q", pc.kind, want, err)
 		}
 	}
 }

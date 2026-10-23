@@ -48,7 +48,7 @@ POST 先接纳并返回请求，准备与压缩在后台执行，不持有准入
 
 ```sh
 go test -race ./sidequestion ./db ./server -run 'TestSide|TestCheckpoint|TestSnapshot|TestBuildRequest|TestService|TestMainSide|TestTaskArchive' -count=1
-go build ./cmd/artex
+go build ./cmd/omniforge
 npx tsc --noEmit
 npm run build -- --webpack
 ```

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/investigation"
+	"github.com/desanv01/omniforge/investigation"
 )
 
 func TestInvestigationAgentFiltersRemainLiteralAndScoped(t *testing.T) {

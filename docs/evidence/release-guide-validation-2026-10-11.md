@@ -1,25 +1,25 @@
-# 사용 가이드 포함 배포본 검증 — 2026-10-11
+# Verification of distribution with user guide — 2026-10-11
 
-최신 소스, [사용 가이드](../USER_GUIDE_KO.md), 직접 수행한 실습 캡처 7장을 별도 배포 폴더로 복사해 확인했습니다. 기존 개발 폴더의 실행 데이터와 Git 이력은 복사하지 않았습니다.
+I copied and checked the latest source, [User Guide](../USER_GUIDE_KO.md), and 7 hands-on practice captures to a separate distribution folder. The execution data and Git history of the existing development folder were not copied.
 
-## 새 설치 확인
+## Check for new installation
 
-- 분리된 Docker Compose 프로젝트에서 `./scripts/local-start.sh`로 소스 빌드와 초기 실행을 확인했습니다. 의존성·빌드 캐시를 사용했으며, 인터넷 없이 설치할 수 있음을 검증한 것은 아닙니다.
-- ARTEX·PostgreSQL 두 컨테이너가 정상 상태가 됐습니다. 기본 설치에서 Juice Shop·Splunk·AWS 브리지는 생성되지 않았습니다.
-- LLM 환경 변수를 비워 실행했고, `/setup/`에서 최초 비밀번호 설정 화면을 확인했습니다. 관리자 비밀번호를 대신 설정하거나 모델을 호출하지 않았습니다.
-- 새 DB의 LLM 연결, 보안 로그 연결, 작업, 취약점, Defensive 사건, 취약점 조사와 실제 루프 기록은 각각 0건이었습니다.
-- 검증이 끝난 임시 컨테이너·네트워크·빈 테스트 볼륨을 정리했습니다. 기존 앱·실습 환경·AWS 자원은 변경하지 않았습니다.
+- I verified the source build and initial run with `./scripts/local-start.sh` in a separate Docker Compose project. We used dependency/build cache and have not verified that it can be installed without internet.
+- Both ARTEX and PostgreSQL containers have returned to normal status. In the default installation, the Juice Shop·Splunk·AWS bridge is not created.
+- I ran it with the LLM environment variable empty and checked the initial password setting screen at `/setup/`. I didn't set an admin password on my behalf or call the model.
+- The new DB's LLM connection, security log connection, operation, vulnerability, defensive incident, vulnerability investigation, and actual loop records were 0 each.
+- We have organized temporary containers, networks, and empty test volumes that have been verified. There were no changes to the existing app, training environment, or AWS resources.
 
-![배포본을 새로 실행했을 때의 최초 비밀번호 설정 화면](images/release-guide-clean-setup-20261011.jpg)
+![Initial password setting screen when running a new distribution](images/release-guide-clean-setup-20261011.jpg)
 
-## 검사 범위
+## Inspection range
 
-- 최신 조사 수정 직후 회귀 검사 351개와 웹 빌드가 통과했습니다. 이번 포장에서는 애플리케이션 코드를 추가 수정하지 않았으며, 배포 복사본의 소스 빌드·초기 실행을 별도로 확인했습니다.
-- 공개 문서의 내부 경로·이미지·앵커를 검사했습니다. 사용 가이드의 이미지 7장은 상대 경로로 연결됩니다.
-- 배포 파일에 비밀 탐지 검사를 실행하고, 로컬에서 추출한 실제 비밀값 5개와 내부 대조했습니다. 검사 범위에서 실제 비밀값 일치는 없었습니다. 탐지된 문자열은 테스트 픽스처 또는 빈 환경 변수 예시로 확인했습니다.
-- 기존 공개 이미지와 가이드 캡처 49장을 OCR로 검사하고 민감한 화면을 육안으로 보완 확인했습니다. 추가한 새 설치 캡처도 직접 확인했습니다. 이 검사는 민감정보가 전혀 없음을 보증하는 보안 인증이 아닙니다.
-- `.git`, 실제 `.env` 파일, API·JWT·AWS·Splunk 인증 정보, DB·볼륨, 원본 업로드 로그, 전체 조사 내보내기와 로컬 검증 산출물은 배포 대상에서 제외했습니다. 설명용 `.env.example`과 테스트용 가상 데이터는 포함합니다.
+- 351 regression tests and web builds passed immediately after the latest survey fix. In this packaging, no additional modifications were made to the application code, and the source build and initial execution of the distribution copy were checked separately.
+- Internal paths, images, and anchors of public documents were inspected. The 7 images in the user guide are linked by relative paths.
+- We ran a secret detection check on the distribution file and internally matched it against five locally extracted real secrets. There was no actual secret value match in the scope of the test. Detected strings were verified with test fixtures or empty environment variable examples.
+- We inspected 49 existing public images and guide captures using OCR, and supplemented and visually confirmed sensitive screens. I also took a look at the new installation capture we added. This test is not a security certification that guarantees the absence of any sensitive information.
+- `.git`, actual `.env` files, API·JWT·AWS·Splunk authentication information, DB·volume, original upload log, full investigation export, and local verification output were excluded from distribution. Includes `.env.example` for explanation and virtual data for testing.
 
-배포 폴더의 `SOURCE_MANIFEST.sha256`은 파일별 SHA-256을 기록합니다. ZIP 옆의 `.zip.sha256`은 압축 파일의 무결성을 확인하는 값입니다. 기존 저장소에 반영할 경우 그 저장소의 과거 Git 이력은 별도로 관리해야 합니다. 이번 ZIP에는 Git 이력이 없습니다.
+`SOURCE_MANIFEST.sha256` in the distribution folder records SHA-256 per file. `.zip.sha256` next to ZIP is a value that verifies the integrity of the compressed file. When reflecting on an existing repository, the past Git history of that repository must be managed separately. There is no Git history in this ZIP.
 
-캡처는 실제 저장 기록을 보여줍니다. 침해 조사의 실행 한도 도달도 그대로 명시했으며, 새 설치 성공을 실제 LLM 조사 완주나 운영 탐지 성능의 검증으로 표현하지 않습니다.
+Capture shows actual save history. We also explicitly state that the execution limit for the breach investigation has been reached, and do not express the success of a new installation as completion of an actual LLM investigation or verification of operational detection performance.

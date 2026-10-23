@@ -23,10 +23,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Autumn-27/artex/agent"
-	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/norma/llm"
 	"github.com/Autumn-27/norma/skill"
+	"github.com/desanv01/omniforge/agent"
+	"github.com/desanv01/omniforge/db"
 )
 
 // validSkillName checks the agentskills.io name constraints, widened so a skill can
@@ -69,66 +69,66 @@ var reAgentKey = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // 식별자·필드명(key·llm_profile_id·file·SKILL.md·name)·enum·%s/%d·err.Error() 도 원문 그대로 둔다.
 const (
 	// 모든 관리 핸들러가 거치는 공유 DB 게이트(pg).
-	errMgmtPGUnavailable = "관리 콘솔 데이터 소스(PostgreSQL)에 연결되어 있지 않습니다"
+	errMgmtPGUnavailable = "There is no connection to the Management Console data source (PostgreSQL)"
 
 	// 작업 삭제
-	errMgmtTaskIDInvalid = "작업 id 가 유효하지 않습니다"
-	errMgmtTaskDeleting  = "작업을 삭제하는 중입니다"
-	errMgmtTaskHasAgents = "실행 중인 에이전트가 남아 있어 작업 삭제를 취소했습니다"
+	errMgmtTaskIDInvalid = "task id is invalid"
+	errMgmtTaskDeleting  = "Deleting the task"
+	errMgmtTaskHasAgents = "Deletion of the task was canceled because there were still agents running."
 
 	// 에이전트 CRUD
-	errMgmtAgentKeyFormat     = "key 는 소문자로 시작하고, 소문자·숫자·밑줄만 사용할 수 있습니다"
-	errMgmtNameEmpty          = "이름은 비워 둘 수 없습니다"
-	errMgmtAgentKeyExists     = "이미 존재하는 key 입니다"
-	errMgmtBuiltinNoEditMeta  = "내장 에이전트는 이름/설명을 수정할 수 없습니다"
-	errMgmtBuiltinNoDelete    = "내장 에이전트는 삭제할 수 없습니다"
-	errMgmtLLMProfileIDFormat = "llm_profile_id 형식이 올바르지 않습니다"
-	errMgmtLLMProfileInvalid  = "지정한 LLM 설정이 존재하지 않거나 유효하지 않습니다"
-	errMgmtNoBuiltinPrompt    = "이 에이전트에는 내장 기본 프롬프트가 없어 복원할 수 없습니다"
+	errMgmtAgentKeyFormat     = "The key starts with a lowercase letter, and only lowercase letters, numbers, and underscores can be used."
+	errMgmtNameEmpty          = "Name cannot be empty"
+	errMgmtAgentKeyExists     = "Agent key already exists"
+	errMgmtBuiltinNoEditMeta  = "Built-in agents cannot modify name/description"
+	errMgmtBuiltinNoDelete    = "Built-in agents cannot be deleted"
+	errMgmtLLMProfileIDFormat = "llm_profile_id format is incorrect"
+	errMgmtLLMProfileInvalid  = "The specified LLM setting does not exist or is invalid"
+	errMgmtNoBuiltinPrompt    = "This agent does not have a built-in default prompt and cannot be restored."
 
 	// 도구 (뒤에 key 를 이어 붙임)
-	errMgmtToolNotFound   = "도구를 찾을 수 없습니다: "
-	errMgmtNotBuiltinTool = "내장 도구가 아니거나 존재하지 않습니다: "
+	errMgmtToolNotFound   = "Tool not found: "
+	errMgmtNotBuiltinTool = "It is not a built-in tool or does not exist: "
 
 	// MCP
-	errMgmtMCPNotFound      = "MCP 를 찾을 수 없습니다"
-	errMgmtToolDiscoverFail = "도구 발견에 실패했습니다: " // 뒤에 err.Error()
+	errMgmtMCPNotFound      = "MCP not found"
+	errMgmtToolDiscoverFail = "Failed to find tool: " // 뒤에 err.Error()
 
 	// 스킬 업로드
-	errMgmtSkillNameInvalid = "스킬 이름이 올바르지 않습니다"
-	errMgmtSkillNoFile      = "업로드 파일이 없거나(폼 필드 file) 크기 제한을 초과했습니다"
-	errMgmtSkillNoMDInZip   = "압축 파일 안에서 SKILL.md 를 찾지 못했습니다"
-	errMgmtSkillReadMDFail  = "SKILL.md 를 읽지 못했습니다: " // 뒤에 err.Error()
-	errMgmtSkillNamePre     = "스킬 이름이 올바르지 않습니다(SKILL.md 의 name 필드에서 가져옴): "
-	errMgmtSkillNamePost    = " (64자 이하, 글자로 시작, 소문자·숫자·하이픈 또는 한글 등 비 ASCII 글자만 쓸 수 있고, 공백·점·경로 구분자는 쓸 수 없습니다)"
+	errMgmtSkillNameInvalid = "Skill name is incorrect"
+	errMgmtSkillNoFile      = "The upload file does not exist (form field file) or exceeds the size limit."
+	errMgmtSkillNoMDInZip   = "SKILL.md not found in compressed file"
+	errMgmtSkillReadMDFail  = "Failed to read SKILL.md: " // 뒤에 err.Error()
+	errMgmtSkillNamePre     = "The skill name is incorrect (taken from the name field in SKILL.md): "
+	errMgmtSkillNamePost    = " (Up to 64 characters, starting with a letter, only non-ASCII characters such as lowercase letters, numbers, hyphens, or Korean characters can be used, and spaces, dots, and path separators cannot be used)"
 	// "이미 존재" 는 web system/skills/page.tsx 가 includes("이미 존재") 로 덮어쓰기 흐름을
 	// 띄우는 교차 스택 센티넬이다. 이 접두어를 바꾸면 프론트 미러도 함께 고쳐야 한다.
-	errMgmtSkillExistsPre    = "이미 존재하는 스킬입니다: "
-	errMgmtSkillExistsPost   = " (덮어쓰려면 확인 후 다시 시도하세요)"
-	errMgmtSkillZipBadPath   = "압축 파일에 잘못된 경로가 들어 있습니다 " // 뒤에 항목 이름 + ": " + 사유
-	errMgmtSkillZipTooMany   = "압축 파일에 파일이 너무 많습니다"
-	errMgmtSkillFileTooLarge = "파일이 너무 큽니다: " // 뒤에 경로
-	errMgmtSkillZipTooLarge  = "압축을 푼 뒤 크기가 너무 큽니다"
-	errMgmtSkillNoMDAfter    = "압축을 푼 뒤 SKILL.md 가 없습니다"
-	errMgmtSkillInstallFail  = "설치에 실패했습니다: " // 뒤에 err.Error()
+	errMgmtSkillExistsPre    = "This skill already exists: "
+	errMgmtSkillExistsPost   = " (If you want to overwrite, please confirm and try again)"
+	errMgmtSkillZipBadPath   = "The compressed file contains an incorrect path " // 뒤에 항목 이름 + ": " + 사유
+	errMgmtSkillZipTooMany   = "There are too many files in compressed file"
+	errMgmtSkillFileTooLarge = "File is too large: " // 뒤에 경로
+	errMgmtSkillZipTooLarge  = "The size is too large after unzipping"
+	errMgmtSkillNoMDAfter    = "After unzipping, SKILL.md is not there."
+	errMgmtSkillInstallFail  = "Installation failed: " // 뒤에 err.Error()
 
 	// LLM 설정 삭제
-	errMgmtLLMActiveDelete = "현재 활성화된 LLM 설정은 삭제할 수 없습니다. 먼저 다른 설정을 활성화하세요"
-	errMgmtLLMRefChanged   = "LLM 설정이 작업이나 대화에서 수정되는 중입니다. 다시 시도하세요"
-	errMgmtLLMRefTimeout   = "LLM 설정 참조가 해제되기를 기다리다 시간이 초과되었습니다. 다시 시도하세요"
+	errMgmtLLMActiveDelete = "Currently active LLM settings cannot be deleted. Activate other settings first"
+	errMgmtLLMRefChanged   = "LLM settings are being modified in a task or conversation. Please try again"
+	errMgmtLLMRefTimeout   = "A timeout occurred waiting for the LLM setup reference to be released. Please try again"
 
 	// LLM 연결 테스트·모델 목록 조회 (pgListModels)
-	errMgmtNoAPIKey      = "API Key 가 제공되지 않았습니다"
-	errMgmtBuildReqFail  = "요청을 만들지 못했습니다: "       // 뒤에 err.Error()
-	errMgmtReqFail       = "요청에 실패했습니다: "          // 뒤에 err.Error()
-	errMgmtAPIReturned   = "API 가 %d 를 반환했습니다: %s" // fmt.Sprintf
-	errMgmtParseRespFail = "응답을 해석하지 못했습니다: "      // 뒤에 err.Error()
-	errMgmtNoModelList   = "모델 목록을 가져오지 못했습니다"
+	errMgmtNoAPIKey      = "API Key not provided"
+	errMgmtBuildReqFail  = "Failed to make request: "       // 뒤에 err.Error()
+	errMgmtReqFail       = "Request failed: "               // 뒤에 err.Error()
+	errMgmtAPIReturned   = "The API returned %d: %s"        // fmt.Sprintf
+	errMgmtParseRespFail = "Failed to interpret response: " // 뒤에 err.Error()
+	errMgmtNoModelList   = "Failed to get model list"
 
 	// 프롬프트 템플릿 편집기 (validateTemplate)
-	errMgmtTmplSyntax  = "템플릿 문법 오류: " // 뒤에 err.Error()
-	errMgmtTmplVarPre  = "변수 {{."
-	errMgmtTmplVarPost = "}} 는 이 에이전트의 허용 목록에 없습니다"
+	errMgmtTmplSyntax  = "Template syntax error: " // 뒤에 err.Error()
+	errMgmtTmplVarPre  = "variable {{."
+	errMgmtTmplVarPost = "}} is not in the whitelist for this agent"
 )
 
 // pgReady returns the PG handle, or writes 503 and returns nil if unavailable.
@@ -186,7 +186,7 @@ func (s *Server) abortTaskDelete(taskID string) {
 			state := task.lifecycleSnapshot()
 			keepPaused = state.Paused || state.Queued
 			if getErr != nil {
-				log.Printf("[task-delete] task %s 读取持久状态失败，使用内存状态恢复屏障: %v", taskID, getErr)
+				log.Printf("[task-delete] task %s failed to read the persistent state, use the memory state recovery barrier: %v", taskID, getErr)
 			}
 		} else if getErr == nil {
 			// The request targeted a task that does not exist. Do not retain a
@@ -340,7 +340,7 @@ func (s *Server) pgCreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	// starter prompt so the editor shows something editable from the start.
 	if err := pg.SeedPromptIfEmpty(a.ID, agent.DefaultAssistantPrompt); err != nil {
-		log.Printf("[agents] seed starter prompt for %s 失败: %v", a.Key, err)
+		log.Printf("[agents] seed starter prompt for %s failed: %v", a.Key, err)
 	}
 	writeJSON(w, 200, agentDTO(a))
 }
@@ -388,10 +388,10 @@ func (s *Server) pgDeleteAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := pg.RemoveAgentFromToolBindings(a.Key); err != nil {
-		log.Printf("[agents] 清理 %s 工具绑定失败: %v", a.Key, err)
+		log.Printf("[agents] Cleanup %s tool binding failed: %v", a.Key, err)
 	}
 	if err := pg.DeleteTriggersForAgent(a.Key); err != nil {
-		log.Printf("[agents] 清理 %s 触发器失败: %v", a.Key, err)
+		log.Printf("[agents] Cleaning %s trigger failed: %v", a.Key, err)
 	}
 	writeJSON(w, 200, map[string]any{"deleted": a.Key})
 }
@@ -824,7 +824,7 @@ func (s *Server) pgListTools(w http.ResponseWriter, r *http.Request) {
 	// catalog query, so agent assembly never pays for this aggregate.
 	counts, countErr := pg.ToolUsageCounts()
 	if countErr != nil {
-		log.Printf("[tools] 读取调用统计失败: %v", countErr)
+		log.Printf("[tools] Failed to read call statistics: %v", countErr)
 	} else {
 		for _, tool := range ts {
 			tool.Calls = counts[tool.Key]
@@ -950,7 +950,7 @@ func (s *Server) pgSaveMCP(w http.ResponseWriter, r *http.Request) {
 		m.ID = id
 		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 		if derr := s.discoverAndCacheMCP(ctx, &m); derr != nil {
-			log.Printf("[mcp] %s 添加后工具发现失败: %v", m.Name, derr)
+			log.Printf("[mcp] %s Tool discovery failed after adding: %v", m.Name, derr)
 		}
 		cancel()
 	}
@@ -1061,7 +1061,7 @@ func (s *Server) fsListSkills(w http.ResponseWriter, r *http.Request) {
 	if s.m.pg != nil {
 		stats, err := s.m.pg.SkillStats()
 		if err != nil {
-			log.Printf("[skills] 读取调用统计失败: %v", err)
+			log.Printf("[skills] Failed to read call statistics: %v", err)
 		}
 		for _, st := range stats {
 			statBySkill[st.Skill] = st
@@ -2184,8 +2184,8 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 // (see agent.nowStr, rendered fresh each turn), so a prompt may always reference
 // {{.Now}} — e.g. subtract it from a fixed start stamp to reason about elapsed time.
 var globalPromptVars = []db.PromptVar{
-	{Name: "Now", Description: "서버 현재 시각(실행할 때마다 실시간으로 갱신되며, 고정된 시작 시각에서 빼면 경과 시간을 계산할 수 있습니다)", Example: "2026-08-11 14:30:00 CST", Source: "runtime"},
-	{Name: "DataDir", Description: "서버 데이터 루트 디렉터리(모든 작업/대화 산출물의 루트이며, 각 에이전트는 그 아래 하위 디렉터리에 실제로 기록합니다. 예: <DataDir>/<taskID>)", Example: "/app/data", Source: "runtime"},
+	{Name: "Now", Description: "Server current time (updated in real time each time you run, you can calculate elapsed time by subtracting from the fixed start time)", Example: "2026-08-11 14:30:00 CST", Source: "runtime"},
+	{Name: "DataDir", Description: "Server data root directory (the root of all task/dialogue artifacts, each agent actually writes to subdirectories under it, e.g. <DataDir>/<taskID>)", Example: "/app/data", Source: "runtime"},
 }
 
 // withGlobalVars appends the universal runtime vars onto an agent's own catalog,

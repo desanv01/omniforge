@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 func purpleAPIFixture(t *testing.T) (*Server, int64, func(string, string, string) *httptest.ResponseRecorder) {

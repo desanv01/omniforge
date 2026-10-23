@@ -1,6 +1,6 @@
 # Code of Conduct
 
-[한국어](CODE_OF_CONDUCT.md) · English
+[Korean](CODE_OF_CONDUCT.md) · English
 
 ## Our Pledge
 

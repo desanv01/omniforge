@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Autumn-27/artex/securitysource"
+	"github.com/desanv01/omniforge/securitysource"
 	"github.com/google/uuid"
 )
 
@@ -203,7 +203,7 @@ func TestPurpleFileExecutionBeforeAfterSourceComparability(t *testing.T) {
 		t.Fatal(err)
 	}
 	comparison, err = d.CompareDefenseExecutions(ctx, fid, baseline.ID, other.ID)
-	if err != nil || comparison.Comparable || !strings.Contains(strings.Join(comparison.Reasons, " "), "파일 로그 출처") {
+	if err != nil || comparison.Comparable || !strings.Contains(strings.Join(comparison.Reasons, " "), "file log origin") {
 		t.Fatalf("different file source comparable: %+v %v", comparison, err)
 	}
 	source := defenseExecutionSource(t, d)

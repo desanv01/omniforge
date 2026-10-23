@@ -6,25 +6,25 @@ import (
 	"unicode"
 )
 
-// assertKoreanError fails when msg is empty, still carries a CJK Han ideograph
+// assertEnglishError fails when msg is empty, still carries a CJK Han ideograph
 // (= untranslated Chinese), or carries no Hangul at all. Hangul and ASCII field
 // names/enums are allowed; only Han (unicode.Han) marks a leftover Chinese string.
-func assertKoreanError(t *testing.T, label, msg string) {
+func assertEnglishError(t *testing.T, label, msg string) {
 	t.Helper()
 	if msg == "" {
-		t.Fatalf("%s: 빈 메시지", label)
+		t.Fatalf("%s: Empty message", label)
 	}
 	hasHangul := false
 	for _, r := range msg {
 		if unicode.Is(unicode.Han, r) {
-			t.Fatalf("%s: 중국어 한자가 남아 있습니다: %q", label, msg)
+			t.Fatalf("%s: Chinese characters remain: %q", label, msg)
 		}
 		if unicode.Is(unicode.Hangul, r) {
 			hasHangul = true
 		}
 	}
-	if !hasHangul {
-		t.Fatalf("%s: 한글이 없습니다: %q", label, msg)
+	if hasHangul {
+		t.Fatalf("%s: Unexpected Korean text: %q", label, msg)
 	}
 }
 
@@ -35,14 +35,14 @@ func assertKoreanError(t *testing.T, label, msg string) {
 func TestInterceptArchiveErrorsLocalized(t *testing.T) {
 	// intercept.go: interceptFilterParams — query-string validation.
 	if _, err := interceptFilterParams(url.Values{"status": {"bogus"}}); err == nil {
-		t.Fatal("status 검증이 통과해서는 안 됩니다")
+		t.Fatal("status verification should not pass")
 	} else {
-		assertKoreanError(t, "filter.status", err.Error())
+		assertEnglishError(t, "filter.status", err.Error())
 	}
 	if _, err := interceptFilterParams(url.Values{"decision_source": {"bogus"}}); err == nil {
-		t.Fatal("decision_source 검증이 통과해서는 안 됩니다")
+		t.Fatal("decision_source validation must not pass")
 	} else {
-		assertKoreanError(t, "filter.decision_source", err.Error())
+		assertEnglishError(t, "filter.decision_source", err.Error())
 	}
 
 	// intercept.go: validateInterceptRuleReq — each branch isolated by making the
@@ -61,41 +61,41 @@ func TestInterceptArchiveErrorsLocalized(t *testing.T) {
 	for _, tc := range ruleCases {
 		err := validateInterceptRuleReq(tc.req)
 		if err == nil {
-			t.Fatalf("%s: 검증이 통과해서는 안 됩니다", tc.label)
+			t.Fatalf("%s: Verification should not pass", tc.label)
 		}
-		assertKoreanError(t, tc.label, err.Error())
+		assertEnglishError(t, tc.label, err.Error())
 	}
 
 	// task_archives.go: normalizeArchiveIDs — batch id validation.
 	if _, err := normalizeArchiveIDs(nil); err == nil {
-		t.Fatal("빈 archive_ids 검증이 통과해서는 안 됩니다")
+		t.Fatal("Empty archive_ids validation should not pass")
 	} else {
-		assertKoreanError(t, "archive_ids.empty", err.Error())
+		assertEnglishError(t, "archive_ids.empty", err.Error())
 	}
 	tooMany := make([]int64, 101)
 	for i := range tooMany {
 		tooMany[i] = int64(i + 1)
 	}
 	if _, err := normalizeArchiveIDs(tooMany); err == nil {
-		t.Fatal("101개 archive_ids 검증이 통과해서는 안 됩니다")
+		t.Fatal("101 archive_ids validation must not pass")
 	} else {
-		assertKoreanError(t, "archive_ids.too_many", err.Error())
+		assertEnglishError(t, "archive_ids.too_many", err.Error())
 	}
 	if _, err := normalizeArchiveIDs([]int64{0}); err == nil {
-		t.Fatal("0 archive id 검증이 통과해서는 안 됩니다")
+		t.Fatal("0 archive id verification should not pass")
 	} else {
-		assertKoreanError(t, "archive_ids.nonpositive", err.Error())
+		assertEnglishError(t, "archive_ids.nonpositive", err.Error())
 	}
 
 	// task_archives.go: validateArchivePath — package path validation.
 	if err := validateArchivePath("/tmp/artex-data", ""); err == nil {
-		t.Fatal("빈 보관 경로 검증이 통과해서는 안 됩니다")
+		t.Fatal("Empty archive path validation must not pass")
 	} else {
-		assertKoreanError(t, "archive_path.empty", err.Error())
+		assertEnglishError(t, "archive_path.empty", err.Error())
 	}
 	if err := validateArchivePath("/tmp/artex-data", "/etc/passwd"); err == nil {
-		t.Fatal("관리 디렉터리 밖 경로 검증이 통과해서는 안 됩니다")
+		t.Fatal("Path validation outside of the administrative directory must not pass")
 	} else {
-		assertKoreanError(t, "archive_path.outside", err.Error())
+		assertEnglishError(t, "archive_path.outside", err.Error())
 	}
 }

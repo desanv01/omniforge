@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/Autumn-27/artex/db"
+	"github.com/desanv01/omniforge/db"
 )
 
 const maxTaskCategoryRequestBytes = 16 << 10
@@ -17,13 +17,13 @@ const maxTaskCategoryRequestBytes = 16 << 10
 // 작업 분류 API 가 사용자에게 돌려주는 오류 응답 문구. 명령·필드명(task_ids·
 // category_id·id)·enum 은 원문 그대로 두고, 사람이 읽는 메시지만 한국어로 둔다.
 const (
-	errTaskCatRequestTooLarge = "요청 본문이 너무 큽니다"
-	errTaskCatNameEmpty       = "분류 이름은 비워 둘 수 없습니다"
-	errTaskCatNameTooLong     = "분류 이름은 최대 80자까지 입력할 수 있습니다"
-	errTaskCatNameConflict    = "이미 존재하는 분류 이름입니다"
-	errTaskCatInvalidID       = "작업 분류 id 가 올바르지 않습니다"
+	errTaskCatRequestTooLarge = "Request body is too large"
+	errTaskCatNameEmpty       = "Category name cannot be empty"
+	errTaskCatNameTooLong     = "The category name can be up to 80 characters long."
+	errTaskCatNameConflict    = "This category name already exists"
+	errTaskCatInvalidID       = "The task classification id is incorrect"
 	// errTaskCatBatchSizeFmt 는 fmt.Sprintf 로 상한을 채우는 형식 문자열이다.
-	errTaskCatBatchSizeFmt = "task_ids 개수는 1~%d개여야 합니다"
+	errTaskCatBatchSizeFmt = "The number of task_ids must be 1~%d."
 )
 
 type taskCategoryRequest struct {

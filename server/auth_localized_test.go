@@ -10,7 +10,7 @@ import (
 // 인증 응답 문구의 한국어화(백로그 F3b)를 지키는 회귀 방어 테스트다. DB 가 없어도
 // 도는 두 경로로 확인한다: ① requireAuth 미들웨어는 pg 를 거치지 않으므로 실제 HTTP
 // 응답 본문까지 검사하고, ② 나머지 핸들러 문구는 명명 상수라 상수 자체를 검사한다.
-// 한국어 판정은 F3a 가 만든 assertKoreanError 헬퍼(한글 포함·중국어 한자 0)를 재사용한다.
+// 한국어 판정은 F3a 가 만든 assertEnglishError 헬퍼(한글 포함·중국어 한자 0)를 재사용한다.
 
 // TestRequireAuthMessagesLocalized 는 토큰이 없거나 잘못됐을 때 requireAuth 가 돌려주는
 // 401 응답 본문이 한국어이고 중국어 한자가 없음을 실제 HTTP 핸들러로 확인한다. 이
@@ -27,8 +27,8 @@ func TestRequireAuthMessagesLocalized(t *testing.T) {
 		bearer string
 		want   string
 	}{
-		{"토큰 없음", "", authErrUnauthorized},
-		{"토큰 무효", "Bearer not-a-valid-token", authErrTokenInvalid},
+		{"No token", "", authErrUnauthorized},
+		{"token invalid", "Bearer not-a-valid-token", authErrTokenInvalid},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -40,13 +40,13 @@ func TestRequireAuthMessagesLocalized(t *testing.T) {
 			h.ServeHTTP(rec, r)
 
 			if rec.Code != http.StatusUnauthorized {
-				t.Fatalf("상태 코드 = %d, 기대 401", rec.Code)
+				t.Fatalf("Status code = %d, expecting 401", rec.Code)
 			}
 			body := rec.Body.String()
 			if !strings.Contains(body, c.want) {
-				t.Errorf("응답 본문에 %q 가 없습니다: %s", c.want, body)
+				t.Errorf("%q is missing in the response body: %s", c.want, body)
 			}
-			assertKoreanError(t, c.name, body)
+			assertEnglishError(t, c.name, body)
 		})
 	}
 }
@@ -70,6 +70,6 @@ func TestAuthErrorConstantsLocalized(t *testing.T) {
 		"authErrBadCredential":        authErrBadCredential,
 	}
 	for name, msg := range consts {
-		assertKoreanError(t, name, msg)
+		assertEnglishError(t, name, msg)
 	}
 }
