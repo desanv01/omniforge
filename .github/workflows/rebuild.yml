@@ -1,0 +1,95 @@
+name: Rebuild foundation
+on:
+  push:
+    paths: ['rebuild/**', '.github/workflows/rebuild.yml', 'scripts/rebuild-ci-config.py']
+  pull_request:
+    paths: ['rebuild/**', '.github/workflows/rebuild.yml', 'scripts/rebuild-ci-config.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-contract:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: rebuild
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.11.25'
+          python-version: '3.11.15'
+          working-directory: rebuild
+          enable-cache: false
+      - run: uv sync --locked
+      - name: Check offline API contract
+        run: uv run --locked --no-sync python -m services.api.smoke
+      - name: Check credential adapter contracts without live store access
+        run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/secrets -v
+  postgres-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres@sha256:32ebb7185baf2c9d38f91684417d140c0745aeff5082dfbb62edb330c2af6197
+        env:
+          POSTGRES_USER: omniforge_rebuild
+          POSTGRES_DB: omniforge_rebuild
+          POSTGRES_PASSWORD: ephemeral-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U omniforge_rebuild -d omniforge_rebuild"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: rebuild
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.11.25'
+          python-version: '3.11.15'
+          working-directory: rebuild
+          enable-cache: false
+      - run: uv sync --locked
+      - name: Check offline API contract
+        run: uv run --locked --no-sync python -m services.api.smoke
+      - name: Prepare ephemeral test configuration outside checkout
+        run: uv run --locked --no-sync python ../scripts/rebuild-ci-config.py
+      - name: Apply isolated database migration
+        run: uv run --locked --no-sync python -m infra.core.migrate
+      - name: Seed synthetic local principal
+        run: uv run --locked --no-sync python -m infra.core.bootstrap seed "$OMNIFORGE_CI_ROOT"
+      - name: Check persisted cases, grants, artifacts and recovery
+        run: uv run --locked --no-sync python tests/integration/core/check.py
+  generated-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: rebuild
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.11.25'
+          python-version: '3.11.15'
+          working-directory: rebuild
+          enable-cache: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.14.1'
+      - run: uv sync --locked
+      - name: Install pinned client generator
+        run: npm ci --prefix infra/core/client-tooling --ignore-scripts --no-audit --no-fund
+      - name: Regenerate API schema and typed client
+        run: uv run --locked --no-sync python -m infra.core.generate_client
+      - name: Check generated snapshot drift
+        run: |
+          git diff --exit-code -- packages/contracts/openapi.json packages/contracts/generated
+          test -z "$(git ls-files --others --exclude-standard -- packages/contracts/generated)"
+      - name: Check generated TypeScript
+        run: node infra/core/client-tooling/node_modules/typescript/bin/tsc -p infra/core/client-tooling/tsconfig.json
