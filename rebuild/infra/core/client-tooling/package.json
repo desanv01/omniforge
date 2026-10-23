@@ -1,0 +1,9 @@
+{
+  "name": "omniforge-contract-tooling",
+  "private": true,
+  "version": "0.1.0",
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "typescript": "6.0.3"
+  }
+}
