@@ -203,7 +203,7 @@ func TestPurpleFileExecutionBeforeAfterSourceComparability(t *testing.T) {
 		t.Fatal(err)
 	}
 	comparison, err = d.CompareDefenseExecutions(ctx, fid, baseline.ID, other.ID)
-	if err != nil || comparison.Comparable || !strings.Contains(strings.Join(comparison.Reasons, " "), "File log source") {
+	if err != nil || comparison.Comparable || !strings.Contains(strings.Join(comparison.Reasons, " "), "file log origin") {
 		t.Fatalf("different file source comparable: %+v %v", comparison, err)
 	}
 	source := defenseExecutionSource(t, d)

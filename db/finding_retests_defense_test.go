@@ -56,7 +56,7 @@ func TestPurpleRetestAtomicDefenseAssociation(t *testing.T) {
 	if !strings.Contains(detail, "X-ARTEX-Verification-ID: "+execution.CorrelationID) || !strings.Contains(r.InitialMessage(), execution.CorrelationID) {
 		t.Fatal("dispatch/persisted prompt lacks server-owned correlation")
 	}
-	if !strings.Contains(detail, "Actual reproduction of the original vulnerability trigger conditions") || !strings.Contains(detail, "Login, session preparation, and benign control requests must not be appended with this correlation ID") {
+	if !strings.Contains(detail, "only to HTTP requests that actually reproduce the triggering conditions") || !strings.Contains(detail, "Login, session preparation, and benign control requests must not have this correlation ID attached") {
 		t.Fatal("correlation scope includes login or benign control requests")
 	}
 	if _, _, _, _, err := d.CreateFindingRetestWithDefense(t.Context(), fid, "duplicate", in); !errors.Is(err, ErrDefenseConflict) {

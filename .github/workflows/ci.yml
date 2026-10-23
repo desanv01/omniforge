@@ -30,9 +30,9 @@ jobs:
       - name: Check English responses and update packaging
         run: go test -p 1 ./... -run 'Test.*Localized|TestPrintBanner|TestLangDirective|TestWrapup|TestChatMentionParsing|TestAssetName' -count=1 -timeout=3m
       - name: Check focused application and regression tests
-        run: >-
-          go test -p 1 ./closedloop ./investigation ./securitysource ./server
-          -run 'Test(Evaluate|Investigation|PurpleSource|ClosedLoopRuleFailedQueryStillHasSafeProvenance|TaskMetadataPatchReturnsRenameAndPin|AegisOverviewRequiresAuthentication)'
-          -count=1 -timeout=5m
+        run: |
+          go test -p 1 ./closedloop ./investigation ./selfupdate ./intercept ./notify ./report -count=1 -timeout=3m
+          go test -p 1 ./agent -run '^TestInvestigator' -count=1 -timeout=3m
+          go test -p 1 ./securitysource ./server -run 'Test(Investigation|PurpleSource|ClosedLoopRuleFailedQueryStillHasSafeProvenance|TaskMetadataPatchReturnsRenameAndPin|AegisOverviewRequiresAuthentication)' -count=1 -timeout=3m
       - name: Check reachable Go vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

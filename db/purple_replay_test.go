@@ -306,8 +306,10 @@ func TestPurpleReplayFormatUpgradePreservesPlans(t *testing.T) {
 	defer tx.Rollback()
 	// Reconstruct only the original restrictive CHECK, then apply the real
 	// idempotent startup schema. Roll back all test DDL after the assertions.
+	// Other fixtures may already contain v2 formats. NOT VALID keeps those
+	// unrelated rows intact while enforcing the old CHECK on subsequent writes.
 	if _, err = tx.Exec(`ALTER TABLE finding_defense_plans DROP CONSTRAINT finding_defense_plans_rule_format_v2_check;
-	ALTER TABLE finding_defense_plans ADD CONSTRAINT finding_defense_plans_rule_format_check CHECK(rule_format IN ('query','sigma','other'))`); err != nil {
+	ALTER TABLE finding_defense_plans ADD CONSTRAINT finding_defense_plans_rule_format_check CHECK(rule_format IN ('query','sigma','other')) NOT VALID`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = tx.Exec(schemaSQL); err != nil {
