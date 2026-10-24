@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateCaseData, CreateCaseErrors, CreateCaseResponses, GetArtifactAssociationData, GetArtifactAssociationErrors, GetArtifactAssociationResponses, GetCapabilitiesData, GetCapabilitiesErrors, GetCapabilitiesResponses, GetCaseData, GetCaseErrors, GetCaseResponses, GetSystemHealthData, GetSystemHealthErrors, GetSystemHealthResponses, ListCaseArtifactsData, ListCaseArtifactsErrors, ListCaseArtifactsResponses, ListCasesData, ListCasesErrors, ListCasesResponses, ReadArtifactRangeData, ReadArtifactRangeErrors, ReadArtifactRangeResponses, UploadArtifactData, UploadArtifactErrors, UploadArtifactResponses } from './types.gen';
+import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateCaseData, CreateCaseErrors, CreateCaseResponses, CreateRunData, CreateRunErrors, CreateRunResponses, GetArtifactAssociationData, GetArtifactAssociationErrors, GetArtifactAssociationResponses, GetCapabilitiesData, GetCapabilitiesErrors, GetCapabilitiesResponses, GetCaseData, GetCaseErrors, GetCaseResponses, GetRunData, GetRunErrors, GetRunResponses, GetSystemHealthData, GetSystemHealthErrors, GetSystemHealthResponses, ListCaseArtifactsData, ListCaseArtifactsErrors, ListCaseArtifactsResponses, ListCasesData, ListCasesErrors, ListCasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ReadArtifactRangeData, ReadArtifactRangeErrors, ReadArtifactRangeResponses, UploadArtifactData, UploadArtifactErrors, UploadArtifactResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -97,6 +97,50 @@ export const uploadArtifact = <ThrowOnError extends boolean = false>(options: Op
         'Content-Type': null,
         ...options.headers
     }
+});
+
+/**
+ * Create Run
+ */
+export const createRun = <ThrowOnError extends boolean = false>(options: Options<CreateRunData, ThrowOnError>): RequestResult<CreateRunResponses, CreateRunErrors, ThrowOnError> => (options.client ?? client).post<CreateRunResponses, CreateRunErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/cases/{case_id}/runs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Run
+ */
+export const getRun = <ThrowOnError extends boolean = false>(options: Options<GetRunData, ThrowOnError>): RequestResult<GetRunResponses, GetRunErrors, ThrowOnError> => (options.client ?? client).get<GetRunResponses, GetRunErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/runs/{run_id}',
+    ...options
+});
+
+/**
+ * Cancel Run
+ */
+export const cancelRun = <ThrowOnError extends boolean = false>(options: Options<CancelRunData, ThrowOnError>): RequestResult<CancelRunResponses, CancelRunErrors, ThrowOnError> => (options.client ?? client).post<CancelRunResponses, CancelRunErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/runs/{run_id}/cancel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Events
+ */
+export const listRunEvents = <ThrowOnError extends boolean = false>(options: Options<ListRunEventsData, ThrowOnError>): RequestResult<ListRunEventsResponses, ListRunEventsErrors, ThrowOnError> => (options.client ?? client).get<ListRunEventsResponses, ListRunEventsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/runs/{run_id}/events',
+    ...options
 });
 
 /**

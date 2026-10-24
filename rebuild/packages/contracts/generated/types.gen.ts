@@ -280,6 +280,277 @@ export type Health = {
     status?: 'alive';
 };
 
+/**
+ * InputRef
+ */
+export type InputRef = {
+    /**
+     * Association Id
+     */
+    association_id: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Sha256
+     */
+    sha256: string;
+};
+
+/**
+ * InputSnapshot
+ */
+export type InputSnapshot = {
+    /**
+     * Artifact Id
+     */
+    artifact_id: string;
+    /**
+     * Association Id
+     */
+    association_id: string;
+    /**
+     * Bytes
+     */
+    bytes: number;
+    /**
+     * Coverage
+     */
+    coverage?: 'unknown';
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Sha256
+     */
+    sha256: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+};
+
+/**
+ * Run
+ */
+export type Run = {
+    /**
+     * Attempt Id
+     */
+    attempt_id?: null;
+    budget: RunBudget;
+    /**
+     * Case Id
+     */
+    case_id: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Finished At
+     */
+    finished_at?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Input Refs
+     */
+    input_refs: Array<InputSnapshot>;
+    /**
+     * Kind
+     */
+    kind: 'synthetic-read-only-v1';
+    /**
+     * Outcome
+     */
+    outcome?: null;
+    /**
+     * Output Refs
+     */
+    output_refs?: Array<string>;
+    /**
+     * Policy Version
+     */
+    policy_version: 'local-read-only-v1';
+    /**
+     * Provider Profile Ref
+     */
+    provider_profile_ref?: null;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Schema Version
+     */
+    schema_version?: 1;
+    /**
+     * Started At
+     */
+    started_at?: null;
+    /**
+     * Status
+     */
+    status: 'queued' | 'cancel_requested' | 'canceled';
+    /**
+     * Terminal Reason
+     */
+    terminal_reason?: 'canceled_before_dispatch' | null;
+    usage: UnusedUsage;
+};
+
+/**
+ * RunBudget
+ */
+export type RunBudget = {
+    /**
+     * Calls
+     */
+    calls?: 0;
+    /**
+     * Input Tokens
+     */
+    input_tokens?: 0;
+    /**
+     * Output Tokens
+     */
+    output_tokens?: 0;
+    /**
+     * Tool Bytes
+     */
+    tool_bytes?: 0;
+    /**
+     * Wall Seconds
+     */
+    wall_seconds?: number;
+};
+
+/**
+ * RunCancel
+ */
+export type RunCancel = {
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+};
+
+/**
+ * RunCreate
+ */
+export type RunCreate = {
+    budget?: RunBudget;
+    /**
+     * Input Refs
+     */
+    input_refs?: Array<InputRef>;
+    /**
+     * Kind
+     */
+    kind?: 'synthetic-read-only-v1';
+    /**
+     * Policy Version
+     */
+    policy_version?: 'local-read-only-v1';
+};
+
+/**
+ * RunEvent
+ */
+export type RunEvent = {
+    /**
+     * Attempt Id
+     */
+    attempt_id?: null;
+    /**
+     * Occurred At
+     */
+    occurred_at: string;
+    /**
+     * Payload
+     */
+    payload: {
+        [key: string]: string;
+    };
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Schema Version
+     */
+    schema_version?: 1;
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Type
+     */
+    type: 'queued' | 'cancel_requested' | 'canceled';
+};
+
+/**
+ * RunEventPage
+ */
+export type RunEventPage = {
+    /**
+     * Has More
+     */
+    has_more: boolean;
+    /**
+     * Items
+     */
+    items: Array<RunEvent>;
+    /**
+     * Next After
+     */
+    next_after: number;
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Schema Version
+     */
+    schema_version?: 1;
+};
+
+/**
+ * UnusedUsage
+ */
+export type UnusedUsage = {
+    /**
+     * Calls
+     */
+    calls?: 0;
+    /**
+     * Input Tokens
+     */
+    input_tokens?: 0;
+    /**
+     * Output Tokens
+     */
+    output_tokens?: 0;
+    /**
+     * Provenance
+     */
+    provenance?: 'No work dispatched';
+    /**
+     * State
+     */
+    state?: 'known';
+    /**
+     * Tool Bytes
+     */
+    tool_bytes?: 0;
+};
+
 export type GetArtifactAssociationData = {
     body?: never;
     path: {
@@ -329,6 +600,10 @@ export type GetArtifactAssociationErrors = {
      * Sanitized internal error
      */
     500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
     /**
      * Dependency or publication unavailable
      */
@@ -405,6 +680,10 @@ export type ReadArtifactRangeErrors = {
      */
     500: ErrorEnvelope;
     /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
      * Dependency or publication unavailable
      */
     503: ErrorEnvelope;
@@ -465,6 +744,10 @@ export type GetCapabilitiesErrors = {
      * Sanitized internal error
      */
     500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
     /**
      * Dependency or publication unavailable
      */
@@ -536,6 +819,10 @@ export type ListCasesErrors = {
      */
     500: ErrorEnvelope;
     /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
      * Dependency or publication unavailable
      */
     503: ErrorEnvelope;
@@ -603,6 +890,10 @@ export type CreateCaseErrors = {
      */
     500: ErrorEnvelope;
     /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
      * Dependency or publication unavailable
      */
     503: ErrorEnvelope;
@@ -668,6 +959,10 @@ export type GetCaseErrors = {
      * Sanitized internal error
      */
     500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
     /**
      * Dependency or publication unavailable
      */
@@ -743,6 +1038,10 @@ export type ListCaseArtifactsErrors = {
      * Sanitized internal error
      */
     500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
     /**
      * Dependency or publication unavailable
      */
@@ -827,6 +1126,10 @@ export type UploadArtifactErrors = {
      */
     500: ErrorEnvelope;
     /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
      * Dependency or publication unavailable
      */
     503: ErrorEnvelope;
@@ -846,6 +1149,317 @@ export type UploadArtifactResponses = {
 };
 
 export type UploadArtifactResponse = UploadArtifactResponses[keyof UploadArtifactResponses];
+
+export type CreateRunData = {
+    body: RunCreate;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Case Id
+         */
+        case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/cases/{case_id}/runs';
+};
+
+export type CreateRunErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type CreateRunError = CreateRunErrors[keyof CreateRunErrors];
+
+export type CreateRunResponses = {
+    /**
+     * Successful Response
+     */
+    202: Run;
+};
+
+export type CreateRunResponse = CreateRunResponses[keyof CreateRunResponses];
+
+export type GetRunData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/runs/{run_id}';
+};
+
+export type GetRunErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type GetRunError = GetRunErrors[keyof GetRunErrors];
+
+export type GetRunResponses = {
+    /**
+     * Successful Response
+     */
+    200: Run;
+};
+
+export type GetRunResponse = GetRunResponses[keyof GetRunResponses];
+
+export type CancelRunData = {
+    body: RunCancel;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/runs/{run_id}/cancel';
+};
+
+export type CancelRunErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type CancelRunError = CancelRunErrors[keyof CancelRunErrors];
+
+export type CancelRunResponses = {
+    /**
+     * Successful Response
+     */
+    200: Run;
+};
+
+export type CancelRunResponse = CancelRunResponses[keyof CancelRunResponses];
+
+export type ListRunEventsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Last-Event-Id
+         */
+        'Last-Event-ID'?: string | null;
+        /**
+         * Accept
+         */
+        Accept?: string | null;
+    };
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: {
+        /**
+         * After
+         */
+        after?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/runs/{run_id}/events';
+};
+
+export type ListRunEventsErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type ListRunEventsError = ListRunEventsErrors[keyof ListRunEventsErrors];
+
+export type ListRunEventsResponses = {
+    /**
+     * Successful Response
+     */
+    200: RunEventPage;
+};
+
+export type ListRunEventsResponse = ListRunEventsResponses[keyof ListRunEventsResponses];
 
 export type GetSystemHealthData = {
     body?: never;
@@ -891,6 +1505,10 @@ export type GetSystemHealthErrors = {
      * Sanitized internal error
      */
     500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
     /**
      * Dependency or publication unavailable
      */
