@@ -156,6 +156,10 @@ jobs:
           python-version: '3.11.15'
           working-directory: rebuild
           enable-cache: false
+      - name: Install pinned scheduler Python explicitly
+        env:
+          UV_PYTHON_DOWNLOADS: manual
+        run: uv python install 3.11.15
       - name: Install locked standalone scheduler dependencies
         env:
           UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
