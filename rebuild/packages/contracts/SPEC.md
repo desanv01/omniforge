@@ -221,3 +221,47 @@ unless separately reviewed for sharing. Metadata rejection catches obvious path/
 credential shapes, not arbitrary opaque secrets. Original blob contents are not
 scrubbed. Passing validation is integrity/structure evidence, not source
 authenticity, permission or publication safety. See docs/phases/evidence-proof.md.
+
+### OF-013-B1 implemented journal boundary
+
+B1 admits only kind `synthetic-read-only-v1` and policy `local-read-only-v1`.
+Admission uses POST /api/v1/cases/{case_id}/runs with Idempotency-Key and a bounded
+list of immutable association refs (association_id, revision, lowercase SHA256).
+Refs must belong to the authorized case and match committed association metadata;
+the server enriches artifact/source/byte identity and coverage unknown. This is
+metadata admission, not proof that all source bytes have just been read. Actual
+tool admission uses the existing bound byte-integrity/grant seam.
+
+Budget permits zero model calls/input/output/tool bytes and a bounded synthetic
+wall-time declaration. No provider profile or arbitrary work kind is accepted.
+The transaction persists queued Run revision1, event1, pending start intent and
+canonical idempotency response together before returning202. Current case grants
+are checked before replay, and altered body with same principal/target/key409.
+A scope snapshot is a ceiling/declaration and never substitutes for current grants.
+No scheduler import, request or dispatcher is invoked. Without scheduler
+integration the run remains durably queued and scheduler health stays unverified.
+
+GET /api/v1/runs/{run_id} returns grant-filtered persisted state; ungranted and
+unknown run IDs both404, missing authentication401. POST /runs/{run_id}/cancel
+requires Idempotency-Key and body expected_revision. Queued cancellation persists
+cancel_requested and canceled events/revisions atomically and suppresses pending
+start intents; no attempt exists in B1. Same-key cancellation replays the original
+response after current grant check even if expected_revision is now stale; a new
+key with stale revision409. A terminal run is not rewritten by a late cancel.
+
+GET /runs/{run_id}/events returns bounded JSON replay only, after defaults0,
+maximum100 events/page and monotonic per-run sequence IDs. Last-Event-ID may supply
+the same cursor; conflicting explicit cursors409, malformed/negative422, future
+cursor409. Run-row serialization allocates event sequence in the mutation's
+transaction; no unlocked MAX(sequence)+1. There is no event retention or expired
+cursor claim. SSE Accept is explicitly unsupported501 with shared safe error
+envelope; it cannot silently become a stream success. Refresh Run for current
+state and revision. Generated OpenAPI/client describe the executable routes.
+
+Migration0003_runs creates only runs/run_events/run_outbox and preserves prior
+tables. Statuses are limited to queued/cancel_requested/canceled, outbox command
+start and states pending/suppressed. Attempt/output/scheduler execution tables,
+leases/dispatch/claim, success publication and SSE remain later B2/B3 work.
+B1's cancellation race fixture concerns synthetic pending-intent row locking/
+suppression only; it is not an actual dispatcher/leased claim/attempt-admission
+race. Durable intent is not scheduler submission or completed execution.
