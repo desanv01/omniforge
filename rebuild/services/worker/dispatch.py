@@ -43,7 +43,7 @@ class Dispatcher:
             intent = conn.execute(text("""SELECT *,claim_until>clock_timestamp() AS claim_live
                 FROM run_outbox WHERE run_id=:r AND command='start' FOR UPDATE SKIP LOCKED"""),
                 {"r": run_id}).mappings().one_or_none()
-            if intent is None or intent["state"] in ("suppressed", "acknowledged"):
+            if intent is None or intent["scheduler_kind"] != "fake-v1" or intent["state"] in ("suppressed", "acknowledged"):
                 return None
             if intent["state"] == "claimed" and intent["claim_live"]:
                 return None

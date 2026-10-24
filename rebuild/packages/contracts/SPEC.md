@@ -430,3 +430,59 @@ execution only with in-memory synthetic values/mock transport. No actual hidden
 prompt, OS credential operation, provider request or global readiness follows.
 Run journal/fenced provider publication, scheduler/B3, real capability proof,
 pricing/accounting and supervised hard interruption remain separate gates.
+
+### OF-013-B3B1 asynchronous delivery handshake
+
+Migration0007_run_delivery preserves prior tables/rows and adds immutable
+run_scheduler_submissions with bounded generations0/1, full trusted tenant/workflow/
+version/name/namespace binding, input/submission hashes, physical dispatch identity
+and entry revision. A same-Run/outbox/submission foreign key binds real mappings;
+old fake-v1 rows have no real correlation fields. Real mappings retain exact root
+UUID, bounded task UUID array, observation time and one of the five native broker
+statuses. The old accepted/completed field is only a coarse broker observation,
+never Run completion. Same-kind task ownership uses sorted advisory locks and
+collision checks; root IDs cannot silently become task IDs.
+
+Outbox adds configured scheduler kind, current generation and at most eight
+unverified candidate IDs, conservatively covering two submission plus two lookup
+reservations with at most two IDs each. Candidates alone never admit an attempt.
+Original logical key, payload and counters are retained; counters cannot decrease.
+An unverified candidate cannot be removed until a matching owned verified mapping
+exists. A late old-generation acknowledgement may update only its historical
+mapping; it cannot clear or acknowledge a newer reservation.
+
+The internal async dispatcher accepts an explicit bounded map of fresh Run UUIDs
+to trusted DeliveryContext. It never drains arbitrary old pending intents.
+Configuration/reservation persists correlation before awaiting the injected port;
+the await holds no SQL transaction. DispatchSpec uses the original outbox timestamp.
+Submission hash is the canonical existing digest of `{binding: full five fields,
+payload: DispatchSpec.payload()}` with UUID strings and exact JSON primitive types.
+Configured namespace/workflow/version, same Run/case/requester, original input hash,
+dispatch generation and physical identity must match; current writer/input scope
+remain authoritative at admission.
+
+Trusted worker registration verifies the exact raw delivery payload and native
+observation against that committed correlation, establishes owned root/task mapping
+and reconciles bookkeeping before first attempt admission. Only that first verified
+registration returns a work token, paired with a unique worker-instance identity;
+duplicate/replayed delivery cannot borrow a live token. Existing lease/fence/revision
+and final post-authority DB-time checks still govern renew/admit/publication.
+Verified early delivery can run before submit acknowledgement. A late acknowledgement
+may safely bookkeep the same mapped execution after running/terminal state without
+overwriting Run revision/status/output. Unknown/lost acknowledgement cannot undo a
+verified early registration or silently discard additional unverified candidates.
+
+Real asynchronous lookup has found/unknown semantics only. Empty, lagging, failed
+or incomplete eventual-index reads cannot establish absence or trigger blind retry.
+One explicit recovery generation requires the prior attempt's exact expired DB
+lease/fence and trusted quiescence attestation, matching all known roots, no unresolved
+candidate identities, known harmless effects, fresh authority and original counters/
+wall budget remaining. Generation1 stores immutable receipt ID, proof hash, attempt/
+fence, time and roots; it cannot change the original logical binding/input snapshot.
+The injected verifier is an application capability, not a broker/model bool. Synthetic
+quiescence receipts in this slice do not prove actual OS process termination.
+
+No new public arbitrary execution/registration endpoint, active cancellation or SSE
+is introduced. Native scheduler/client/session/channel construction, live engine
+dedup/lookup/process recovery, worker dependency lock, paid provider execution and
+broader B3B2/B3C behavior remain separate gates. API readiness remains conservative.

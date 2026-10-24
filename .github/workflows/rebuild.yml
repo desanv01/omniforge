@@ -81,6 +81,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_journal -v
       - name: Check fenced execution and output transactions with a fake scheduler
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_execution -v
+      - name: Check async delivery handshakes against persisted core with injected scheduler
+        run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_delivery -v
   generated-client:
     runs-on: ubuntu-latest
     timeout-minutes: 10
