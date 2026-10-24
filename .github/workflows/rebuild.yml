@@ -140,3 +140,34 @@ jobs:
             exit 1
           fi
           node node_modules/@playwright/test/cli.js test --grep-invert 'coordinated local API'
+  scheduler-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: rebuild
+    env:
+      UV_PYTHON_DOWNLOADS: never
+      UV_HTTP_RETRIES: '0'
+      PYTHONPATH: ${{ github.workspace }}/rebuild
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.11.25'
+          python-version: '3.11.15'
+          working-directory: rebuild
+          enable-cache: false
+      - name: Install pinned scheduler Python explicitly
+        env:
+          UV_PYTHON_DOWNLOADS: manual
+        run: uv python install 3.11.15
+      - name: Install locked standalone scheduler dependencies
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
+        run: uv sync --project infra/scheduler --locked --python 3.11.15
+      - name: Check safe scheduler CLI errors without services or credentials
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
+          OF_SCHEDULER_PRIVATE_ROOT: ${{ runner.temp }}/omniforge-scheduler-offline-placeholder
+        run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.integration.scheduler.test_error_boundary -v
