@@ -29,7 +29,7 @@ class ProfileMetadataProof(unittest.TestCase):
         cls.auth = []
         with cls.engine.begin() as conn:
             assert conn.execute(text("SELECT current_database()")).scalar_one() == "omniforge_rebuild"
-            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0005_provider_profiles"
+            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0006_profile_bindings"
             for principal in (cls.a, cls.b):
                 token = secrets.token_urlsafe(48)
                 cls.auth.append({"Authorization": "Bearer " + token})
@@ -166,7 +166,7 @@ class ProfileMetadataProof(unittest.TestCase):
             response = self.client.get(self.url(profile=p["id"])+"/diagnostics", headers=self.auth[1])
             self.assertEqual(response.status_code, 200, response.text)
             diagnostic = response.json()
-            self.assertEqual(diagnostic["features"]["enrollment"]["status"], "unsupported")
+            self.assertEqual(diagnostic["features"]["enrollment"]["status"], "unverified")
             self.assertEqual({v["status"] for k,v in diagnostic["features"].items() if k != "enrollment"}, {"unverified"})
             self.assertIn("no credential-store or transport", diagnostic["provenance"])
             self.assertEqual(self.update(p, {"expected_revision": 1, "enabled": True}).status_code, 409)

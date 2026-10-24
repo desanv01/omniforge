@@ -4,7 +4,7 @@ import json
 
 from sqlalchemy import create_engine, text
 
-MIGRATION = "0005_provider_profiles"
+MIGRATION = "0006_profile_bindings"
 
 
 def engine_for(settings):

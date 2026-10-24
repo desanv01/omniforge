@@ -665,19 +665,22 @@
         "additionalProperties": false,
         "properties": {
           "binding_status": {
-            "const": "unconfigured",
             "default": "unconfigured",
+            "enum": [
+              "unconfigured",
+              "pending",
+              "attached",
+              "unresolved"
+            ],
             "title": "Binding Status",
             "type": "string"
           },
           "credential_configured": {
-            "const": false,
             "default": false,
             "title": "Credential Configured",
             "type": "boolean"
           },
           "enabled": {
-            "const": false,
             "default": false,
             "title": "Enabled",
             "type": "boolean"
@@ -827,8 +830,13 @@
         "additionalProperties": false,
         "properties": {
           "binding_status": {
-            "const": "unconfigured",
             "default": "unconfigured",
+            "enum": [
+              "unconfigured",
+              "pending",
+              "attached",
+              "unresolved"
+            ],
             "title": "Binding Status",
             "type": "string"
           },
@@ -846,13 +854,11 @@
             "type": "string"
           },
           "credential_configured": {
-            "const": false,
             "default": false,
             "title": "Credential Configured",
             "type": "boolean"
           },
           "enabled": {
-            "const": false,
             "default": false,
             "title": "Enabled",
             "type": "boolean"

@@ -75,6 +75,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest tests.integration.core.provider_integration -v
       - name: Check case-scoped provider metadata without credentials or network
         run: uv run --locked --no-sync python -B -m unittest tests.integration.core.profiles -v
+      - name: Check persisted profile binding with fake input and storage
+        run: uv run --locked --no-sync python -B -m unittest tests.integration.core.binding -v
       - name: Check persisted run admission, cancellation and event replay
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_journal -v
       - name: Check fenced execution and output transactions with a fake scheduler

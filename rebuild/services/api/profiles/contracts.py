@@ -55,9 +55,9 @@ class ProviderProfileView(ContractModel):
     endpoint: Literal["https://api.deepseek.com/chat/completions"]
     model: str
     caps: Budget
-    enabled: Literal[False] = False
-    credential_configured: Literal[False] = False
-    binding_status: Literal["unconfigured"] = "unconfigured"
+    enabled: bool = False
+    credential_configured: bool = False
+    binding_status: Literal["unconfigured", "pending", "attached", "unresolved"] = "unconfigured"
     created_at: datetime
 
 
@@ -70,8 +70,8 @@ class ProviderProfileDiagnostics(ContractModel):
     schema_version: Literal[1] = 1
     profile_id: UUID
     revision: int
-    enabled: Literal[False] = False
-    credential_configured: Literal[False] = False
-    binding_status: Literal["unconfigured"] = "unconfigured"
+    enabled: bool = False
+    credential_configured: bool = False
+    binding_status: Literal["unconfigured", "pending", "attached", "unresolved"] = "unconfigured"
     features: dict[str, Capability]
     provenance: Literal["passive persisted metadata only; no credential-store or transport operations"] = "passive persisted metadata only; no credential-store or transport operations"
