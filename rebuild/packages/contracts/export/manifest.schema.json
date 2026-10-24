@@ -1,0 +1,571 @@
+{
+  "$defs": {
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "maximum": 26214400,
+          "minimum": 0,
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sha256",
+        "bytes",
+        "path"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "Association": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "format": "uuid",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "captured_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Captured At"
+        },
+        "captured_at_offset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Captured At Offset"
+        },
+        "captured_at_original": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Captured At Original"
+        },
+        "captured_at_provenance": {
+          "default": "unknown",
+          "enum": [
+            "supplied",
+            "unknown"
+          ],
+          "title": "Captured At Provenance",
+          "type": "string"
+        },
+        "case_id": {
+          "format": "uuid",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "imported_at": {
+          "format": "date-time",
+          "title": "Imported At",
+          "type": "string"
+        },
+        "media_type": {
+          "maxLength": 128,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "original_name": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Original Name",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "case_id",
+        "artifact_id",
+        "source_id",
+        "original_name",
+        "media_type",
+        "imported_at",
+        "provenance"
+      ],
+      "title": "Association",
+      "type": "object"
+    },
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "location_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Location Ids",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 4000,
+          "title": "Text",
+          "type": "string"
+        },
+        "verification": {
+          "enum": [
+            "unverified",
+            "supported",
+            "contradicted"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "verification",
+        "location_ids"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "Derivation": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "input_artifact_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Input Artifact Ids",
+          "type": "array"
+        },
+        "options_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Options Sha256",
+          "type": "string"
+        },
+        "output_artifact_id": {
+          "format": "uuid",
+          "title": "Output Artifact Id",
+          "type": "string"
+        },
+        "tool": {
+          "maxLength": 100,
+          "title": "Tool",
+          "type": "string"
+        },
+        "tool_version": {
+          "maxLength": 100,
+          "title": "Tool Version",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "input_artifact_ids",
+        "output_artifact_id",
+        "tool",
+        "tool_version",
+        "options_sha256",
+        "coverage",
+        "warnings"
+      ],
+      "title": "Derivation",
+      "type": "object"
+    },
+    "LegacyEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "original_state": {
+          "pattern": "^[a-zA-Z0-9_-]{1,100}$",
+          "title": "Original State",
+          "type": "string"
+        },
+        "payload_artifact_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Payload Artifact Id"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "unsupported_reason": {
+          "maxLength": 500,
+          "title": "Unsupported Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "provenance",
+        "unsupported_reason",
+        "original_state"
+      ],
+      "title": "LegacyEnvelope",
+      "type": "object"
+    },
+    "Location": {
+      "additionalProperties": false,
+      "properties": {
+        "association_id": {
+          "format": "uuid",
+          "title": "Association Id",
+          "type": "string"
+        },
+        "encoding": {
+          "anyOf": [
+            {
+              "const": "utf-8",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Encoding"
+        },
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "bytes",
+            "lines"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "association_id",
+        "sha256",
+        "kind",
+        "start",
+        "end"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "Observation": {
+      "additionalProperties": false,
+      "properties": {
+        "collection_count": {
+          "minimum": 0,
+          "title": "Collection Count",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "location_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Location Ids",
+          "type": "array"
+        },
+        "outcome": {
+          "enum": [
+            "observed",
+            "not_observed",
+            "insufficient_data"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_id",
+        "coverage",
+        "collection_count",
+        "outcome",
+        "location_ids"
+      ],
+      "title": "Observation",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "migration_version": {
+          "maxLength": 100,
+          "title": "Migration Version",
+          "type": "string"
+        },
+        "source_commit": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Commit"
+        },
+        "source_entity": {
+          "maxLength": 100,
+          "title": "Source Entity",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 200,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_revision": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Revision"
+        },
+        "source_schema_version": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Schema Version"
+        },
+        "source_system": {
+          "maxLength": 100,
+          "title": "Source System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_system",
+        "source_entity",
+        "source_id",
+        "migration_version"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "$id": "urn:omniforge:portable-evidence:manifest:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      },
+      "maxItems": 64,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "associations": {
+      "items": {
+        "$ref": "#/$defs/Association"
+      },
+      "maxItems": 128,
+      "title": "Associations",
+      "type": "array"
+    },
+    "bundle_id": {
+      "format": "uuid",
+      "title": "Bundle Id",
+      "type": "string"
+    },
+    "case_id": {
+      "format": "uuid",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "maxItems": 128,
+      "title": "Claims",
+      "type": "array"
+    },
+    "derivations": {
+      "items": {
+        "$ref": "#/$defs/Derivation"
+      },
+      "maxItems": 64,
+      "title": "Derivations",
+      "type": "array"
+    },
+    "legacy_envelopes": {
+      "items": {
+        "$ref": "#/$defs/LegacyEnvelope"
+      },
+      "maxItems": 64,
+      "title": "Legacy Envelopes",
+      "type": "array"
+    },
+    "locations": {
+      "items": {
+        "$ref": "#/$defs/Location"
+      },
+      "maxItems": 256,
+      "title": "Locations",
+      "type": "array"
+    },
+    "observations": {
+      "items": {
+        "$ref": "#/$defs/Observation"
+      },
+      "maxItems": 128,
+      "title": "Observations",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "bundle_id",
+    "case_id",
+    "artifacts",
+    "associations",
+    "locations",
+    "observations",
+    "claims"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

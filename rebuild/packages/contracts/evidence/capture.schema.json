@@ -1,0 +1,55 @@
+{
+  "$id": "urn:omniforge:portable-evidence:capture:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "captured_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Captured At"
+    },
+    "captured_at_offset": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Captured At Offset"
+    },
+    "captured_at_original": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Captured At Original"
+    },
+    "captured_at_provenance": {
+      "default": "unknown",
+      "enum": [
+        "supplied",
+        "unknown"
+      ],
+      "title": "Captured At Provenance",
+      "type": "string"
+    }
+  },
+  "title": "CaptureTime",
+  "type": "object"
+}

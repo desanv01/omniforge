@@ -189,3 +189,35 @@ Reuse register for actual copied code/rules/prompts/assets/fixtures records URL,
 release/commit/path, digest, author/license, modifications, purpose, dependencies,
 privileges, fixtures, removal/upgrade route and verification date. Original
 behavior implementation does not settle legacy license compatibility.
+
+### OF-014 implemented prototype and timestamp correction
+
+Forward migration0002_capture adds captured_at_original, captured_at_offset and
+captured_at_provenance (supplied/unknown) to association DTO/storage. Existing rows
+keep their original captured_at instant and receive unknown provenance with null
+original/offset. New uploads accept an explicit RFC3339 string with offset and up
+to six fractional digits, retain its exact text/offset token and normalize the
+instant to UTC. No offset is fabricated from database/session timezone. Absent
+capture time stays null/unknown; RFC3339 -00:00 is preserved literally and denotes
+unknown local offset, not proof of a known source timezone.
+
+Portable models and generated JSON Schemas are under packages/contracts/evidence
+and export. Directory-bundle manifest v1 retains case/artifact/association/source
+IDs, capture provenance, timezone-aware imported_at, derivations, original legacy
+state envelopes, observations/claims and exact byte or UTF8 line citations.
+Import here means validation/loading or idempotent directory round trip only;
+no bulk/legacy/live database importer or export HTTP route is implemented.
+
+Python runtime validators enforce cross-entity identities and source attribution,
+capture consistency, coverage semantics, canonical paths, regular-file/directory
+types, no symlinks/reparse points, SHA256/size, exact selectors and deterministic
+Markdown. JSON Schema expresses structure and does not replace these checks.
+Byte selectors are zero-based half-open; lines are one-based inclusive LF-delimited
+UTF8, retaining CRLF and final-newline bytes. Parser failure is not an empty clean
+result; complete and incomplete empty collections are distinct declarations.
+
+Bundles contain explicitly selected original evidence and remain private/sensitive
+unless separately reviewed for sharing. Metadata rejection catches obvious path/
+credential shapes, not arbitrary opaque secrets. Original blob contents are not
+scrubbed. Passing validation is integrity/structure evidence, not source
+authenticity, permission or publication safety. See docs/phases/evidence-proof.md.

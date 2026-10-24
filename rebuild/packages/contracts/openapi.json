@@ -25,6 +25,37 @@
             ],
             "title": "Captured At"
           },
+          "captured_at_offset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At Offset"
+          },
+          "captured_at_original": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At Original"
+          },
+          "captured_at_provenance": {
+            "default": "unknown",
+            "enum": [
+              "supplied",
+              "unknown"
+            ],
+            "title": "Captured At Provenance",
+            "type": "string"
+          },
           "case_id": {
             "format": "uuid",
             "title": "Case Id",
@@ -93,7 +124,6 @@
           "bytes",
           "media_type",
           "original_name",
-          "captured_at",
           "imported_at",
           "publication_status",
           "revision"
@@ -2150,7 +2180,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "format": "date-time",
+                  "maxLength": 40,
                   "type": "string"
                 },
                 {

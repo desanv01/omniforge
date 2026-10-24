@@ -61,12 +61,18 @@ jobs:
         run: uv run --locked --no-sync python -m services.api.smoke
       - name: Prepare ephemeral test configuration outside checkout
         run: uv run --locked --no-sync python ../scripts/rebuild-ci-config.py
+      - name: Check portable evidence and provenance contracts
+        env:
+          OMNIFORGE_EVIDENCE_PROOF_ROOT: ${{ runner.temp }}/omniforge-evidence-proof
+        run: uv run --locked --no-sync python -B -m tests.contracts.evidence.check
       - name: Apply isolated database migration
         run: uv run --locked --no-sync python -m infra.core.migrate
       - name: Seed synthetic local principal
         run: uv run --locked --no-sync python -m infra.core.bootstrap seed "$OMNIFORGE_CI_ROOT"
       - name: Check persisted cases, grants, artifacts and recovery
         run: uv run --locked --no-sync python tests/integration/core/check.py
+      - name: Check deterministic provider against persisted core authority
+        run: uv run --locked --no-sync python -B -m unittest tests.integration.core.provider_integration -v
   generated-client:
     runs-on: ubuntu-latest
     timeout-minutes: 10
