@@ -27,6 +27,8 @@ jobs:
         run: uv run --locked --no-sync python -m services.api.smoke
       - name: Check credential adapter contracts without live store access
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/secrets -v
+      - name: Check standalone provider contracts without network or OS credentials
+        run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/providers -v
   postgres-core:
     runs-on: ubuntu-latest
     timeout-minutes: 10
