@@ -19,7 +19,19 @@ export type ArtifactAssociation = {
     /**
      * Captured At
      */
-    captured_at: string | null;
+    captured_at?: string | null;
+    /**
+     * Captured At Offset
+     */
+    captured_at_offset?: string | null;
+    /**
+     * Captured At Original
+     */
+    captured_at_original?: string | null;
+    /**
+     * Captured At Provenance
+     */
+    captured_at_provenance?: 'supplied' | 'unknown';
     /**
      * Case Id
      */

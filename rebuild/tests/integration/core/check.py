@@ -61,7 +61,7 @@ class CoreProof(unittest.TestCase):
 
     def test_01_health_errors_contract(self):
         health = self.client.get("/api/v1/system/health").json()
-        self.assertEqual(health["migration_version"], "0001_core")
+        self.assertEqual(health["migration_version"], "0002_capture")
         self.assertTrue(health["database"]["ready"] and health["artifacts"]["ready"])
         self.assertFalse(health["ready"])
         self.assertEqual(health["provider"]["status"], "unverified")
@@ -210,6 +210,46 @@ class CoreProof(unittest.TestCase):
             self.assertEqual({page["items"][0]["id"], next_page["items"][0]["id"]}, {first.json()["id"], second.json()["id"]})
             self.assertIsNone(next_page["next_cursor"])
             self.error(other.get(route, headers=self.auth_b), 403)
+
+    def test_08_non_utc_capture_and_authority_seam(self):
+        from services.api.evidence_access import bind_read_range
+        from services.api.errors import Problem
+        from uuid import UUID
+        case = self.new_case()
+        original = "2026-10-23T12:34:56.123456+05:30"
+        result = self.client.post(f"/api/v1/cases/{case['id']}/artifacts",
+            params={"expected_revision": 1, "captured_at": original},
+            headers={**self.auth, "Idempotency-Key": str(uuid4())},
+            files={"file": ("capture.txt", b"exact provenance fixture\n", "text/plain")})
+        self.assertEqual(result.status_code, 201, result.text[:300])
+        item = result.json()
+        self.assertEqual(item["captured_at"], "2026-10-23T07:04:56.123456Z")
+        self.assertEqual(item["captured_at_original"], original)
+        self.assertEqual(item["captured_at_offset"], "+05:30")
+        self.assertEqual(item["captured_at_provenance"], "supplied")
+        reread = self.client.get(f"/api/v1/artifacts/{item['id']}", headers=self.auth).json()
+        self.assertEqual(reread, item)
+        with self.app.state.engine.connect() as conn:
+            principal = conn.execute(text("SELECT id FROM principals WHERE token_hash=:hash"),
+                {"hash": hashlib.sha256(self.auth["Authorization"].split(" ", 1)[1].encode()).hexdigest()}).scalar_one()
+        read = bind_read_range(self.app.state.engine, self.settings.artifact_root, principal, UUID(case["id"]))
+        self.assertEqual(read(UUID(item["id"]), item["sha256"], 0, 5), b"exact")
+        http_range = self.client.get(f"/api/v1/artifacts/{item['id']}/ranges", params={"start_byte": 0, "end_byte": 5}, headers=self.auth)
+        self.assertEqual(http_range.content, b"exact")
+        with self.assertRaises(Problem) as mismatch:
+            read(UUID(item["id"]), "0"*64, 0, 5)
+        self.assertEqual(mismatch.exception.status, 409)
+        with self.app.state.engine.begin() as conn:
+            conn.execute(text("UPDATE case_grants SET can_write=false WHERE principal_id=:p AND case_id=:c"), {"p": principal, "c": case["id"]})
+        # Read permission remains, but upload write grant must fail.
+        self.assertEqual(read(UUID(item["id"]), item["sha256"], 0, 5), b"exact")
+        self.error(self.upload(case, revision=2), 403)
+        # Revocation only affects this synthetic fixture grant.
+        with self.app.state.engine.begin() as conn:
+            conn.execute(text("DELETE FROM case_grants WHERE principal_id=:p AND case_id=:c"), {"p": principal, "c": case["id"]})
+        with self.assertRaises(Problem) as denied:
+            read(UUID(item["id"]), item["sha256"], 0, 5)
+        self.assertEqual(denied.exception.status, 404)
 
 
 if __name__ == "__main__":
