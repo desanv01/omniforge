@@ -265,3 +265,50 @@ leases/dispatch/claim, success publication and SSE remain later B2/B3 work.
 B1's cancellation race fixture concerns synthetic pending-intent row locking/
 suppression only; it is not an actual dispatcher/leased claim/attempt-admission
 race. Durable intent is not scheduler submission or completed execution.
+
+### OF-013-B2 synthetic execution boundary
+
+Migration0004_run_execution extends B1 with run_attempts, run_outputs and
+run_scheduler_executions, bounded outbox reservation/reconciliation fields and
+additional execution lifecycle states. Existing B1 intents/history are retained;
+no migration, import or API startup dispatches them. The fake-only driver requires
+an explicit bounded Run UUID allowlist and never scans/drains arbitrary pending
+intents. There is no public execution/claim endpoint or automatic worker process.
+
+Outbox reservations persist before SchedulerPort.submit/lookup calls, which occur
+outside the SQL transaction. Stable dispatch key and input hash bind each command.
+Lost acknowledgement requires reconciliation; found executions may map multiple
+external IDs to one dispatch. Confirmed absence permits bounded harmless
+redelivery; unknown remains unresolved. Each intent has at most two submit
+reservations and two lookup reservations. Only fake-v1 observations are supported;
+there is no native scheduler idempotency/lookup or network recovery proof.
+Acknowledgement/completed scheduler observation never makes a domain Run succeed.
+
+Trusted execution functions accept caller transactions and expected revisions.
+Claiming an explicitly mapped synthetic run persists attempt, monotonic fence,
+database-time lease and event before work. Duplicate deliveries cannot create
+competing live attempts. Work admission/heartbeat/publication check current case
+write grant, scope/input snapshot, active attempt/fence/revision and live DB-time
+lease plus synthetic wall budget. A heartbeat returns the new command token/version;
+workers cannot silently guess revisions.
+The live lease is rechecked using DB time after potentially blocking authority/input
+locks, so a lock wait cannot renew or admit work after expiry.
+Expired harmless attempts can be marked
+interrupted and replaced under a higher fence, with at most two attempts. Unknown
+effects instead remain uncertain; no provider/tool execution occurs in B2.
+
+The only output is bounded synthetic JSON `{value: string}`. Publication stores
+immutable output key/hash/content/attempt/fence and original command revision,
+then output_refs, succeeded outcome and terminal event in the same transaction.
+Same exact postcommit command replays canonical committed output; changed content,
+fence/attempt or command revision conflicts. Same-run composite foreign keys bind
+attempt/output/mapping identity. Run output refs are typed `{id,kind:run_output,
+sha256}`. Existing no-dispatch usage provenance remains readable; newly claimed
+synthetic work declares zero external provider/tool usage accurately.
+
+GET Run/JSON event replay deserialize the richer states/attempt/output references;
+no new HTTP execution operation is introduced. Active cancellation/settlement,
+cleanup acknowledgement, SSE and actual integrated scheduler recovery remain B3.
+Queued cancellation retains B1 behavior, while in-flight work cannot be falsely
+reported as safely canceled by that queued-only operation. No live provider,
+credential, profile/setup or additional dependency is enabled by this boundary.

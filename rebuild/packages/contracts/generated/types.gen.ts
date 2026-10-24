@@ -333,13 +333,31 @@ export type InputSnapshot = {
 };
 
 /**
+ * OutputRef
+ */
+export type OutputRef = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Kind
+     */
+    kind?: 'run_output';
+    /**
+     * Sha256
+     */
+    sha256: string;
+};
+
+/**
  * Run
  */
 export type Run = {
     /**
      * Attempt Id
      */
-    attempt_id?: null;
+    attempt_id?: string | null;
     budget: RunBudget;
     /**
      * Case Id
@@ -368,11 +386,11 @@ export type Run = {
     /**
      * Outcome
      */
-    outcome?: null;
+    outcome?: 'synthetic_complete' | null;
     /**
      * Output Refs
      */
-    output_refs?: Array<string>;
+    output_refs?: Array<OutputRef>;
     /**
      * Policy Version
      */
@@ -392,15 +410,15 @@ export type Run = {
     /**
      * Started At
      */
-    started_at?: null;
+    started_at?: string | null;
     /**
      * Status
      */
-    status: 'queued' | 'cancel_requested' | 'canceled';
+    status: 'queued' | 'claimed' | 'running' | 'succeeded' | 'failed' | 'interrupted' | 'uncertain' | 'cancel_requested' | 'canceled';
     /**
      * Terminal Reason
      */
-    terminal_reason?: 'canceled_before_dispatch' | null;
+    terminal_reason?: 'canceled_before_dispatch' | 'lease_expired' | 'synthetic_failure' | 'uncertain_effect' | null;
     usage: UnusedUsage;
 };
 
@@ -466,7 +484,7 @@ export type RunEvent = {
     /**
      * Attempt Id
      */
-    attempt_id?: null;
+    attempt_id?: string | null;
     /**
      * Occurred At
      */
@@ -492,7 +510,7 @@ export type RunEvent = {
     /**
      * Type
      */
-    type: 'queued' | 'cancel_requested' | 'canceled';
+    type: 'queued' | 'cancel_requested' | 'canceled' | 'running' | 'lease_renewed' | 'interrupted' | 'succeeded' | 'failed' | 'uncertain';
 };
 
 /**
@@ -540,7 +558,7 @@ export type UnusedUsage = {
     /**
      * Provenance
      */
-    provenance?: 'No work dispatched';
+    provenance?: 'No work dispatched' | 'Synthetic execution; no provider or tools';
     /**
      * State
      */

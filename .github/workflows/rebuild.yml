@@ -75,6 +75,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest tests.integration.core.provider_integration -v
       - name: Check persisted run admission, cancellation and event replay
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_journal -v
+      - name: Check fenced execution and output transactions with a fake scheduler
+        run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_execution -v
   generated-client:
     runs-on: ubuntu-latest
     timeout-minutes: 10
