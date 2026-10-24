@@ -93,6 +93,43 @@ jobs:
           test -z "$(git ls-files --others --exclude-standard -- packages/contracts/generated)"
       - name: Check generated TypeScript
         run: node infra/core/client-tooling/node_modules/typescript/bin/tsc -p infra/core/client-tooling/tsconfig.json
+  cases-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: rebuild/apps/web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.14.1'
+      - name: Install locked web dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile and build the Cases workspace
+        run: npm run build
+      - name: Install headless Chromium for bounded browser checks
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Check synthetic browser journeys and transport contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev > "$RUNNER_TEMP/omniforge-ui.log" 2>&1 &
+          ui_pid=$!
+          trap 'kill "$ui_pid" 2>/dev/null || true; wait "$ui_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:64110/ > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 0.5
+          done
+          if [ "$ready" != true ]; then
+            cat "$RUNNER_TEMP/omniforge-ui.log"
+            exit 1
+          fi
+          node node_modules/@playwright/test/cli.js test --grep-invert 'coordinated local API'
   scheduler-offline:
     runs-on: ubuntu-latest
     timeout-minutes: 10
