@@ -97,7 +97,7 @@ their accepted historical snapshots remain preserved separately.
 
 ## Retained state and limits
 
-Final synthetic domain snapshot:31 Runs (14queued,9canceled,2running,3succeeded,
+Initial combined-proof synthetic domain snapshot:31 Runs (14queued,9canceled,2running,3succeeded,
 1failed,1uncertain,1interrupted),10attempts,3outputs and11mappings; outbox9pending,
 9suppressed,11acknowledged,2reconcile_required. Unfinished/running journal fixtures
 are retained history and do not imply a live worker; no worker process/daemon
@@ -115,3 +115,28 @@ settlement and SSE/reconnect; profile/setup/live-provider proofs remain separate
 This does not complete parent OF-013 or whole Phase1. Hostile concurrent file
 mutation, power-loss/backup recovery and sustained-ingestion quota/cleanup are
 also outside this bounded synthetic execution proof.
+
+### C review correction — lease expiry across an authority-lock wait
+
+Independent review found that the initial live-lease check preceded potentially
+blocking authority/input locks. A call could wait beyond expiry while the grant
+remained unchanged, then admit work or renew the expired lease. The corrected
+guard retains Run/attempt lock order and rechecks the live lease using DB time
+after the blocking authority checks and wall-budget check, before returning.
+It changes no DDL, DTO, API shape, dependency or generated client.
+
+The new focused test covers admission, renewal and publication with separate new
+synthetic runs. It holds the unchanged grant row, observes an actual PostgreSQL
+waiter blocked by the exact holder PID, observes database time crossing the
+original lease while the lock is held, then releases it. Each operation returns
+409 lease_expired; Run revision/event sequence, attempt deadline and output count
+remain unchanged. Three directly affected lease/fence/publication regression
+methods were included. **All4 focused methods passed in5.921s**, with no further
+correction/retry. The original26-test receipt remains preserved; the full suite
+was not repeated. No migration or client regeneration was needed.
+
+All retained B1 history remained unchanged after this check. The new synthetic
+fixtures bring the retained journal to37runs/17attempts/6outputs;5running records
+are unfinished metadata without any live worker. The exact owned database was
+again stopped with exit0, preserving its volume/data and all original receipts.
+Corrected source/results remain subject to C's delta review before acceptance.

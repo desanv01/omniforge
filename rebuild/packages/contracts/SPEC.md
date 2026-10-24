@@ -290,7 +290,10 @@ database-time lease and event before work. Duplicate deliveries cannot create
 competing live attempts. Work admission/heartbeat/publication check current case
 write grant, scope/input snapshot, active attempt/fence/revision and live DB-time
 lease plus synthetic wall budget. A heartbeat returns the new command token/version;
-workers cannot silently guess revisions. Expired harmless attempts can be marked
+workers cannot silently guess revisions.
+The live lease is rechecked using DB time after potentially blocking authority/input
+locks, so a lock wait cannot renew or admit work after expiry.
+Expired harmless attempts can be marked
 interrupted and replaced under a higher fence, with at most two attempts. Unknown
 effects instead remain uncertain; no provider/tool execution occurs in B2.
 

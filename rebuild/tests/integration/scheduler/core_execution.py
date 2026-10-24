@@ -315,6 +315,74 @@ class CoreExecutionProof(unittest.TestCase):
         self.assertEqual(self.row(first)["status"], "queued")
         self.assertEqual(self.row(second)["status"], "queued")
 
+    def test_11_expired_lease_after_blocking_authority(self):
+        for operation in ("admit", "renew", "publish"):
+            with self.subTest(operation=operation):
+                run_id, _, driver = self.new()
+                self.assertEqual(driver.tick(run_id), "acknowledged")
+                token = self.claim(run_id, seconds=1)
+                before = self.row(run_id)
+                pool = ThreadPoolExecutor(max_workers=1)
+                try:
+                    with self.app.state.engine.begin() as holder:
+                        holder.execute(text("""SELECT can_write FROM case_grants
+                            WHERE principal_id=:p AND case_id=:c FOR UPDATE"""),
+                            {"p": before["requested_by"], "c": before["case_id"]})
+                        holder_pid = holder.execute(text("SELECT pg_backend_pid()")).scalar_one()
+                        def blocked_operation():
+                            try:
+                                with self.app.state.engine.begin() as conn:
+                                    if operation == "admit":
+                                        repository.admit_work(conn, token, token.revision)
+                                    elif operation == "renew":
+                                        repository.renew_attempt(conn, token, token.revision, 1)
+                                    else:
+                                        repository.complete_attempt(conn, token, token.revision,
+                                            "blocked", {"value": "must not publish"})
+                            except Problem as exc:
+                                return exc.status, exc.code
+                            return None
+                        pending = pool.submit(blocked_operation)
+                        observed = False
+                        deadline = time.monotonic() + 3
+                        while time.monotonic() < deadline:
+                            with self.app.state.engine.connect() as observer:
+                                observed = observer.execute(text("""SELECT EXISTS(SELECT 1
+                                    FROM pg_stat_activity WHERE datname=current_database()
+                                    AND wait_event_type='Lock'
+                                    AND :holder=ANY(pg_blocking_pids(pid))
+                                    AND query LIKE '%case_grants%')"""), {"holder": holder_pid}).scalar_one()
+                            if observed:
+                                break
+                            time.sleep(0.025)
+                        self.assertTrue(observed, "Expected exact-holder authority row lock waiter")
+                        # Observe actual database time crossing the original lease
+                        # while the authority lock remains held and unchanged.
+                        expired = False
+                        deadline = time.monotonic() + 3
+                        while time.monotonic() < deadline:
+                            with self.app.state.engine.connect() as observer:
+                                expired = observer.execute(text("""SELECT clock_timestamp()
+                                    >=CAST(:expiry AS timestamptz)"""),
+                                    {"expiry": token.lease_expires_at}).scalar_one()
+                            if expired:
+                                break
+                            time.sleep(0.025)
+                        self.assertTrue(expired)
+                        self.assertFalse(pending.done())
+                    self.assertEqual(pending.result(timeout=6), (409, "lease_expired"))
+                finally:
+                    pool.shutdown(wait=True)
+                after = self.row(run_id)
+                self.assertEqual(after["revision"], before["revision"])
+                self.assertEqual(after["next_event_sequence"], before["next_event_sequence"])
+                self.assertEqual(after["status"], "running")
+                with self.app.state.engine.connect() as conn:
+                    lease = conn.execute(text("SELECT lease_expires_at FROM run_attempts WHERE id=:a"),
+                        {"a": token.attempt_id}).scalar_one()
+                self.assertEqual(lease, token.lease_expires_at)
+                self.assertEqual(self.count("run_outputs", run_id), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

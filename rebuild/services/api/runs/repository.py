@@ -240,6 +240,15 @@ def _active(conn, token, expected_revision):
         raise Problem(409, "lease_expired", "conflict", "Attempt lease is not live")
     work_authority(conn, row)
     _wall_budget(conn, row)
+    # Authority/input SHARE locks above may have waited across lease expiry.
+    # Keep Run -> attempt lock order, but validate DB time again after every
+    # potentially blocking authority check before admitting work or renewal.
+    live_after_authority = conn.execute(text("""SELECT id FROM run_attempts
+        WHERE id=:a AND run_id=:r AND fence=:f AND state='running'
+        AND lease_expires_at>clock_timestamp()"""),
+        {"a": token.attempt_id, "r": token.run_id, "f": token.fence}).scalar_one_or_none()
+    if live_after_authority is None:
+        raise Problem(409, "lease_expired", "conflict", "Attempt lease is not live")
     return row
 
 
