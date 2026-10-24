@@ -1,0 +1,253 @@
+{
+  "artifacts": [
+    {
+      "bytes": 22,
+      "id": "00000000-0000-0000-0000-00000000000a",
+      "path": "blobs/0c1df706837f94088161f2ac411887005d3a7f310c2af52a364fda0596273f22",
+      "sha256": "0c1df706837f94088161f2ac411887005d3a7f310c2af52a364fda0596273f22"
+    },
+    {
+      "bytes": 85,
+      "id": "00000000-0000-0000-0000-00000000000b",
+      "path": "blobs/a1fff434badb987bce3541e1cfdfd2043bacf58e9cef54c4f3441d45efe97208",
+      "sha256": "a1fff434badb987bce3541e1cfdfd2043bacf58e9cef54c4f3441d45efe97208"
+    },
+    {
+      "bytes": 44,
+      "id": "00000000-0000-0000-0000-00000000000c",
+      "path": "blobs/bb0387843d5d0467de7816ab4181340ca1e903b3d80ac4b2cbd30e60f6617311",
+      "sha256": "bb0387843d5d0467de7816ab4181340ca1e903b3d80ac4b2cbd30e60f6617311"
+    },
+    {
+      "bytes": 24,
+      "id": "00000000-0000-0000-0000-00000000000d",
+      "path": "blobs/70ff048a4dc03f1dd2ac39c1678fedfbea0c47cf4b9ede86b4710c8883977f84",
+      "sha256": "70ff048a4dc03f1dd2ac39c1678fedfbea0c47cf4b9ede86b4710c8883977f84"
+    },
+    {
+      "bytes": 0,
+      "id": "00000000-0000-0000-0000-00000000000e",
+      "path": "blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "associations": [
+    {
+      "artifact_id": "00000000-0000-0000-0000-00000000000a",
+      "captured_at": "2026-10-23T04:34:56.123456Z",
+      "captured_at_offset": "+08:00",
+      "captured_at_original": "2026-10-23T12:34:56.123456+08:00",
+      "captured_at_provenance": "supplied",
+      "case_id": "00000000-0000-0000-0000-000000000002",
+      "id": "00000000-0000-0000-0000-000000000014",
+      "imported_at": "2026-10-23T15:00:00Z",
+      "media_type": "text/plain",
+      "original_name": "synthetic-0.bin",
+      "provenance": {
+        "migration_version": "portable-v1",
+        "source_commit": null,
+        "source_entity": "fixture",
+        "source_id": "original-0",
+        "source_revision": null,
+        "source_schema_version": null,
+        "source_system": "synthetic"
+      },
+      "source_id": "00000000-0000-0000-0000-00000000001e"
+    },
+    {
+      "artifact_id": "00000000-0000-0000-0000-00000000000b",
+      "captured_at": null,
+      "captured_at_offset": null,
+      "captured_at_original": null,
+      "captured_at_provenance": "unknown",
+      "case_id": "00000000-0000-0000-0000-000000000002",
+      "id": "00000000-0000-0000-0000-000000000015",
+      "imported_at": "2026-10-23T15:00:00Z",
+      "media_type": "application/json",
+      "original_name": "synthetic-1.bin",
+      "provenance": {
+        "migration_version": "portable-v1",
+        "source_commit": null,
+        "source_entity": "fixture",
+        "source_id": "original-1",
+        "source_revision": null,
+        "source_schema_version": null,
+        "source_system": "synthetic"
+      },
+      "source_id": "00000000-0000-0000-0000-00000000001f"
+    },
+    {
+      "artifact_id": "00000000-0000-0000-0000-00000000000c",
+      "captured_at": null,
+      "captured_at_offset": null,
+      "captured_at_original": null,
+      "captured_at_provenance": "unknown",
+      "case_id": "00000000-0000-0000-0000-000000000002",
+      "id": "00000000-0000-0000-0000-000000000016",
+      "imported_at": "2026-10-23T15:00:00Z",
+      "media_type": "text/csv",
+      "original_name": "synthetic-2.bin",
+      "provenance": {
+        "migration_version": "portable-v1",
+        "source_commit": null,
+        "source_entity": "fixture",
+        "source_id": "original-2",
+        "source_revision": null,
+        "source_schema_version": null,
+        "source_system": "synthetic"
+      },
+      "source_id": "00000000-0000-0000-0000-000000000020"
+    },
+    {
+      "artifact_id": "00000000-0000-0000-0000-00000000000d",
+      "captured_at": null,
+      "captured_at_offset": null,
+      "captured_at_original": null,
+      "captured_at_provenance": "unknown",
+      "case_id": "00000000-0000-0000-0000-000000000002",
+      "id": "00000000-0000-0000-0000-000000000017",
+      "imported_at": "2026-10-23T15:00:00Z",
+      "media_type": "text/plain",
+      "original_name": "synthetic-3.bin",
+      "provenance": {
+        "migration_version": "portable-v1",
+        "source_commit": null,
+        "source_entity": "fixture",
+        "source_id": "original-3",
+        "source_revision": null,
+        "source_schema_version": null,
+        "source_system": "synthetic"
+      },
+      "source_id": "00000000-0000-0000-0000-000000000021"
+    },
+    {
+      "artifact_id": "00000000-0000-0000-0000-00000000000e",
+      "captured_at": null,
+      "captured_at_offset": null,
+      "captured_at_original": null,
+      "captured_at_provenance": "unknown",
+      "case_id": "00000000-0000-0000-0000-000000000002",
+      "id": "00000000-0000-0000-0000-000000000018",
+      "imported_at": "2026-10-23T15:00:00Z",
+      "media_type": "text/plain",
+      "original_name": "synthetic-4.bin",
+      "provenance": {
+        "migration_version": "portable-v1",
+        "source_commit": null,
+        "source_entity": "fixture",
+        "source_id": "original-4",
+        "source_revision": null,
+        "source_schema_version": null,
+        "source_system": "synthetic"
+      },
+      "source_id": "00000000-0000-0000-0000-000000000022"
+    },
+    {
+      "artifact_id": "00000000-0000-0000-0000-00000000000a",
+      "captured_at": "2026-10-23T04:34:56.123456Z",
+      "captured_at_offset": "+08:00",
+      "captured_at_original": "2026-10-23T12:34:56.123456+08:00",
+      "captured_at_provenance": "supplied",
+      "case_id": "00000000-0000-0000-0000-000000000002",
+      "id": "00000000-0000-0000-0000-000000000019",
+      "imported_at": "2026-10-23T15:00:00Z",
+      "media_type": "text/plain",
+      "original_name": "synthetic-0.bin",
+      "provenance": {
+        "migration_version": "portable-v1",
+        "source_commit": null,
+        "source_entity": "fixture",
+        "source_id": "independent-origin",
+        "source_revision": null,
+        "source_schema_version": null,
+        "source_system": "synthetic"
+      },
+      "source_id": "00000000-0000-0000-0000-000000000023"
+    }
+  ],
+  "bundle_id": "00000000-0000-0000-0000-000000000001",
+  "case_id": "00000000-0000-0000-0000-000000000002",
+  "claims": [
+    {
+      "id": "00000000-0000-0000-0000-00000000003c",
+      "location_ids": [
+        "00000000-0000-0000-0000-000000000028",
+        "00000000-0000-0000-0000-000000000029"
+      ],
+      "text": "Synthetic line is present; source authenticity remains unverified.",
+      "verification": "supported"
+    }
+  ],
+  "derivations": [
+    {
+      "coverage": "partial",
+      "id": "00000000-0000-0000-0000-000000000046",
+      "input_artifact_ids": [
+        "00000000-0000-0000-0000-00000000000a"
+      ],
+      "options_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "output_artifact_id": "00000000-0000-0000-0000-00000000000d",
+      "tool": "synthetic-fixture",
+      "tool_version": "1",
+      "warnings": [
+        "Synthetic transformation, no semantic equivalence asserted"
+      ]
+    }
+  ],
+  "legacy_envelopes": [
+    {
+      "id": "00000000-0000-0000-0000-000000000050",
+      "original_state": "insufficient_data",
+      "payload_artifact_id": null,
+      "provenance": {
+        "migration_version": "portable-v1",
+        "source_commit": null,
+        "source_entity": "fixture",
+        "source_id": "original-a",
+        "source_revision": null,
+        "source_schema_version": null,
+        "source_system": "synthetic"
+      },
+      "unsupported_reason": "Synthetic preservation envelope only"
+    }
+  ],
+  "locations": [
+    {
+      "association_id": "00000000-0000-0000-0000-000000000014",
+      "encoding": null,
+      "end": 12,
+      "id": "00000000-0000-0000-0000-000000000028",
+      "kind": "bytes",
+      "sha256": "0c1df706837f94088161f2ac411887005d3a7f310c2af52a364fda0596273f22",
+      "start": 6
+    },
+    {
+      "association_id": "00000000-0000-0000-0000-000000000017",
+      "encoding": "utf-8",
+      "end": 3,
+      "id": "00000000-0000-0000-0000-000000000029",
+      "kind": "lines",
+      "sha256": "70ff048a4dc03f1dd2ac39c1678fedfbea0c47cf4b9ede86b4710c8883977f84",
+      "start": 2
+    }
+  ],
+  "observations": [
+    {
+      "collection_count": 0,
+      "coverage": "complete",
+      "id": "00000000-0000-0000-0000-000000000032",
+      "location_ids": [],
+      "outcome": "not_observed",
+      "source_id": "00000000-0000-0000-0000-000000000022"
+    },
+    {
+      "collection_count": 0,
+      "coverage": "partial",
+      "id": "00000000-0000-0000-0000-000000000033",
+      "location_ids": [],
+      "outcome": "insufficient_data",
+      "source_id": "00000000-0000-0000-0000-000000000022"
+    }
+  ],
+  "schema_version": 1
+}

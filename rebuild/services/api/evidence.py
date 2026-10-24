@@ -102,7 +102,8 @@ class Upload:
 
 
 ASSOCIATION_SQL = """SELECT a.id,a.case_id,a.artifact_id,a.source_id,a.original_name,a.media_type,
-    a.captured_at,a.imported_at,a.publication_status,a.revision,b.sha256,b.bytes
+    a.captured_at,a.captured_at_original,a.captured_at_offset,a.captured_at_provenance,
+    a.imported_at,a.publication_status,a.revision,b.sha256,b.bytes
     FROM artifact_associations a JOIN artifacts b ON b.id=a.artifact_id"""
 
 

@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+from packages.contracts.evidence.capture import CaptureTime
 
 
 class ContractModel(BaseModel):
@@ -61,7 +62,7 @@ class CasePage(ContractModel):
     next_cursor: str | None
 
 
-class ArtifactAssociation(ContractModel):
+class ArtifactAssociation(CaptureTime):
     schema_version: Literal[1] = 1
     id: UUID
     case_id: UUID
@@ -71,7 +72,6 @@ class ArtifactAssociation(ContractModel):
     bytes: int
     media_type: str
     original_name: str
-    captured_at: datetime | None
     imported_at: datetime
     publication_status: Literal["pending", "committed", "failed"]
     warnings: list[str] = Field(default_factory=list)

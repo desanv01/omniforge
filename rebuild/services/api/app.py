@@ -22,6 +22,8 @@ from services.api.contracts import (ArtifactAssociation, ArtifactPage, Capabilit
 from services.api.db import MIGRATION, digest, engine_for, lock, migration_at
 from services.api.errors import Problem, response
 from services.api.settings import Settings
+from packages.contracts.evidence.capture import parse_capture
+from services.api.evidence_access import bind_read_range
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -207,16 +209,18 @@ def create_app(settings=None):
               responses={202: {"model": ArtifactAssociation, "description": "Durably staged; publication pending"}},
               openapi_extra=upload_schema, operation_id="upload_artifact")
     async def upload_artifact(case_id: UUID, request: Request, principal_id=Depends(principal),
-                              expected_revision: int = Query(ge=1), captured_at: datetime | None = Query(default=None),
+                              expected_revision: int = Query(ge=1), captured_at: str | None = Query(default=None, max_length=40),
                               key: str = Header(alias="Idempotency-Key", min_length=1, max_length=128)):
         with engine().connect() as conn:
             require_grant(conn, principal_id, case_id, write=True)
-        if captured_at is not None and captured_at.tzinfo is None:
-            raise Problem(422, "timezone_required", "validation", "captured_at requires a timezone")
+        try:
+            capture = parse_capture(captured_at)
+        except (ValueError, TypeError):
+            raise Problem(422, "invalid_capture_time", "validation", "captured_at requires a valid RFC3339 timestamp and offset") from None
         item = evidence.Upload(settings.artifact_root, request.headers.get("content-type", ""), settings.upload_limit)
         await item.receive(request)
         fingerprint = digest({"hash": item.hash.hexdigest(), "bytes": item.size, "name": item.original_name,
-                              "mime": item.media_type, "captured_at": captured_at.isoformat() if captured_at else None,
+                              "mime": item.media_type, "captured_at": captured_at,
                               "expected_revision": expected_revision})
         operation = "upload:" + str(case_id)
         association_id = uuid4()
@@ -230,8 +234,8 @@ def create_app(settings=None):
                 raise Problem(409, "stale_revision", "conflict", "Case revision is stale")
             conn.execute(text("INSERT INTO artifacts(id,sha256,bytes) VALUES(:id,:hash,:bytes) ON CONFLICT(sha256) DO NOTHING"), {"id": uuid4(), "hash": item.hash.hexdigest(), "bytes": item.size})
             artifact_id = conn.execute(text("SELECT id FROM artifacts WHERE sha256=:hash"), {"hash": item.hash.hexdigest()}).scalar_one()
-            conn.execute(text("INSERT INTO artifact_associations(id,case_id,artifact_id,source_id,original_name,media_type,captured_at,publication_status,stage_name) VALUES(:id,:case,:artifact,:source,:name,:mime,:capture,'pending',:stage)"),
-                         {"id": association_id, "case": case_id, "artifact": artifact_id, "source": uuid4(), "name": item.original_name, "mime": item.media_type, "capture": captured_at, "stage": item.name})
+            conn.execute(text("INSERT INTO artifact_associations(id,case_id,artifact_id,source_id,original_name,media_type,captured_at,captured_at_original,captured_at_offset,captured_at_provenance,publication_status,stage_name) VALUES(:id,:case,:artifact,:source,:name,:mime,:captured_at,:captured_at_original,:captured_at_offset,:captured_at_provenance,'pending',:stage)"),
+                         {"id": association_id, "case": case_id, "artifact": artifact_id, "source": uuid4(), "name": item.original_name, "mime": item.media_type, **capture, "stage": item.name})
             conn.execute(text("UPDATE cases SET revision=revision+1,updated_at=now() WHERE id=:id"), {"id": case_id})
             result = ArtifactAssociation.model_validate(evidence.association(conn, association_id)).model_dump(mode="json")
             save_idem(conn, principal_id, operation, key, fingerprint, result, 202)
@@ -254,18 +258,8 @@ def create_app(settings=None):
     def read_range(association_id: UUID, principal_id=Depends(principal), start_byte: int = Query(ge=0), end_byte: int = Query(gt=0)):
         with engine().connect() as conn:
             item = permitted_association(conn, principal_id, association_id)
-        if not start_byte < end_byte <= item["bytes"] or end_byte-start_byte > 1024*1024:
-            raise Problem(422, "invalid_range", "validation", "Invalid half-open byte range")
-        if item["publication_status"] != "committed":
-            raise Problem(503, "publication_pending", "storage", "Artifact publication is pending", True)
-        path = settings.artifact_root / "blobs" / item["sha256"]
-        if not evidence.verify_file(path, item["sha256"], item["bytes"]):
-            raise Problem(503, "artifact_unavailable", "storage", "Artifact bytes failed verification", True)
-        with path.open("rb") as handle:
-            handle.seek(start_byte)
-            data = handle.read(end_byte-start_byte)
-        if len(data) != end_byte-start_byte:
-            raise Problem(503, "artifact_unavailable", "storage", "Artifact bytes unavailable", True)
+        read = bind_read_range(engine(), settings.artifact_root, principal_id, item["case_id"])
+        data = read(association_id, item["sha256"], start_byte, end_byte)
         return Response(data, media_type="application/octet-stream", headers={
             "X-Artifact-SHA256": item["sha256"], "X-Start-Byte": str(start_byte),
             "X-End-Byte": str(end_byte), "X-Total-Bytes": str(item["bytes"]),
