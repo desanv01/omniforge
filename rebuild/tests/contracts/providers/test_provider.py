@@ -182,7 +182,7 @@ class ProviderContractTests(unittest.TestCase):
         tool = tool_round(self.loc)
         tool["choices"][0]["message"]["tool_calls"][0]["function"]["name"] = "exec"
         self.assertEqual(self.run_answer([tool]).error, "unsupported")
-        calls = iter([True, True, False])
+        calls = iter([True, True, True, False])
         result = self.run_answer(ctx=replace(self.ctx, authorize_profile=lambda p: next(calls)))
         self.assertEqual((result.error, result.usage.calls), ("forbidden", 1))
 

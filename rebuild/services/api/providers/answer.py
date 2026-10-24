@@ -52,10 +52,17 @@ def answer(context: ReadOnlyContext, profile: Profile, budget: Budget, *, store:
         if clock() - started >= budget.wall_seconds:
             raise ProviderFailure("provider_timeout")
 
+    def require_authority():
+        try:
+            allowed = context.authorize_profile(profile)
+        except Exception:
+            raise ProviderFailure("forbidden") from None
+        if allowed is not True:
+            raise ProviderFailure("forbidden")
+
     try:
         validate_profile(profile)
-        if not context.authorize_profile(profile):
-            raise ProviderFailure("forbidden")
+        require_authority()
         locations = {loc.id: loc for loc in context.locations}
         if len(locations) != len(context.locations) or len(locations) > 128 or len(context.objective) > 8192:
             raise ProviderFailure("invalid_schema")
@@ -67,8 +74,7 @@ def answer(context: ReadOnlyContext, profile: Profile, budget: Budget, *, store:
         while True:
             checkpoint()
             validate_profile(profile)
-            if not context.authorize_profile(profile):
-                raise ProviderFailure("forbidden")
+            require_authority()
             maximum = min(512, budget.output_tokens - charged_output)
             payload = {"model": profile.model, "messages": messages, "tools": [TOOL],
                        "stream": False, "max_tokens": maximum}
@@ -82,6 +88,9 @@ def answer(context: ReadOnlyContext, profile: Profile, budget: Budget, *, store:
             charged_output += maximum
             secret = store.get(profile.credential_ref)
             try:
+                # Retrieval can block while grants/profile state change. Recheck
+                # inside finally ownership before spending or counting a call.
+                require_authority()
                 checkpoint()
                 calls += 1
                 inputs.append(None)
@@ -156,6 +165,8 @@ def answer(context: ReadOnlyContext, profile: Profile, budget: Budget, *, store:
             citations += [c for claim in parsed.claims for c in (*claim.supporting, *claim.contradicting)]
             if any(c.location_id not in seen or c.expected_sha256 != locations[c.location_id].sha256 for c in citations):
                 raise ProviderFailure("forbidden")
+            require_authority()
+            checkpoint()
             return result(parsed)
     except SecretStoreError as exc:
         code = {"missing": "credential_missing", "denied": "credential_denied", "unsupported": "credential_unsupported",
