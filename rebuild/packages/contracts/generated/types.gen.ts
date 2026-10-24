@@ -93,6 +93,32 @@ export type ArtifactPage = {
 };
 
 /**
+ * Budget
+ */
+export type Budget = {
+    /**
+     * Calls
+     */
+    calls: number;
+    /**
+     * Input Tokens
+     */
+    input_tokens: number;
+    /**
+     * Output Tokens
+     */
+    output_tokens: number;
+    /**
+     * Tool Bytes
+     */
+    tool_bytes: number;
+    /**
+     * Wall Seconds
+     */
+    wall_seconds: number;
+};
+
+/**
  * Capabilities
  */
 export type Capabilities = {
@@ -348,6 +374,157 @@ export type OutputRef = {
      * Sha256
      */
     sha256: string;
+};
+
+/**
+ * ProviderProfileCreate
+ */
+export type ProviderProfileCreate = {
+    caps?: Budget;
+    /**
+     * Endpoint
+     */
+    endpoint?: 'https://api.deepseek.com/chat/completions';
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Model
+     */
+    model: string;
+};
+
+/**
+ * ProviderProfileDiagnostics
+ */
+export type ProviderProfileDiagnostics = {
+    /**
+     * Binding Status
+     */
+    binding_status?: 'unconfigured';
+    /**
+     * Credential Configured
+     */
+    credential_configured?: false;
+    /**
+     * Enabled
+     */
+    enabled?: false;
+    /**
+     * Features
+     */
+    features: {
+        [key: string]: Capability;
+    };
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+    /**
+     * Provenance
+     */
+    provenance?: 'passive persisted metadata only; no credential-store or transport operations';
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Schema Version
+     */
+    schema_version?: 1;
+};
+
+/**
+ * ProviderProfilePage
+ */
+export type ProviderProfilePage = {
+    /**
+     * Items
+     */
+    items: Array<ProviderProfileView>;
+    /**
+     * Next Cursor
+     */
+    next_cursor: string | null;
+};
+
+/**
+ * ProviderProfileUpdate
+ */
+export type ProviderProfileUpdate = {
+    caps?: Budget | null;
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null;
+    /**
+     * Endpoint
+     */
+    endpoint?: 'https://api.deepseek.com/chat/completions' | null;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Label
+     */
+    label?: string | null;
+    /**
+     * Model
+     */
+    model?: string | null;
+};
+
+/**
+ * ProviderProfileView
+ */
+export type ProviderProfileView = {
+    /**
+     * Binding Status
+     */
+    binding_status?: 'unconfigured';
+    caps: Budget;
+    /**
+     * Case Id
+     */
+    case_id: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Credential Configured
+     */
+    credential_configured?: false;
+    /**
+     * Enabled
+     */
+    enabled?: false;
+    /**
+     * Endpoint
+     */
+    endpoint: 'https://api.deepseek.com/chat/completions';
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Schema Version
+     */
+    schema_version?: 1;
 };
 
 /**
@@ -1167,6 +1344,389 @@ export type UploadArtifactResponses = {
 };
 
 export type UploadArtifactResponse = UploadArtifactResponses[keyof UploadArtifactResponses];
+
+export type ListProviderProfilesData = {
+    body?: never;
+    path: {
+        /**
+         * Case Id
+         */
+        case_id: string;
+    };
+    query?: {
+        /**
+         * Cursor
+         */
+        cursor?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/cases/{case_id}/provider-profiles';
+};
+
+export type ListProviderProfilesErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type ListProviderProfilesError = ListProviderProfilesErrors[keyof ListProviderProfilesErrors];
+
+export type ListProviderProfilesResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProviderProfilePage;
+};
+
+export type ListProviderProfilesResponse = ListProviderProfilesResponses[keyof ListProviderProfilesResponses];
+
+export type CreateProviderProfileData = {
+    body: ProviderProfileCreate;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Case Id
+         */
+        case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/cases/{case_id}/provider-profiles';
+};
+
+export type CreateProviderProfileErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type CreateProviderProfileError = CreateProviderProfileErrors[keyof CreateProviderProfileErrors];
+
+export type CreateProviderProfileResponses = {
+    /**
+     * Successful Response
+     */
+    201: ProviderProfileView;
+};
+
+export type CreateProviderProfileResponse = CreateProviderProfileResponses[keyof CreateProviderProfileResponses];
+
+export type GetProviderProfileData = {
+    body?: never;
+    path: {
+        /**
+         * Case Id
+         */
+        case_id: string;
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+    };
+    query?: never;
+    url: '/api/v1/cases/{case_id}/provider-profiles/{profile_id}';
+};
+
+export type GetProviderProfileErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type GetProviderProfileError = GetProviderProfileErrors[keyof GetProviderProfileErrors];
+
+export type GetProviderProfileResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProviderProfileView;
+};
+
+export type GetProviderProfileResponse = GetProviderProfileResponses[keyof GetProviderProfileResponses];
+
+export type UpdateProviderProfileData = {
+    body: ProviderProfileUpdate;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Case Id
+         */
+        case_id: string;
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+    };
+    query?: never;
+    url: '/api/v1/cases/{case_id}/provider-profiles/{profile_id}';
+};
+
+export type UpdateProviderProfileErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type UpdateProviderProfileError = UpdateProviderProfileErrors[keyof UpdateProviderProfileErrors];
+
+export type UpdateProviderProfileResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProviderProfileView;
+};
+
+export type UpdateProviderProfileResponse = UpdateProviderProfileResponses[keyof UpdateProviderProfileResponses];
+
+export type GetProviderProfileDiagnosticsData = {
+    body?: never;
+    path: {
+        /**
+         * Case Id
+         */
+        case_id: string;
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+    };
+    query?: never;
+    url: '/api/v1/cases/{case_id}/provider-profiles/{profile_id}/diagnostics';
+};
+
+export type GetProviderProfileDiagnosticsErrors = {
+    /**
+     * Bearer authentication required
+     */
+    401: ErrorEnvelope;
+    /**
+     * Case grant required
+     */
+    403: ErrorEnvelope;
+    /**
+     * Resource not found
+     */
+    404: ErrorEnvelope;
+    /**
+     * Method not allowed
+     */
+    405: ErrorEnvelope;
+    /**
+     * Idempotency or revision conflict
+     */
+    409: ErrorEnvelope;
+    /**
+     * Upload limit exceeded
+     */
+    413: ErrorEnvelope;
+    /**
+     * Unsupported media type
+     */
+    415: ErrorEnvelope;
+    /**
+     * Sanitized request validation error
+     */
+    422: ErrorEnvelope;
+    /**
+     * Sanitized internal error
+     */
+    500: ErrorEnvelope;
+    /**
+     * Requested capability is unsupported
+     */
+    501: ErrorEnvelope;
+    /**
+     * Dependency or publication unavailable
+     */
+    503: ErrorEnvelope;
+};
+
+export type GetProviderProfileDiagnosticsError = GetProviderProfileDiagnosticsErrors[keyof GetProviderProfileDiagnosticsErrors];
+
+export type GetProviderProfileDiagnosticsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProviderProfileDiagnostics;
+};
+
+export type GetProviderProfileDiagnosticsResponse = GetProviderProfileDiagnosticsResponses[keyof GetProviderProfileDiagnosticsResponses];
 
 export type CreateRunData = {
     body: RunCreate;

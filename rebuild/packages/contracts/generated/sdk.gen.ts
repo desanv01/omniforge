@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateCaseData, CreateCaseErrors, CreateCaseResponses, CreateRunData, CreateRunErrors, CreateRunResponses, GetArtifactAssociationData, GetArtifactAssociationErrors, GetArtifactAssociationResponses, GetCapabilitiesData, GetCapabilitiesErrors, GetCapabilitiesResponses, GetCaseData, GetCaseErrors, GetCaseResponses, GetRunData, GetRunErrors, GetRunResponses, GetSystemHealthData, GetSystemHealthErrors, GetSystemHealthResponses, ListCaseArtifactsData, ListCaseArtifactsErrors, ListCaseArtifactsResponses, ListCasesData, ListCasesErrors, ListCasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ReadArtifactRangeData, ReadArtifactRangeErrors, ReadArtifactRangeResponses, UploadArtifactData, UploadArtifactErrors, UploadArtifactResponses } from './types.gen';
+import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateCaseData, CreateCaseErrors, CreateCaseResponses, CreateProviderProfileData, CreateProviderProfileErrors, CreateProviderProfileResponses, CreateRunData, CreateRunErrors, CreateRunResponses, GetArtifactAssociationData, GetArtifactAssociationErrors, GetArtifactAssociationResponses, GetCapabilitiesData, GetCapabilitiesErrors, GetCapabilitiesResponses, GetCaseData, GetCaseErrors, GetCaseResponses, GetProviderProfileData, GetProviderProfileDiagnosticsData, GetProviderProfileDiagnosticsErrors, GetProviderProfileDiagnosticsResponses, GetProviderProfileErrors, GetProviderProfileResponses, GetRunData, GetRunErrors, GetRunResponses, GetSystemHealthData, GetSystemHealthErrors, GetSystemHealthResponses, ListCaseArtifactsData, ListCaseArtifactsErrors, ListCaseArtifactsResponses, ListCasesData, ListCasesErrors, ListCasesResponses, ListProviderProfilesData, ListProviderProfilesErrors, ListProviderProfilesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ReadArtifactRangeData, ReadArtifactRangeErrors, ReadArtifactRangeResponses, UpdateProviderProfileData, UpdateProviderProfileErrors, UpdateProviderProfileResponses, UploadArtifactData, UploadArtifactErrors, UploadArtifactResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -97,6 +97,59 @@ export const uploadArtifact = <ThrowOnError extends boolean = false>(options: Op
         'Content-Type': null,
         ...options.headers
     }
+});
+
+/**
+ * Listing
+ */
+export const listProviderProfiles = <ThrowOnError extends boolean = false>(options: Options<ListProviderProfilesData, ThrowOnError>): RequestResult<ListProviderProfilesResponses, ListProviderProfilesErrors, ThrowOnError> => (options.client ?? client).get<ListProviderProfilesResponses, ListProviderProfilesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/cases/{case_id}/provider-profiles',
+    ...options
+});
+
+/**
+ * Create
+ */
+export const createProviderProfile = <ThrowOnError extends boolean = false>(options: Options<CreateProviderProfileData, ThrowOnError>): RequestResult<CreateProviderProfileResponses, CreateProviderProfileErrors, ThrowOnError> => (options.client ?? client).post<CreateProviderProfileResponses, CreateProviderProfileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/cases/{case_id}/provider-profiles',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get
+ */
+export const getProviderProfile = <ThrowOnError extends boolean = false>(options: Options<GetProviderProfileData, ThrowOnError>): RequestResult<GetProviderProfileResponses, GetProviderProfileErrors, ThrowOnError> => (options.client ?? client).get<GetProviderProfileResponses, GetProviderProfileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/cases/{case_id}/provider-profiles/{profile_id}',
+    ...options
+});
+
+/**
+ * Update
+ */
+export const updateProviderProfile = <ThrowOnError extends boolean = false>(options: Options<UpdateProviderProfileData, ThrowOnError>): RequestResult<UpdateProviderProfileResponses, UpdateProviderProfileErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProviderProfileResponses, UpdateProviderProfileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/cases/{case_id}/provider-profiles/{profile_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Diagnostics
+ */
+export const getProviderProfileDiagnostics = <ThrowOnError extends boolean = false>(options: Options<GetProviderProfileDiagnosticsData, ThrowOnError>): RequestResult<GetProviderProfileDiagnosticsResponses, GetProviderProfileDiagnosticsErrors, ThrowOnError> => (options.client ?? client).get<GetProviderProfileDiagnosticsResponses, GetProviderProfileDiagnosticsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/cases/{case_id}/provider-profiles/{profile_id}/diagnostics',
+    ...options
 });
 
 /**

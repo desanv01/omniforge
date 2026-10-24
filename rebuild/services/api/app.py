@@ -25,6 +25,7 @@ from services.api.settings import Settings
 from packages.contracts.evidence.capture import parse_capture
 from services.api.evidence_access import bind_read_range
 from services.api.runs.routes import RunBindings, build_router
+from services.api.profiles.routes import ProfileBindings, build_router as profile_router
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -267,6 +268,7 @@ def create_app(settings=None):
         })
 
     app.include_router(build_router(RunBindings(engine, principal, require_grant, idem, save_idem)))
+    app.include_router(profile_router(ProfileBindings(engine, principal, idem, save_idem)))
     return app
 
 

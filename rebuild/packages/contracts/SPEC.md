@@ -312,3 +312,60 @@ cleanup acknowledgement, SSE and actual integrated scheduler recovery remain B3.
 Queued cancellation retains B1 behavior, while in-flight work cannot be falsely
 reported as safely canceled by that queued-only operation. No live provider,
 credential, profile/setup or additional dependency is enabled by this boundary.
+
+### OF-012P case-scoped provider metadata
+
+Migration0005_provider_profiles adds one append-only versions table. A profile ID
+permanently belongs to one case; SQL triggers prohibit historical UPDATE/DELETE,
+case rebinding, skipped revisions and activation. Existing tables and migrations
+0001–0004 remain unchanged. No startup dispatch or enrollment occurs.
+
+Authenticated `/api/v1/cases/{case_id}/provider-profiles` supports POST create,
+GET bounded current-only list, GET `/{profile_id}`, PATCH `/{profile_id}` and
+GET `/{profile_id}/diagnostics`. Case readers inspect metadata; current case
+writers alone mutate. A profile outside the requested case returns404 after the
+case grant check. IDs are server generated. No public owner, credential reference,
+key, attach/reserve or enrollment field/endpoint exists. Strict mutation DTOs and
+shared safe validation errors exclude rejected input values from responses.
+Explicit metadata strings are user content, not a secret-detection guarantee.
+
+Create requires a label and explicit model string, with no guessed model/default
+support claim. Endpoint defaults to and only accepts exactly
+`https://api.deepseek.com/chat/completions`; no custom host/header/proxy options.
+Caps reuse the strict adapter Budget bounds: calls1–16, input_tokens1–1000000,
+output_tokens1–100000, wall_seconds1–300 and tool_bytes0–1048576. Defaults are
+calls2/input32768/output1024/wall30/tool_bytes32. These are request limits, not
+tokenizer, price, cost-accounting or billing authorization.
+
+Every new profile is disabled/unconfigured. PATCH requires expected_revision and
+at least one nonnull allowed metadata change; absent fields carry forward.
+Supplied caps replace the complete five-field cap object. Setting enabled=false
+appends a disabled revision; enabled=true conflicts409 because no attached binding
+exists. History remains private SQL metadata; public reads show current revision.
+Metadata views expose credential_configured=false/binding_status=unconfigured,
+never opaque credential targets.
+
+Create/update require Idempotency-Key. Current principal/grant rows are checked
+and share-locked through replay/mutation. Profile advisory locking serializes
+current selection, revision comparison and append. Same-key/same-body replay
+returns the original historical nonsecret response without appending, enabling
+or restoring it; changed body409. A fresh-key stale revision409. Current execution
+authority can never derive from a replayed historical response.
+
+The internal closed Purpose enum recognizes configure/enroll/execute_diagnostic.
+Only configure currently loads a nonsecret ProviderProfileView after current
+writer/case/revision checks. Unknown purposes and unconfigured enrollment or
+execution deny. The bound metadata callback freshly reloads and compares the
+entire pinned view, including case/revision/endpoint/model/caps/binding status;
+revocation/revision change/DB failure denies. Adapter Profile objects are explicitly
+rejected because they carry no persisted case/caps/attached-binding proof.
+`narrow_budget` accepts validated caller budgets only within every configured cap.
+This is preparation for a later execution seam, not persisted provider execution.
+
+Passive diagnostics report only persisted revision/disabled/unconfigured state,
+deferred enrollment and unverified store/credential/tool/schema/stream/search
+capabilities. They construct no OS store, prompt for no key and invoke no transport
+or network probe. No credential reference/enrollment table or internal fake attach
+path exists. The complete immutable operation/principal/case/profile/ref/expected-
+revision binding and positive attached-authority proof are deferred together to a
+separately reviewed enrollment bridge; reference possession is never authority.
