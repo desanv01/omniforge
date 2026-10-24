@@ -73,6 +73,8 @@ jobs:
         run: uv run --locked --no-sync python tests/integration/core/check.py
       - name: Check deterministic provider against persisted core authority
         run: uv run --locked --no-sync python -B -m unittest tests.integration.core.provider_integration -v
+      - name: Check persisted run admission, cancellation and event replay
+        run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_journal -v
   generated-client:
     runs-on: ubuntu-latest
     timeout-minutes: 10

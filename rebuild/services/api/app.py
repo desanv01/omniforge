@@ -24,6 +24,7 @@ from services.api.errors import Problem, response
 from services.api.settings import Settings
 from packages.contracts.evidence.capture import parse_capture
 from services.api.evidence_access import bind_read_range
+from services.api.runs.routes import RunBindings, build_router
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -265,6 +266,7 @@ def create_app(settings=None):
             "X-End-Byte": str(end_byte), "X-Total-Bytes": str(item["bytes"]),
         })
 
+    app.include_router(build_router(RunBindings(engine, principal, require_grant, idem, save_idem)))
     return app
 
 
