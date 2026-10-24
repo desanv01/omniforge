@@ -687,7 +687,7 @@ export type RunEvent = {
     /**
      * Type
      */
-    type: 'queued' | 'cancel_requested' | 'canceled' | 'running' | 'lease_renewed' | 'interrupted' | 'succeeded' | 'failed' | 'uncertain';
+    type: 'queued' | 'cancel_requested' | 'canceled' | 'running' | 'lease_renewed' | 'interrupted' | 'succeeded' | 'failed' | 'uncertain' | 'delivery_rearmed';
 };
 
 /**

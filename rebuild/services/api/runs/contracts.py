@@ -92,7 +92,7 @@ class Run(ContractModel):
 class RunEvent(ContractModel):
     run_id: UUID
     sequence: int = Field(ge=1)
-    type: Literal["queued", "cancel_requested", "canceled", "running", "lease_renewed", "interrupted", "succeeded", "failed", "uncertain"]
+    type: Literal["queued", "cancel_requested", "canceled", "running", "lease_renewed", "interrupted", "succeeded", "failed", "uncertain", "delivery_rearmed"]
     attempt_id: UUID | None = None
     occurred_at: datetime
     payload: dict[str, str]

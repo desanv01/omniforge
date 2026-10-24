@@ -61,7 +61,7 @@ class CoreProof(unittest.TestCase):
 
     def test_01_health_errors_contract(self):
         health = self.client.get("/api/v1/system/health").json()
-        self.assertEqual(health["migration_version"], "0006_profile_bindings")
+        self.assertEqual(health["migration_version"], "0007_run_delivery")
         self.assertTrue(health["database"]["ready"] and health["artifacts"]["ready"])
         self.assertFalse(health["ready"])
         self.assertEqual(health["provider"]["status"], "unverified")

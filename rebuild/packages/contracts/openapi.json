@@ -1201,7 +1201,8 @@
               "interrupted",
               "succeeded",
               "failed",
-              "uncertain"
+              "uncertain",
+              "delivery_rearmed"
             ],
             "title": "Type",
             "type": "string"

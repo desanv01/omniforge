@@ -193,31 +193,56 @@ def _token(conn, run_id):
     return AttemptToken(row.id, row.attempt_id, row.fence, row.revision, row.lease_expires_at)
 
 
-def claim_attempt(conn, run_id, external_id, worker_id, expected_revision, lease_seconds=5):
+def claim_attempt(conn, run_id, external_id, worker_id, expected_revision, lease_seconds=5,
+                  *, scheduler_kind="fake-v1", worker_instance_id=None):
     row = locked_run(conn, run_id)
     _revision(row, expected_revision)
     work_authority(conn, row)
     _lease_seconds(row, lease_seconds)
     _wall_budget(conn, row)
-    if not isinstance(worker_id, str) or not 1 <= len(worker_id) <= 100:
+    if type(worker_id) is not str or not 1 <= len(worker_id.encode("utf-8")) <= 100:
         raise Problem(422, "invalid_worker", "validation", "Invalid worker identity")
     if row["status"] not in ("queued", "interrupted"):
         raise Problem(409, "run_attempt_conflict", "conflict", "Run does not admit an attempt")
+    if (scheduler_kind not in ("fake-v1", "hatchet-v1")
+        or (scheduler_kind == "hatchet-v1" and type(worker_instance_id) is not UUID)
+        or (scheduler_kind == "fake-v1" and worker_instance_id is not None)):
+        raise Problem(422, "invalid_worker", "validation", "Invalid worker instance")
     mapped = conn.execute(text("""SELECT e.id FROM run_scheduler_executions e
         JOIN run_outbox o ON o.id=e.outbox_id WHERE e.run_id=:r AND e.external_id=:external
-        AND e.scheduler_kind='fake-v1' AND o.state='acknowledged'"""),
-        {"r": run_id, "external": external_id}).scalar_one_or_none()
+        AND e.scheduler_kind=:kind AND o.scheduler_kind=:kind AND o.state='acknowledged'
+        AND (:kind='fake-v1' OR (e.native_status IN ('QUEUED','RUNNING') AND EXISTS
+          (SELECT 1 FROM run_scheduler_submissions s WHERE s.id=e.submission_id
+           AND s.generation=o.dispatch_generation AND s.entry_revision=:revision)))"""),
+        {"r": run_id, "external": external_id, "kind": scheduler_kind,
+         "revision": expected_revision}).scalar_one_or_none()
     if mapped is None:
         raise Problem(409, "execution_unmapped", "conflict", "Execution is not reconciled")
     count = conn.execute(text("SELECT count(*) FROM run_attempts WHERE run_id=:r"), {"r": run_id}).scalar_one()
     if count >= 2:
         raise Problem(409, "attempt_limit", "conflict", "Synthetic recovery attempt limit reached")
+    if scheduler_kind == "hatchet-v1":
+        generation = conn.execute(text("SELECT dispatch_generation FROM run_outbox WHERE run_id=:r"),
+                                  {"r": run_id}).scalar_one()
+        if count != generation or (generation == 0 and row["status"] != "queued"):
+            raise Problem(409, "recovery_required", "conflict", "Delivery requires explicit safe recovery")
+        if generation == 1:
+            safe = conn.execute(text("""SELECT cardinality(o.candidate_ids)=0 AND
+                s.recovery_roots @> ARRAY(SELECT e.external_id::uuid FROM run_scheduler_executions e
+                  JOIN run_scheduler_submissions prior ON prior.id=e.submission_id
+                  WHERE prior.outbox_id=o.id AND prior.generation=0)
+                FROM run_outbox o JOIN run_scheduler_submissions s ON s.outbox_id=o.id AND s.generation=1
+                WHERE o.run_id=:r"""), {"r": run_id}).scalar_one()
+            if safe is not True:
+                raise Problem(409, "recovery_unresolved", "conflict", "Recovery root set requires reconciliation")
     attempt, fence = uuid4(), row["fence"] + 1
-    conn.execute(text("""INSERT INTO run_attempts(id,run_id,fence,state,worker_id,lease_expires_at)
+    conn.execute(text("""INSERT INTO run_attempts(id,run_id,fence,state,worker_id,lease_expires_at,
+        execution_id,worker_instance_id)
         VALUES(:id,:r,:f,'running',:worker,LEAST(clock_timestamp()+:seconds*interval '1 second',
-        COALESCE(CAST(:started AS timestamptz),clock_timestamp())+:wall*interval '1 second'))"""),
+        COALESCE(CAST(:started AS timestamptz),clock_timestamp())+:wall*interval '1 second'),:execution,:instance)"""),
         {"id": attempt, "r": run_id, "f": fence, "worker": worker_id, "seconds": lease_seconds,
-         "started": row["started_at"], "wall": row["budget"]["wall_seconds"]})
+         "started": row["started_at"], "wall": row["budget"]["wall_seconds"],
+         "execution": mapped if scheduler_kind == "hatchet-v1" else None, "instance": worker_instance_id})
     usage = UnusedUsage(provenance="Synthetic execution; no provider or tools").model_dump()
     conn.execute(text("""UPDATE runs SET status='running',attempt_id=:a,fence=:f,
         revision=revision+1,started_at=COALESCE(started_at,clock_timestamp()),
@@ -240,6 +265,21 @@ def _active(conn, token, expected_revision):
         raise Problem(409, "lease_expired", "conflict", "Attempt lease is not live")
     work_authority(conn, row)
     _wall_budget(conn, row)
+    # A newly discovered unresolved root can invalidate an earlier generation-one
+    # quiescence ceiling. Recheck it at every work/renew/output admission rather
+    # than letting a token bypass later correlation evidence.
+    delivery_safe = conn.execute(text("""SELECT a.execution_id IS NULL OR
+        (s.generation=o.dispatch_generation AND cardinality(o.candidate_ids)=0 AND
+         (s.generation=0 OR s.recovery_roots @> ARRAY(
+           SELECT historical.external_id::uuid FROM run_scheduler_executions historical
+           JOIN run_scheduler_submissions prior ON prior.id=historical.submission_id
+           WHERE prior.outbox_id=o.id AND prior.generation=0)))
+        FROM run_attempts a LEFT JOIN run_scheduler_executions e ON e.id=a.execution_id
+        LEFT JOIN run_scheduler_submissions s ON s.id=e.submission_id
+        LEFT JOIN run_outbox o ON o.id=e.outbox_id WHERE a.id=:a"""),
+        {"a": token.attempt_id}).scalar_one()
+    if delivery_safe is not True:
+        raise Problem(409, "delivery_unresolved", "conflict", "Delivery correlation requires reconciliation")
     # Authority/input SHARE locks above may have waited across lease expiry.
     # Keep Run -> attempt lock order, but validate DB time again after every
     # potentially blocking authority check before admitting work or renewal.
