@@ -402,15 +402,15 @@ export type ProviderProfileDiagnostics = {
     /**
      * Binding Status
      */
-    binding_status?: 'unconfigured';
+    binding_status?: 'unconfigured' | 'pending' | 'attached' | 'unresolved';
     /**
      * Credential Configured
      */
-    credential_configured?: false;
+    credential_configured?: boolean;
     /**
      * Enabled
      */
-    enabled?: false;
+    enabled?: boolean;
     /**
      * Features
      */
@@ -483,7 +483,7 @@ export type ProviderProfileView = {
     /**
      * Binding Status
      */
-    binding_status?: 'unconfigured';
+    binding_status?: 'unconfigured' | 'pending' | 'attached' | 'unresolved';
     caps: Budget;
     /**
      * Case Id
@@ -496,11 +496,11 @@ export type ProviderProfileView = {
     /**
      * Credential Configured
      */
-    credential_configured?: false;
+    credential_configured?: boolean;
     /**
      * Enabled
      */
-    enabled?: false;
+    enabled?: boolean;
     /**
      * Endpoint
      */

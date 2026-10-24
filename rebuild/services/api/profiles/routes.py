@@ -10,6 +10,7 @@ from services.api.contracts import Capability
 from services.api.db import digest
 from services.api.errors import Problem
 from services.api.profiles import repository
+from services.api.profiles.bindings import attached_binding
 from services.api.profiles.contracts import (ProviderProfileCreate, ProviderProfileUpdate,
     ProviderProfileView, ProviderProfilePage, ProviderProfileDiagnostics)
 
@@ -47,7 +48,7 @@ def build_router(b: ProfileBindings):
             rows = conn.execute(text("SELECT DISTINCT ON (profile_id) * FROM provider_profile_versions "
                                      "WHERE case_id=:c AND profile_id>:after ORDER BY profile_id,revision DESC LIMIT :limit"),
                                 {"c": case_id, "after": cursor or UUID(int=0), "limit": limit+1}).mappings().all()
-            return ProviderProfilePage(items=[repository.dto(row) for row in rows[:limit]],
+            return ProviderProfilePage(items=[repository.dto(repository.with_binding_state(conn, row)) for row in rows[:limit]],
                                        next_cursor=str(rows[limit-1]["profile_id"]) if len(rows)>limit else None)
 
     @router.get("/{profile_id}", response_model=ProviderProfileView, operation_id="get_provider_profile")
@@ -70,7 +71,10 @@ def build_router(b: ProfileBindings):
             if row["revision"] != body.expected_revision:
                 raise Problem(409, "stale_revision", "conflict", "Profile revision is stale")
             if body.enabled is True:
-                raise Problem(409, "profile_unconfigured", "conflict", "Profile has no attached credential binding")
+                try:
+                    attached_binding(conn, row)
+                except Problem:
+                    raise Problem(409, "profile_unconfigured", "conflict", "Profile has no attached credential binding") from None
             values = repository.dto(row).model_dump(mode="json")
             values.update(body.model_dump(mode="json", exclude_unset=True))
             result = repository.append(conn, principal_id, case_id, values, profile_id, row["revision"]+1).model_dump(mode="json")
@@ -83,8 +87,10 @@ def build_router(b: ProfileBindings):
         with b.engine().begin() as conn:
             repository.grant(conn, principal_id, case_id)
             row = repository.current(conn, case_id, profile_id)
-            return ProviderProfileDiagnostics(profile_id=profile_id, revision=row["revision"], features={
-                "enrollment": Capability(status="unsupported", reason="Profile enrollment bridge deferred"),
+            view = repository.dto(row)
+            return ProviderProfileDiagnostics(profile_id=profile_id, revision=row["revision"],
+                enabled=view.enabled, credential_configured=view.credential_configured, binding_status=view.binding_status, features={
+                "enrollment": Capability(status="unverified", reason="Local binding bridge; actual enrollment unverified"),
                 **{name: Capability(status="unverified", reason="No credential-store or provider operation performed")
                    for name in ("store_availability", "credential_validity", "tools", "schema", "streaming", "hosted_search")}})
 

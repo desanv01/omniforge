@@ -369,3 +369,64 @@ or network probe. No credential reference/enrollment table or internal fake atta
 path exists. The complete immutable operation/principal/case/profile/ref/expected-
 revision binding and positive attached-authority proof are deferred together to a
 separately reviewed enrollment bridge; reference possession is never authority.
+
+### OF-012P bound local enrollment and current diagnostic authority
+
+Migration0006_profile_bindings supersedes0005's disabled-only constraint with an
+exact attached-binding requirement. It adds provider_enrollments and nullable
+internal binding columns to profile versions, preserving all prior rows/columns.
+Existing migrations remain immutable. The operation tuple is operation UUID,
+principal UUID, case UUID, profile UUID, fresh canonical v1 credential ref and
+expected profile revision. Foreign keys and immutable-history triggers pin every
+component. Operation state starts pending and can settle once to attached or
+unresolved; settled rows cannot be edited/deleted. A bound profile version cannot
+commit until that exact operation is attached. Attachment and its disabled new
+profile revision commit atomically; explicit activation is a separate metadata
+PATCH with expected revision and a current writer grant.
+
+The trusted local `infra.core.enroll_profile.enroll_profile` callable requires
+explicit bearer authentication, EnrollmentRequest and injected input/store. It
+does not read authentication from files/environment, expose a CLI, construct an
+OS store or provide a default prompt. There is no HTTP key/ref/attach/reserve route.
+The separately owned helper generates its new ref internally. Application
+reservation authenticates, locks current writer/profile and persists the complete
+pending tuple before returning. Transactions close before input. After input the
+authorize_put callback freshly authenticates/rechecks writer, current revision and
+complete pending tuple; transactions close before the helper's one put. After put,
+attachment repeats those checks before atomically appending/settling. These are
+action-boundary checks; later revocation cannot retroactively undo an OS mutation.
+
+Current authentication/writer/profile checks precede operation lookup/replay.
+Same-operation/same-request settled replay returns the original nonsecret receipt
+without input, put, append or activation, even when current metadata was later
+disabled. A changed original request conflicts. Pending/unresolved replay requires
+explicit recovery and cannot automatically repeat put. Input/pre-put denial clears
+the supplied SecretValue and writes nothing. Post-put denial/conflict/exception
+never attaches: the exact owned intent becomes unresolved, or remains last-durable
+pending if the DB is unavailable. There is no automatic recovery/delete/get/retry.
+Any future recovery/enrollment must be separately authorized for its exact operation.
+
+Profile versions carry the internal full binding only within the permanently owned
+profile/case; a known ref cannot be transplanted to another profile. Readers see
+credential_configured and binding status (unconfigured/pending/attached/unresolved),
+never refs/operation secrets. An attached binding records completion, not current
+store presence/validity. Passive diagnostics perform no credential or transport
+operation; every provider/store capability and actual enrollment remains unverified.
+
+Closed-purpose EXECUTE_DIAGNOSTIC loading now requires an explicitly supplied
+current local bearer token, current case writer, exact current enabled profile
+revision and complete attached tuple. It returns a BoundProfile containing the
+exact adapter Profile, case, configured caps, narrowed requested budget, immutable
+binding and full nonsecret metadata digest. Its callback reauthenticates/reloads
+every time and compares all pinned values before permitting that exact adapter
+Profile. Unknown purpose, absent auth, reader, disabled/stale/revised/rotated profile,
+changed cap/binding or DB failure denies. Configure callbacks remain metadata-only;
+ENROLL never substitutes for the operation-bound write callbacks. Caller budgets
+cannot widen any cap. Accepted provider code invokes this callback before secret
+retrieval, after retrieval before dispatch and before publishing the answer.
+
+This slice invokes local enrollment only with fake input/store and diagnostic
+execution only with in-memory synthetic values/mock transport. No actual hidden
+prompt, OS credential operation, provider request or global readiness follows.
+Run journal/fenced provider publication, scheduler/B3, real capability proof,
+pricing/accounting and supervised hard interruption remain separate gates.
