@@ -175,3 +175,7 @@ jobs:
           UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
           OF_SCHEDULER_PRIVATE_ROOT: ${{ runner.temp }}/omniforge-scheduler-offline-placeholder
         run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.integration.scheduler.test_error_boundary -v
+      - name: Check injected scheduler port without services or credentials
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
+        run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.contracts.scheduler.test_hatchet_port -v
