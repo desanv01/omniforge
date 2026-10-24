@@ -93,3 +93,27 @@ jobs:
           test -z "$(git ls-files --others --exclude-standard -- packages/contracts/generated)"
       - name: Check generated TypeScript
         run: node infra/core/client-tooling/node_modules/typescript/bin/tsc -p infra/core/client-tooling/tsconfig.json
+  scheduler-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: rebuild
+    env:
+      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
+      UV_PYTHON_DOWNLOADS: never
+      UV_HTTP_RETRIES: '0'
+      PYTHONPATH: ${{ github.workspace }}/rebuild
+      OF_SCHEDULER_PRIVATE_ROOT: ${{ runner.temp }}/omniforge-scheduler-offline-placeholder
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.11.25'
+          python-version: '3.11.15'
+          working-directory: rebuild
+          enable-cache: false
+      - name: Install locked standalone scheduler dependencies
+        run: uv sync --project infra/scheduler --locked --python 3.11.15
+      - name: Check safe scheduler CLI errors without services or credentials
+        run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.integration.scheduler.test_error_boundary -v
