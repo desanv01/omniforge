@@ -556,12 +556,49 @@
         "title": "InputSnapshot",
         "type": "object"
       },
+      "OutputRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "run_output",
+            "default": "run_output",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sha256"
+        ],
+        "title": "OutputRef",
+        "type": "object"
+      },
       "Run": {
         "additionalProperties": false,
         "properties": {
           "attempt_id": {
-            "title": "Attempt Id",
-            "type": "null"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
           },
           "budget": {
             "$ref": "#/components/schemas/RunBudget"
@@ -606,15 +643,22 @@
             "type": "string"
           },
           "outcome": {
-            "title": "Outcome",
-            "type": "null"
+            "anyOf": [
+              {
+                "const": "synthetic_complete",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
           },
           "output_refs": {
             "items": {
-              "format": "uuid",
-              "type": "string"
+              "$ref": "#/components/schemas/OutputRef"
             },
-            "maxItems": 0,
+            "maxItems": 1,
             "title": "Output Refs",
             "type": "array"
           },
@@ -639,12 +683,26 @@
             "type": "integer"
           },
           "started_at": {
-            "title": "Started At",
-            "type": "null"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
           },
           "status": {
             "enum": [
               "queued",
+              "claimed",
+              "running",
+              "succeeded",
+              "failed",
+              "interrupted",
+              "uncertain",
               "cancel_requested",
               "canceled"
             ],
@@ -654,7 +712,12 @@
           "terminal_reason": {
             "anyOf": [
               {
-                "const": "canceled_before_dispatch",
+                "enum": [
+                  "canceled_before_dispatch",
+                  "lease_expired",
+                  "synthetic_failure",
+                  "uncertain_effect"
+                ],
                 "type": "string"
               },
               {
@@ -769,8 +832,16 @@
         "additionalProperties": false,
         "properties": {
           "attempt_id": {
-            "title": "Attempt Id",
-            "type": "null"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
           },
           "occurred_at": {
             "format": "date-time",
@@ -804,7 +875,13 @@
             "enum": [
               "queued",
               "cancel_requested",
-              "canceled"
+              "canceled",
+              "running",
+              "lease_renewed",
+              "interrupted",
+              "succeeded",
+              "failed",
+              "uncertain"
             ],
             "title": "Type",
             "type": "string"
@@ -883,8 +960,11 @@
             "type": "integer"
           },
           "provenance": {
-            "const": "No work dispatched",
             "default": "No work dispatched",
+            "enum": [
+              "No work dispatched",
+              "Synthetic execution; no provider or tools"
+            ],
             "title": "Provenance",
             "type": "string"
           },

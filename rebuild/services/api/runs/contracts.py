@@ -1,4 +1,4 @@
-"""B1 Run journal DTOs. No execution, provider admission or live stream."""
+"""Bounded synthetic Run journal/execution DTOs; no provider or live stream."""
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -59,7 +59,13 @@ class UnusedUsage(ContractModel):
     output_tokens: Literal[0] = 0
     tool_bytes: Literal[0] = 0
     state: Literal["known"] = "known"
-    provenance: Literal["No work dispatched"] = "No work dispatched"
+    provenance: Literal["No work dispatched", "Synthetic execution; no provider or tools"] = "No work dispatched"
+
+
+class OutputRef(ContractModel):
+    id: UUID
+    kind: Literal["run_output"] = "run_output"
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$", min_length=64, max_length=64)
 
 
 class Run(ContractModel):
@@ -68,26 +74,26 @@ class Run(ContractModel):
     kind: Literal["synthetic-read-only-v1"]
     schema_version: Literal[1] = 1
     revision: int = Field(ge=1)
-    status: Literal["queued", "cancel_requested", "canceled"]
-    outcome: None = None
-    terminal_reason: Literal["canceled_before_dispatch"] | None = None
-    attempt_id: None = None
+    status: Literal["queued", "claimed", "running", "succeeded", "failed", "interrupted", "uncertain", "cancel_requested", "canceled"]
+    outcome: Literal["synthetic_complete"] | None = None
+    terminal_reason: Literal["canceled_before_dispatch", "lease_expired", "synthetic_failure", "uncertain_effect"] | None = None
+    attempt_id: UUID | None = None
     input_refs: list[InputSnapshot]
     policy_version: Literal["local-read-only-v1"]
     budget: RunBudget
     usage: UnusedUsage
     provider_profile_ref: None = None
-    output_refs: list[UUID] = Field(default_factory=list, max_length=0)
+    output_refs: list[OutputRef] = Field(default_factory=list, max_length=1)
     created_at: datetime
-    started_at: None = None
+    started_at: datetime | None = None
     finished_at: datetime | None = None
 
 
 class RunEvent(ContractModel):
     run_id: UUID
     sequence: int = Field(ge=1)
-    type: Literal["queued", "cancel_requested", "canceled"]
-    attempt_id: None = None
+    type: Literal["queued", "cancel_requested", "canceled", "running", "lease_renewed", "interrupted", "succeeded", "failed", "uncertain"]
+    attempt_id: UUID | None = None
     occurred_at: datetime
     payload: dict[str, str]
     schema_version: Literal[1] = 1
