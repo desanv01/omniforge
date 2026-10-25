@@ -210,3 +210,7 @@ jobs:
         env:
           UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
         run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.contracts.scheduler.test_hatchet_port -v
+      - name: Check explicit transport construction with injected resources
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
+        run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.contracts.scheduler.test_hatchet_factory -v
