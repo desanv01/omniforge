@@ -75,7 +75,7 @@ def build_router(bindings: RunBindings):
                 return replay
             if row["revision"] != body.expected_revision:
                 raise Problem(409, "stale_revision", "conflict", "Run revision is stale")
-            result = repository.cancel_queued(conn, row).model_dump(mode="json")
+            result = repository.request_cancellation(conn, row, principal_id).model_dump(mode="json")
             bindings.save_idem(conn, principal_id, operation, key, fingerprint, result, 200)
         return result
 

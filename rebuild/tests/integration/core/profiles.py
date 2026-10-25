@@ -29,7 +29,7 @@ class ProfileMetadataProof(unittest.TestCase):
         cls.auth = []
         with cls.engine.begin() as conn:
             assert conn.execute(text("SELECT current_database()")).scalar_one() == "omniforge_rebuild"
-            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0007_run_delivery"
+            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0008_run_cancellation"
             for principal in (cls.a, cls.b):
                 token = secrets.token_urlsafe(48)
                 cls.auth.append({"Authorization": "Bearer " + token})

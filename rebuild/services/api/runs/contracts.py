@@ -68,6 +68,15 @@ class OutputRef(ContractModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$", min_length=64, max_length=64)
 
 
+class UnknownUsage(ContractModel):
+    calls: None = None
+    input_tokens: None = None
+    output_tokens: None = None
+    tool_bytes: None = None
+    state: Literal["unknown"] = "unknown"
+    provenance: Literal["Usage not measured"] = "Usage not measured"
+
+
 class Run(ContractModel):
     id: UUID
     case_id: UUID
@@ -76,12 +85,15 @@ class Run(ContractModel):
     revision: int = Field(ge=1)
     status: Literal["queued", "claimed", "running", "succeeded", "failed", "interrupted", "uncertain", "cancel_requested", "canceled"]
     outcome: Literal["synthetic_complete"] | None = None
-    terminal_reason: Literal["canceled_before_dispatch", "lease_expired", "synthetic_failure", "uncertain_effect"] | None = None
+    terminal_reason: Literal["canceled_before_dispatch", "canceled_after_cleanup", "lease_expired", "synthetic_failure", "uncertain_effect"] | None = None
     attempt_id: UUID | None = None
     input_refs: list[InputSnapshot]
     policy_version: Literal["local-read-only-v1"]
     budget: RunBudget
-    usage: UnusedUsage
+    usage: UnusedUsage | UnknownUsage
+    cancellation_id: UUID | None = None
+    cancel_generation: int = Field(default=0, ge=0, le=1, strict=True)
+    cleanup_status: Literal["not_requested", "pending", "succeeded", "failed", "unknown"] = "not_requested"
     provider_profile_ref: None = None
     output_refs: list[OutputRef] = Field(default_factory=list, max_length=1)
     created_at: datetime
@@ -92,7 +104,7 @@ class Run(ContractModel):
 class RunEvent(ContractModel):
     run_id: UUID
     sequence: int = Field(ge=1)
-    type: Literal["queued", "cancel_requested", "canceled", "running", "lease_renewed", "interrupted", "succeeded", "failed", "uncertain", "delivery_rearmed"]
+    type: Literal["queued", "cancel_requested", "canceled", "running", "lease_renewed", "interrupted", "succeeded", "failed", "uncertain", "delivery_rearmed", "cleanup_received", "cleanup_reopened", "cleanup_unresolved"]
     attempt_id: UUID | None = None
     occurred_at: datetime
     payload: dict[str, str]

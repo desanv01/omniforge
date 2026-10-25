@@ -486,3 +486,56 @@ No new public arbitrary execution/registration endpoint, active cancellation or 
 is introduced. Native scheduler/client/session/channel construction, live engine
 dedup/lookup/process recovery, worker dependency lock, paid provider execution and
 broader B3B2/B3C behavior remain separate gates. API readiness remains conservative.
+
+### OF-013-B3B2 active cancellation and cleanup receipts
+
+Migration0008_run_cancellation adds active cancellation identity/generation and
+cleanup status to Run, with separate run_cancellations, run_cancel_targets and
+run_cancel_receipts. The start outbox remains start-only. Cancellation requests
+and receipt identities/snapshots are immutable; per-target command counters are
+bounded and cannot reset. All previous rows/columns/migrations are preserved.
+
+The existing POST /runs/{id}/cancel authenticates the current case writer before
+idempotency replay and expected-revision checks. The writer can stop a Run whose
+original requester has lost work permission. Fresh unsubmitted queued cancellation
+retains its existing immediate suppression/two-event behavior. First active request
+records a generation1 cancellation, snapshot and durable per-execution stop intents,
+increments the publication fence/revision immediately and enters cancel_requested.
+There is no automatic second generation. Same-key replay is historical metadata,
+not another fence/command/activation. Changed-body or fresh stale input conflicts;
+fresh cancellation of an already terminal success conflicts without changing it.
+
+Run locking serializes request with claim and success publication. Once cancellation
+wins, further work/renew/publication/start/rearm is denied. Late start acknowledgement
+still records owned executions and stop targets; unknown/inflight start or candidate
+identities remain unresolved. Native cancel acceptance and terminal broker status
+are bookkeeping, not evidence application finally/cleanup ran. Each stop/lookup
+reservation commits before its bounded await; no transaction spans transport I/O.
+
+Cleanup uses a distinct internal credential tied to current cancellation/generation,
+target/mapped execution/original attempt/fence/worker instance and exact task snapshot.
+Only its secret UUID hash is persisted, and neither public DTOs nor logs expose the
+credential. Issue once; lost acknowledgement does not silently reissue or rotate.
+Current cleanup authority deliberately survives revocation of work grant/lease/fence,
+so an original owned finally can report without regaining work permission. It cannot
+admit/renew/read evidence/dispatch work/publish. Trusted case/requester and configured
+delivery correlation remain mandatory; no HTTP receipt or arbitrary execution API.
+
+Receipt IDs/results are immutable. Exact duplicate is canonical; changed/foreign/old
+credential, receipt or task binding is rejected. A mapped execution without an attempt
+may receive cleanup-only authority through verified delivery and never a WorkToken.
+Legacy fake work binds an original attempt only when one root is unambiguous;
+ambiguity, failed cleanup and killed/no-finally cases remain unresolved.
+
+Canceled with cleanup_status=succeeded requires successful receipts for every current
+known execution, current task coverage and no unknown candidates/inflight start.
+Missing/failed/unknown cleanup remains cancel_requested with accurate pending/failed/
+unknown status. A newly discovered root or expanded issued task set invalidates prior
+cleanup completeness, reopens the same cancellation with a new fence/revision/event,
+and retains old receipts; it does not revive work or fabricate another credential.
+
+Cancellation never overwrites original usage/output_refs. A strict unknown-usage DTO
+can retain unmeasured synthetic fixture counts as null, alongside existing known-zero
+usage; this is not paid Run support or accounting. No native scheduler/process cleanup,
+OS credentials, provider use, SSE or worker image/runtime is proved by injected tests.
+SSE B3B3 and native B3C remain subsequent gates.

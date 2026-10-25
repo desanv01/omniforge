@@ -115,6 +115,12 @@ def cancel_queued(conn, row):
     return dto(current)
 
 
+def request_cancellation(conn, row, requesting_principal):
+    # Local import keeps worker orchestration out of API import-time setup.
+    from services.worker.cancellation import request_cancellation as request
+    return request(conn, row, requesting_principal)
+
+
 def replay(conn, row, after, limit):
     if after >= row["next_event_sequence"]:
         raise Problem(409, "event_cursor_ahead", "conflict", "Event cursor is ahead of persisted history")
@@ -202,7 +208,7 @@ def claim_attempt(conn, run_id, external_id, worker_id, expected_revision, lease
     _wall_budget(conn, row)
     if type(worker_id) is not str or not 1 <= len(worker_id.encode("utf-8")) <= 100:
         raise Problem(422, "invalid_worker", "validation", "Invalid worker identity")
-    if row["status"] not in ("queued", "interrupted"):
+    if row["status"] not in ("queued", "interrupted") or row["cancellation_id"] is not None:
         raise Problem(409, "run_attempt_conflict", "conflict", "Run does not admit an attempt")
     if (scheduler_kind not in ("fake-v1", "hatchet-v1")
         or (scheduler_kind == "hatchet-v1" and type(worker_instance_id) is not UUID)
@@ -255,7 +261,7 @@ def claim_attempt(conn, run_id, external_id, worker_id, expected_revision, lease
 def _active(conn, token, expected_revision):
     row = locked_run(conn, token.run_id)
     _revision(row, expected_revision)
-    if (row["status"] != "running" or row["attempt_id"] != token.attempt_id
+    if (row["cancellation_id"] is not None or row["status"] != "running" or row["attempt_id"] != token.attempt_id
         or row["fence"] != token.fence):
         raise Problem(409, "stale_attempt", "conflict", "Attempt is not current")
     live = conn.execute(text("""SELECT id FROM run_attempts WHERE id=:a AND run_id=:r

@@ -34,6 +34,7 @@ class DeliveryContext:
 class DeliveryReceipt:
     execution_id: UUID
     token: repo.AttemptToken | None
+    cleanup: object | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,11 @@ def authorize(conn, row, context):
     if (type(context) is not DeliveryContext or row["case_id"] != context.case_id
         or row["requested_by"] != context.principal_id):
         conflict("delivery_context_conflict")
+    if row["cancellation_id"] is not None:
+        from services.worker import cancellation
+        cancellation.context_authority(conn, row, context)
+        cancellation.current(conn, row)
+        return
     repo.work_authority(conn, row)
 
 
@@ -113,7 +119,7 @@ def configure_delivery(conn, context, run_id, expected_revision):
     authorize(conn, row, context)
     repo._wall_budget(conn, row)
     intent = outbox(conn, run_id)
-    if (row["status"] != "queued" or row["attempt_id"] is not None or intent["state"] != "pending"
+    if (row["cancellation_id"] is not None or row["status"] != "queued" or row["attempt_id"] is not None or intent["state"] != "pending"
         or intent["dispatch_count"] or intent["reconcile_count"] or intent["claim_token"] is not None
         or intent["scheduler_kind"] != "fake-v1"):
         conflict("delivery_not_fresh")
@@ -212,6 +218,16 @@ def register_delivery(conn, context, spec, observed, raw_payload, worker_id, wor
     except ValueError:
         conflict("delivery_payload_conflict")
     execution_id = map_observation(conn, row, intent, saved, observed)
+    if row["cancellation_id"] is not None:
+        from services.worker import cancellation
+        candidates = verified_candidates(conn, intent)
+        conn.execute(text("UPDATE run_outbox SET candidate_ids=CAST(:ids AS uuid[]) WHERE id=:o"),
+                     {"o": intent["id"], "ids": candidates})
+        cancellation.sync_targets(conn, row)
+        original = conn.execute(text("SELECT original_attempt_id FROM run_cancel_targets WHERE cancel_id=:c AND execution_id=:e"),
+                                {"c": row["cancellation_id"], "e": execution_id}).scalar_one()
+        cleanup = cancellation.issue_cleanup(conn, context, spec.run_id, execution_id, original, worker_instance_id)
+        return DeliveryReceipt(execution_id, None, cleanup)
     # Historical delivery can add verified history, never settle a newer intent.
     if spec.generation != intent["dispatch_generation"]:
         return DeliveryReceipt(execution_id, None)
@@ -219,8 +235,6 @@ def register_delivery(conn, context, spec, observed, raw_payload, worker_id, wor
         conflict("delivery_suppressed")
     candidates = verified_candidates(conn, intent)
     conn.execute(text("""UPDATE run_outbox SET state='acknowledged',candidate_ids=CAST(:ids AS uuid[]),
-        claim_token=CASE WHEN state='acknowledged' THEN claim_token ELSE NULL END,
-        claim_until=CASE WHEN state='acknowledged' THEN claim_until ELSE NULL END,
         last_error_code=:error WHERE id=:o"""),
         {"o": intent["id"], "ids": candidates, "error": "delivery_unknown" if intent["last_error_code"] == "delivery_unknown"
          else "unresolved_candidates" if candidates else None})
@@ -263,7 +277,7 @@ def rearm_delivery(conn, context, spec, evidence, expected_revision, *, verify_q
     repo._wall_budget(conn, row)
     intent = outbox(conn, spec.run_id)
     saved = submission(conn, row, intent, context, spec)
-    if (spec.generation != 0 or intent["dispatch_generation"] != 0 or row["status"] != "interrupted"
+    if (row["cancellation_id"] is not None or spec.generation != 0 or intent["dispatch_generation"] != 0 or row["status"] != "interrupted"
         or row["terminal_reason"] != "lease_expired" or intent["candidate_ids"]
         or intent["state"] != "acknowledged" or intent["last_error_code"] is not None
         or intent["dispatch_count"] >= 2 or intent["reconcile_count"] >= 2

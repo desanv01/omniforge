@@ -49,7 +49,7 @@ class ProviderCoreProof(unittest.TestCase):
         secondary_auth = {"Authorization": "Bearer " + secondary_token}
         with engine.begin() as conn:
             self.assertEqual(conn.execute(text("SELECT current_database()" )).scalar_one(), "omniforge_rebuild")
-            self.assertEqual(conn.execute(text("SELECT version_num FROM alembic_version" )).scalar_one(), "0007_run_delivery")
+            self.assertEqual(conn.execute(text("SELECT version_num FROM alembic_version" )).scalar_one(), "0008_run_cancellation")
             principal = conn.execute(text("SELECT id FROM principals WHERE token_hash=:hash"),
                 {"hash": hashlib.sha256(token.encode()).hexdigest()}).scalar_one()
             conn.execute(text("INSERT INTO principals(id,label,token_hash) VALUES(:id,'of012i-synthetic',:hash)"),
