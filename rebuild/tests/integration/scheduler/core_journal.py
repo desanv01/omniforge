@@ -3,6 +3,7 @@
 Requires explicit new-core config. No Hatchet, execution claims, provider or SSE.
 All seeded rows are synthetic and retained; no legacy queries or cleanup.
 """
+import asyncio
 import hashlib
 import json
 import os
@@ -44,8 +45,32 @@ class RunJournalProof(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.client.close()
-        cls.app.state.engine.dispose()
+        failures = []
+        try:
+            streams = cls.app.state.event_streams
+            asyncio.run(streams.aclose())
+            snapshot = streams.resource_snapshot()
+            if any(snapshot[key] != 0 for key in
+                   ("active_reads", "pending_reads", "checked_out", "global_admitted_reads")):
+                raise AssertionError("Stream read resources remain after fixture drain")
+            if streams.limiter.snapshot()["total"] != 0:
+                raise AssertionError("Stream reservations remain after fixture drain")
+            if streams.close() is not True:
+                raise AssertionError("Dedicated stream engine did not settle")
+        except Exception as exc:
+            failures.append(exc)
+        finally:
+            try:
+                cls.client.close()
+            except Exception as exc:
+                failures.append(exc)
+            finally:
+                try:
+                    cls.app.state.engine.dispose()
+                except Exception as exc:
+                    failures.append(exc)
+        if failures:
+            raise ExceptionGroup("Run fixture teardown did not settle cleanly", failures)
 
     def error(self, result, status):
         self.assertEqual(result.status_code, status)
