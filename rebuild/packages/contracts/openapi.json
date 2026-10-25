@@ -923,9 +923,40 @@
           "budget": {
             "$ref": "#/components/schemas/RunBudget"
           },
+          "cancel_generation": {
+            "default": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Cancel Generation",
+            "type": "integer"
+          },
+          "cancellation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Id"
+          },
           "case_id": {
             "format": "uuid",
             "title": "Case Id",
+            "type": "string"
+          },
+          "cleanup_status": {
+            "default": "not_requested",
+            "enum": [
+              "not_requested",
+              "pending",
+              "succeeded",
+              "failed",
+              "unknown"
+            ],
+            "title": "Cleanup Status",
             "type": "string"
           },
           "created_at": {
@@ -1034,6 +1065,7 @@
               {
                 "enum": [
                   "canceled_before_dispatch",
+                  "canceled_after_cleanup",
                   "lease_expired",
                   "synthetic_failure",
                   "uncertain_effect"
@@ -1047,7 +1079,15 @@
             "title": "Terminal Reason"
           },
           "usage": {
-            "$ref": "#/components/schemas/UnusedUsage"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnusedUsage"
+              },
+              {
+                "$ref": "#/components/schemas/UnknownUsage"
+              }
+            ],
+            "title": "Usage"
           }
         },
         "required": [
@@ -1202,7 +1242,10 @@
               "succeeded",
               "failed",
               "uncertain",
-              "delivery_rearmed"
+              "delivery_rearmed",
+              "cleanup_received",
+              "cleanup_reopened",
+              "cleanup_unresolved"
             ],
             "title": "Type",
             "type": "string"
@@ -1257,6 +1300,41 @@
           "has_more"
         ],
         "title": "RunEventPage",
+        "type": "object"
+      },
+      "UnknownUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "null"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "null"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "null"
+          },
+          "provenance": {
+            "const": "Usage not measured",
+            "default": "Usage not measured",
+            "title": "Provenance",
+            "type": "string"
+          },
+          "state": {
+            "const": "unknown",
+            "default": "unknown",
+            "title": "State",
+            "type": "string"
+          },
+          "tool_bytes": {
+            "title": "Tool Bytes",
+            "type": "null"
+          }
+        },
+        "title": "UnknownUsage",
         "type": "object"
       },
       "UnusedUsage": {

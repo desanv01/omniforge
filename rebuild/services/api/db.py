@@ -4,7 +4,7 @@ import json
 
 from sqlalchemy import create_engine, text
 
-MIGRATION = "0007_run_delivery"
+MIGRATION = "0008_run_cancellation"
 
 
 def engine_for(settings):

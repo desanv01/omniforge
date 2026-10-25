@@ -66,7 +66,7 @@ class AsyncDispatcher:
             saved = delivery.submission(conn, row, intent, context, spec)
             operation = "submit" if intent["state"] == "pending" else "lookup"
             if operation == "submit":
-                if (row["status"] not in ("queued", "interrupted") or row["revision"] != saved["entry_revision"]
+                if (row["cancellation_id"] is not None or row["status"] not in ("queued", "interrupted") or row["revision"] != saved["entry_revision"]
                     or (spec.generation == 0 and row["status"] != "queued")):
                     return None
                 repo._wall_budget(conn, row)
@@ -121,14 +121,18 @@ class AsyncDispatcher:
                 # preserve newly discovered unresolved IDs. No new token touched.
                 conn.execute(text("UPDATE run_outbox SET candidate_ids=CAST(:ids AS uuid[]) WHERE id=:o"),
                              {"o": intent["id"], "ids": candidates})
+                if row["cancellation_id"] is not None:
+                    from services.worker import cancellation
+                    cancellation.sync_targets(conn, row)
+                    cancellation.settle_cancellation(conn, context, row["id"])
                 return "historical_ack" if result.executions else "historical_unknown"
             known = conn.execute(text("SELECT EXISTS(SELECT 1 FROM run_scheduler_executions WHERE submission_id=:s)"),
                                  {"s": saved["id"]}).scalar_one()
             acknowledged = known or intent["state"] == "acknowledged"
             unresolved = bool(candidates) or result.state == "unknown"
             state = "acknowledged" if acknowledged else "reconcile_required"
-            # Early registration already cleared this reservation. A later
-            # reservation owns its own claim and must not be cleared here.
+            # Registration preserves the in-flight reservation until its actual
+            # reply. A later reservation still owns its own separate claim.
             owns = intent["claim_token"] == reserved.token
             may_settle = owns or intent["claim_token"] is None
             if may_settle:
@@ -139,6 +143,10 @@ class AsyncDispatcher:
             else:
                 conn.execute(text("UPDATE run_outbox SET candidate_ids=CAST(:ids AS uuid[]) WHERE id=:o"),
                              {"o": intent["id"], "ids": candidates})
+            if row["cancellation_id"] is not None:
+                from services.worker import cancellation
+                cancellation.sync_targets(conn, row)
+                cancellation.settle_cancellation(conn, context, row["id"])
             return "acknowledged_unresolved" if acknowledged and unresolved else state
 
     async def tick(self, run_id):

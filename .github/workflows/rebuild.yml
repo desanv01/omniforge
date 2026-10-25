@@ -106,6 +106,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_execution -v
       - name: Check async delivery handshakes against persisted core with injected scheduler
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_delivery -v
+      - name: Check active cancellation and cleanup receipts with injected scheduler
+        run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_cancellation -v
   generated-client:
     runs-on: ubuntu-latest
     timeout-minutes: 10

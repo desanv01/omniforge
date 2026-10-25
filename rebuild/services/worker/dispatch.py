@@ -69,9 +69,13 @@ class Dispatcher:
                                   {"id": reserved.outbox_id}).mappings().one()
             if intent["claim_token"] != reserved.token or intent["state"] != "claimed":
                 return "stale_ack"
-            if row["status"] != "queued":
+            if row["status"] != "queued" and row["cancellation_id"] is None:
                 return "stale_run"
-            repository.work_authority(conn, row)
+            if row["cancellation_id"] is None:
+                repository.work_authority(conn, row)
+            else:
+                from services.worker import cancellation
+                cancellation.current(conn, row)
             for execution in executions:
                 if (not isinstance(execution, Execution) or not 1 <= len(execution.external_id) <= 100
                     or execution.state not in ("accepted", "completed")):
@@ -93,9 +97,13 @@ class Dispatcher:
                      "external": execution.external_id, "state": execution.state}).scalar_one_or_none()
                 if mapped != reserved.run_id:
                     raise Problem(409, "scheduler_mapping_conflict", "conflict", "Scheduler execution maps to another run")
+            if row["cancellation_id"] is not None and next_state == "pending":
+                next_state = "reconcile_required"
             conn.execute(text("""UPDATE run_outbox SET state=:state,claim_token=NULL,
                 claim_until=NULL,last_error_code=:error WHERE id=:id"""),
                 {"state": next_state, "error": error, "id": reserved.outbox_id})
+            if row["cancellation_id"] is not None:
+                cancellation.sync_targets(conn, row)
             return next_state
 
     def tick(self, run_id):

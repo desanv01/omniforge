@@ -537,9 +537,21 @@ export type Run = {
     attempt_id?: string | null;
     budget: RunBudget;
     /**
+     * Cancel Generation
+     */
+    cancel_generation?: number;
+    /**
+     * Cancellation Id
+     */
+    cancellation_id?: string | null;
+    /**
      * Case Id
      */
     case_id: string;
+    /**
+     * Cleanup Status
+     */
+    cleanup_status?: 'not_requested' | 'pending' | 'succeeded' | 'failed' | 'unknown';
     /**
      * Created At
      */
@@ -595,8 +607,11 @@ export type Run = {
     /**
      * Terminal Reason
      */
-    terminal_reason?: 'canceled_before_dispatch' | 'lease_expired' | 'synthetic_failure' | 'uncertain_effect' | null;
-    usage: UnusedUsage;
+    terminal_reason?: 'canceled_before_dispatch' | 'canceled_after_cleanup' | 'lease_expired' | 'synthetic_failure' | 'uncertain_effect' | null;
+    /**
+     * Usage
+     */
+    usage: UnusedUsage | UnknownUsage;
 };
 
 /**
@@ -687,7 +702,7 @@ export type RunEvent = {
     /**
      * Type
      */
-    type: 'queued' | 'cancel_requested' | 'canceled' | 'running' | 'lease_renewed' | 'interrupted' | 'succeeded' | 'failed' | 'uncertain' | 'delivery_rearmed';
+    type: 'queued' | 'cancel_requested' | 'canceled' | 'running' | 'lease_renewed' | 'interrupted' | 'succeeded' | 'failed' | 'uncertain' | 'delivery_rearmed' | 'cleanup_received' | 'cleanup_reopened' | 'cleanup_unresolved';
 };
 
 /**
@@ -714,6 +729,36 @@ export type RunEventPage = {
      * Schema Version
      */
     schema_version?: 1;
+};
+
+/**
+ * UnknownUsage
+ */
+export type UnknownUsage = {
+    /**
+     * Calls
+     */
+    calls?: null;
+    /**
+     * Input Tokens
+     */
+    input_tokens?: null;
+    /**
+     * Output Tokens
+     */
+    output_tokens?: null;
+    /**
+     * Provenance
+     */
+    provenance?: 'Usage not measured';
+    /**
+     * State
+     */
+    state?: 'unknown';
+    /**
+     * Tool Bytes
+     */
+    tool_bytes?: null;
 };
 
 /**
