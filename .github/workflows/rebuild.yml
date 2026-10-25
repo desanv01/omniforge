@@ -52,6 +52,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/secrets -v
       - name: Check standalone provider contracts without network or OS credentials
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/providers -v
+      - name: Check explicit worker configuration with injected I/O
+        run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/worker -v
   postgres-core:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -84,6 +86,8 @@ jobs:
         run: uv run --locked --no-sync python -m services.api.smoke
       - name: Prepare ephemeral test configuration outside checkout
         run: uv run --locked --no-sync python ../scripts/rebuild-ci-config.py
+      - name: Check Linux worker configuration with injected I/O
+        run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/worker -v
       - name: Check portable evidence and provenance contracts
         env:
           OMNIFORGE_EVIDENCE_PROOF_ROOT: ${{ runner.temp }}/omniforge-evidence-proof
