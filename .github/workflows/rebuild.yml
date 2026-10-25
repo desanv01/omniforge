@@ -222,3 +222,7 @@ jobs:
         env:
           UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
         run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.contracts.scheduler.test_native_client -v
+      - name: Check pinned receiver source adaptation with injected resources
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
+        run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest tests.contracts.scheduler.test_receiver_adaptation -v

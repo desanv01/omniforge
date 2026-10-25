@@ -1,0 +1,421 @@
+--- a/hatchet_sdk/config.py
++++ b/hatchet_sdk/config.py
+@@ -6,7 +6,7 @@
+ from typing import ClassVar, overload
+ 
+ import tenacity
+-from pydantic import Field, field_validator, model_validator
++from pydantic import BaseModel, Field, field_validator, model_validator
+ from pydantic_settings import BaseSettings, SettingsConfigDict
+ 
+ from hatchet_sdk.logger import logger
+@@ -18,11 +18,20 @@
+     return SettingsConfigDict(
+         env_prefix=env_prefix,
+         env_file=(".env", ".env.hatchet", ".env.dev", ".env.local"),
+-        extra="ignore",
+-    )
+-
+-
+-class ClientTLSConfig(BaseSettings):
++        extra="forbid",
++        arbitrary_types_allowed=True,
++    )
++
++
++class ReceiverSettings(BaseModel):
++    """Derivative pure explicit model: never constructs Settings sources.
++
++    BaseSettings source objects read ambient inputs before customise_sources.
++    The isolated derivative deliberately uses BaseModel for all nested settings.
++    """
++
++
++class ClientTLSConfig(ReceiverSettings):
+     model_config = create_settings_config(
+         env_prefix="HATCHET_CLIENT_TLS_",
+     )
+@@ -34,7 +43,7 @@
+     server_name: str = ""
+ 
+ 
+-class HealthcheckConfig(BaseSettings):
++class HealthcheckConfig(ReceiverSettings):
+     model_config = create_settings_config(
+         env_prefix="HATCHET_CLIENT_WORKER_HEALTHCHECK_",
+     )
+@@ -76,7 +85,7 @@
+         return value
+ 
+ 
+-class OpenTelemetryConfig(BaseSettings):
++class OpenTelemetryConfig(ReceiverSettings):
+     model_config = create_settings_config(
+         env_prefix="HATCHET_CLIENT_OPENTELEMETRY_",
+     )
+@@ -118,12 +127,12 @@
+     )
+ 
+ 
+-class TenacityConfig(BaseSettings):
++class TenacityConfig(ReceiverSettings):
+     model_config = create_settings_config(
+         env_prefix="HATCHET_CLIENT_TENACITY_",
+     )
+ 
+-    max_attempts: int = 5
++    max_attempts: int = 1
+ 
+     retry_429: bool = Field(
+         default=False,
+@@ -148,7 +157,7 @@
+ DEFAULT_READY_TIMEOUT_SECONDS = 300.0
+ 
+ 
+-class EmbeddedHatchetConfig(BaseSettings):
++class EmbeddedHatchetConfig(ReceiverSettings):
+     """
+     Configuration for the embedded Hatchet engine started by `Hatchet.from_embedded()`.
+     Set it on `ClientConfig.embedded`. Every field can also be set via an environment
+@@ -240,10 +249,34 @@
+ DEFAULT_SYNC_RESULT_POLL_INTERVAL_SECONDS = 1.0
+ 
+ 
+-class ClientConfig(BaseSettings):
++class ClientConfig(ReceiverSettings):
+     model_config = create_settings_config(
+         env_prefix="HATCHET_CLIENT_",
+     )
++
++    @model_validator(mode="before")
++    @classmethod
++    def receiver_explicit_inputs(cls, value):
++        required = {"token", "tenant_id", "host_port", "server_url", "namespace",
++                    "tls_config", "healthcheck", "otel", "tenacity"}
++        if not isinstance(value, dict) or not required.issubset(value):
++            raise ValueError("Explicit receiver settings required")
++        if (value["host_port"] != "127.0.0.1:7077" or
++            value["server_url"] != "http://127.0.0.1:8888" or
++            not value["tenant_id"] or not value["namespace"] or
++            value["namespace"] != value["namespace"].lower() or
++            not value["namespace"].endswith("_")):
++            raise ValueError("Explicit receiver binding required")
++        tls, health, retry = value["tls_config"], value["healthcheck"], value["tenacity"]
++        def field(item, key):
++            return item.get(key) if isinstance(item, dict) else getattr(item, key, None)
++        if (field(tls, "strategy") != "none" or field(health, "enabled") is not False or
++            type(field(retry, "max_attempts")) is not int or field(retry, "max_attempts") != 1 or
++            any(field(retry, key) is not False for key in
++                ("retry_429", "retry_not_found", "retry_transport_errors")) or
++            value.get("debug", False) is not False or value.get("embedded") is not None):
++            raise ValueError("Receiver policy mismatch")
++        return value
+ 
+     token: str = ""
+     logger: Logger = getLogger()
+@@ -261,10 +294,10 @@
+ 
+     listener_v2_timeout: int | None = None
+     grpc_max_recv_message_length: int = Field(
+-        default=4 * 1024 * 1024, description="4MB default"
++        default=65536, description="4MB default"
+     )
+     grpc_max_send_message_length: int = Field(
+-        default=4 * 1024 * 1024, description="4MB default"
++        default=65536, description="4MB default"
+     )
+ 
+     worker_preset_labels: dict[str, str] = Field(default_factory=dict)
+@@ -319,16 +352,8 @@
+ 
+         ## If nothing is set, read from the token
+         ## If either is set, override what's in the JWT
+-        server_url_from_jwt, grpc_broadcast_address_from_jwt = get_addresses_from_jwt(
+-            self.token
+-        )
+-
+-        if "host_port" not in self.model_fields_set:
+-            self.host_port = grpc_broadcast_address_from_jwt
+-
+-        if "server_url" not in self.model_fields_set:
+-            self.server_url = server_url_from_jwt
+-
++        # Derivative requires both explicit endpoints before validation.
++        # Do not decode or adopt token-advertised address hints.
+         if not self.tls_config.server_name:
+             self.tls_config.server_name = self.host_port.split(":")[0]
+ 
+--- a/hatchet_sdk/connection.py
++++ b/hatchet_sdk/connection.py
+@@ -1,86 +1,195 @@
+-from typing import Literal, cast, overload
++"""Pinned receiver derivative Stage A: explicit process-local channel scope.
+ 
+-import grpc
++Worker/child scope entry and all RPC/REST retries remain later stages.
++"""
++import asyncio
++from contextvars import ContextVar
++import os
+ 
+ from hatchet_sdk.config import ClientConfig
+ 
+-
+-def load_channel_credentials(config: ClientConfig) -> grpc.ChannelCredentials | None:
+-    credentials: grpc.ChannelCredentials | None = None
+-
+-    # load channel credentials
+-    if config.tls_config.strategy == "tls":
+-        root: bytes | None = None
+-
+-        if config.tls_config.root_ca_file:
+-            with open(config.tls_config.root_ca_file, "rb") as f:
+-                root = f.read()
+-
+-        credentials = grpc.ssl_channel_credentials(root_certificates=root)
+-    elif config.tls_config.strategy == "mtls":
+-        assert config.tls_config.root_ca_file
+-        assert config.tls_config.key_file
+-        assert config.tls_config.cert_file
+-
+-        with open(config.tls_config.root_ca_file, "rb") as f:
+-            root = f.read()
+-
+-        with open(config.tls_config.key_file, "rb") as f:
+-            private_key = f.read()
+-
+-        with open(config.tls_config.cert_file, "rb") as f:
+-            certificate_chain = f.read()
+-
+-        credentials = grpc.ssl_channel_credentials(
+-            root_certificates=root,
+-            private_key=private_key,
+-            certificate_chain=certificate_chain,
+-        )
+-
+-    return credentials
++_SCOPE = ContextVar("receiver_resources", default=None)
++OPTIONS = (("grpc.enable_retries", 0), ("grpc.enable_http_proxy", 0),
++           ("grpc.max_send_message_length", 65536),
++           ("grpc.max_receive_message_length", 65536))
+ 
+ 
+-@overload
+-def new_conn(config: ClientConfig, aio: Literal[False]) -> grpc.Channel: ...
++class ReceiverScopeError(Exception):
++    def __init__(self):
++        super().__init__("Receiver channel scope unavailable or unsettled")
+ 
+ 
+-@overload
+-def new_conn(config: ClientConfig, aio: Literal[True]) -> grpc.aio.Channel: ...
++class ReceiverResources:
++    def __init__(self, *, sync_constructor=None, async_constructor=None, close_seconds=1):
++        if type(close_seconds) not in (int, float) or not 0 < close_seconds <= 5:
++            raise ReceiverScopeError()
++        self.pid = os.getpid()
++        self.sync_constructor = sync_constructor
++        self.async_constructor = async_constructor
++        self.close_seconds = close_seconds
++        self.resources = []
++        self.unresolved = []
++        self.unresolved_tasks = ()
++        self._task_resources = {}
++        self._attempted = set()
++        self.closed = False
++        self._token = None
++        self._closing = None
++
++    def __reduce__(self):
++        raise ReceiverScopeError()  # Never pickle native handles or parent scope.
++
++    def __enter__(self):
++        if self.pid != os.getpid() or self.closed or _SCOPE.get() is not None:
++            raise ReceiverScopeError()
++        self._token = _SCOPE.set(self)
++        return self
++
++    def _leave(self):
++        if self._token is not None:
++            _SCOPE.reset(self._token)
++            self._token = None
++
++    def __exit__(self, *args):
++        try:
++            self.close()
++        finally:
++            self._leave()
++
++    async def __aenter__(self):
++        return self.__enter__()
++
++    async def __aexit__(self, *args):
++        try:
++            await self.aclose()
++        finally:
++            self._leave()
++
++    def _unsettled(self, value):
++        if not any(item is value for item in self.unresolved):
++            self.unresolved.append(value)
++
++    def close(self):
++        if self.pid != os.getpid():
++            raise ReceiverScopeError()
++        # _closing owns the ONE sweep from the moment aclose schedules it,
++        # including the gap before the supervisor coroutine first runs.
++        if self._closing is not None:
++            if (not self._closing.done() or self.unresolved or
++                    any(not task.done() for task in self.unresolved_tasks)):
++                raise ReceiverScopeError()
++            self._closing.exception()
++            return
++        if self.closed:
++            if self.unresolved:
++                raise ReceiverScopeError()
++            return
++        self.closed = True
++        for index, (value, aio) in reversed(list(enumerate(self.resources))):
++            if index in self._attempted:
++                continue
++            if aio:
++                self._unsettled(value)
++                continue
++            self._attempted.add(index)
++            try:
++                value.close()
++            except Exception:
++                self._unsettled(value)
++        if self.unresolved:
++            raise ReceiverScopeError()
++
++    async def _aclose(self):
++        pending = []
++        for index, (value, aio) in reversed(list(enumerate(self.resources))):
++            if index in self._attempted:
++                continue
++            self._attempted.add(index)
++            try:
++                if aio:
++                    task = asyncio.create_task(value.close())
++                    pending.append((value, task))
++                    self._task_resources[task] = value
++                else:
++                    value.close()
++            except Exception:
++                self._unsettled(value)
++        if pending:
++            done, waiting = await asyncio.wait([task for _, task in pending], timeout=self.close_seconds)
++            for value, task in pending:
++                if task in waiting:
++                    self._unsettled(value)
++                    task.cancel()
++                    task.add_done_callback(lambda t: None if t.cancelled() else t.exception())
++                elif task.cancelled() or task.exception() is not None:
++                    self._unsettled(value)
++                else:
++                    self.unresolved = [item for item in self.unresolved if item is not value]
++            # Strong external owner retained AFTER _aclose raises. Channels and
++            # Tasks are distinct ledgers; neither substitutes for the other.
++            self.unresolved_tasks = tuple(task for _, task in pending if task in waiting)
++        if self.unresolved:
++            raise ReceiverScopeError()
++
++    async def join_unresolved(self, *, timeout=None):
++        """Bounded owner join only; never invokes a channel close a second time."""
++        if self.pid != os.getpid():
++            raise ReceiverScopeError()
++        timeout = self.close_seconds if timeout is None else timeout
++        if type(timeout) not in (int, float) or not 0 < timeout <= 5:
++            raise ReceiverScopeError()
++        if self._closing is not None and not self._closing.done():
++            raise ReceiverScopeError()
++        tasks = self.unresolved_tasks
++        if tasks:
++            done, waiting = await asyncio.wait(tasks, timeout=timeout)
++            for task in done:
++                value = self._task_resources[task]
++                if not task.cancelled() and task.exception() is None:
++                    self.unresolved = [item for item in self.unresolved if item is not value]
++            self.unresolved_tasks = tuple(task for task in tasks if task in waiting)
++        if self.unresolved or self.unresolved_tasks:
++            raise ReceiverScopeError()
++        return True
++
++    async def aclose(self):
++        if self.pid != os.getpid():
++            raise ReceiverScopeError()
++        if self._closing is None:
++            # Reject admission immediately and reserve ownership before yielding.
++            self.closed = True
++            self._closing = asyncio.create_task(self._aclose())
++        elif self._closing.done():
++            self._closing.exception()
++            if self.unresolved or self.unresolved_tasks:
++                raise ReceiverScopeError()
++            return
++        canceled = False
++        while not self._closing.done():
++            try:
++                await asyncio.shield(self._closing)
++            except asyncio.CancelledError:
++                canceled = True
++            except ReceiverScopeError:
++                break
++        if canceled:
++            raise asyncio.CancelledError()
++        return self._closing.result()
+ 
+ 
+-def new_conn(config: ClientConfig, aio: bool) -> grpc.Channel | grpc.aio.Channel:
+-    credentials = load_channel_credentials(config)
+-
+-    start = grpc if not aio else grpc.aio
+-
+-    channel_options: list[tuple[str, str | int]] = [
+-        ("grpc.max_send_message_length", config.grpc_max_send_message_length),
+-        ("grpc.max_receive_message_length", config.grpc_max_recv_message_length),
+-        ("grpc.keepalive_time_ms", 10 * 1000),
+-        ("grpc.keepalive_timeout_ms", 60 * 1000),
+-        ("grpc.client_idle_timeout_ms", 60 * 1000),
+-        ("grpc.http2.max_pings_without_data", 0),
+-        ("grpc.keepalive_permit_without_calls", 1),
+-        ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
+-    ]
+-
+-    if not credentials:
+-        conn = start.insecure_channel(
+-            target=config.host_port,
+-            options=channel_options,
+-        )
+-    else:
+-        channel_options.append(
+-            ("grpc.ssl_target_name_override", config.tls_config.server_name)
+-        )
+-
+-        conn = start.secure_channel(
+-            target=config.host_port,
+-            credentials=credentials,
+-            options=channel_options,
+-        )
+-
+-    return cast(
+-        grpc.Channel | grpc.aio.Channel,
+-        conn,
+-    )
++def new_conn(config: ClientConfig, aio: bool):
++    scope = _SCOPE.get()
++    if (scope is None or scope.pid != os.getpid() or scope.closed or type(aio) is not bool or
++        config.host_port != "127.0.0.1:7077" or config.server_url != "http://127.0.0.1:8888" or
++        config.tls_config.strategy != "none" or len(scope.resources) >= 16):
++        raise ReceiverScopeError()
++    constructor = scope.async_constructor if aio else scope.sync_constructor
++    if constructor is None:
++        import grpc  # Explicit later invocation only; no ambient proxy/retries.
++        constructor = grpc.aio.insecure_channel if aio else grpc.insecure_channel
++    try:
++        channel = constructor(target=config.host_port, options=OPTIONS, interceptors=())
++    except Exception:
++        raise ReceiverScopeError() from None
++    scope.resources.append((channel, aio))
++    return channel
