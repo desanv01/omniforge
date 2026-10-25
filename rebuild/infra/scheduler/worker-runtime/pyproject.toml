@@ -1,0 +1,15 @@
+[project]
+name = "omniforge-worker-runtime"
+version = "0.1.0"
+description = "Isolated dependency bundle for the later Linux worker proof"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "hatchet-sdk==1.41.1",
+  "sqlalchemy==2.1.6",
+  "psycopg[binary]==3.3.6",
+  "pydantic==2.14.1",
+  "fastapi==0.161.1",
+]
+
+[tool.uv]
+package = false

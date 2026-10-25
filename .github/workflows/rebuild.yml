@@ -8,6 +8,29 @@ on:
 permissions:
   contents: read
 jobs:
+  worker-dependency-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: rebuild/infra/scheduler/worker-runtime
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.11.25'
+          python-version: '3.11.15'
+          working-directory: rebuild/infra/scheduler/worker-runtime
+          enable-cache: false
+      - name: Install pinned resolver Python explicitly
+        run: uv python install 3.11.15
+      - name: Check combined worker lock without installing dependencies
+        run: uv lock --check --python 3.11.15
+      - name: Check hashed requirements export without building an image
+        shell: bash
+        run: |
+          uv export --locked --no-config --format requirements-txt --no-dev --no-emit-project --no-header --output-file "$RUNNER_TEMP/omniforge-worker-requirements.txt"
+          diff -u requirements.txt "$RUNNER_TEMP/omniforge-worker-requirements.txt"
   windows-contract:
     runs-on: windows-latest
     timeout-minutes: 10
