@@ -382,7 +382,11 @@ class CoreCancellationProof(unittest.TestCase):
         rendered = self.client.get(f"/api/v1/runs/{data[0]}",headers=self.auth).text
         self.assertNotIn(str(credential.secret),rendered)
         self.assertNotIn("cleanup_credential_hash",rendered)
-        self.error(self.client.get(f"/api/v1/runs/{data[0]}/events",headers={**self.auth,"Accept":"text/event-stream"}),501)
+        stream = self.client.get(f"/api/v1/runs/{data[0]}/events",params={"limit":1},headers={**self.auth,"Accept":"text/event-stream"})
+        self.assertEqual(stream.status_code,200)
+        self.assertTrue(stream.headers["content-type"].startswith("text/event-stream"))
+        self.assertIn("id: 1\n",stream.text)
+        self.assertEqual(json.loads(next(line[6:] for line in stream.text.splitlines() if line.startswith("data: ")))["sequence"],1)
         port = StopPort(data[1].binding,data[6])
         driver = cancel.AsyncCancellationDispatcher(self.app.state.engine,port,{data[0]:data[1]})
         if self.baseline[0]:

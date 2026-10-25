@@ -108,6 +108,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_delivery -v
       - name: Check active cancellation and cleanup receipts with injected scheduler
         run: uv run --locked --no-sync python -B -m unittest tests.integration.scheduler.core_cancellation -v
+      - name: Check authenticated event streams and physical read settlement
+        run: uv run --locked --no-sync python -B -m tests.integration.core.streaming_runner
   generated-client:
     runs-on: ubuntu-latest
     timeout-minutes: 10

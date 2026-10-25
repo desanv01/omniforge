@@ -26,14 +26,16 @@ from packages.contracts.evidence.capture import parse_capture
 from services.api.evidence_access import bind_read_range
 from services.api.runs.routes import RunBindings, build_router
 from services.api.profiles.routes import ProfileBindings, build_router as profile_router
+from services.api.streams import PrincipalContext, StreamService
 
 bearer = HTTPBearer(auto_error=False)
 
 
-def create_app(settings=None):
+def create_app(settings=None, *, stream_policy=None):
     @asynccontextmanager
     async def lifespan(app):
         yield
+        await app.state.event_streams.aclose()
         if app.state.engine:
             app.state.engine.dispose()
 
@@ -87,7 +89,7 @@ def create_app(settings=None):
             raise Problem(503, "core_unconfigured", "storage", "Core is not configured", True)
         return app.state.engine
 
-    def principal(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    def event_principal(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
         if credentials is None or credentials.scheme.lower() != "bearer" or len(credentials.credentials) > 256:
             raise HTTPException(401, headers={"WWW-Authenticate": "Bearer"})
         token_hash = hashlib.sha256(credentials.credentials.encode()).hexdigest()
@@ -95,7 +97,10 @@ def create_app(settings=None):
             principal_id = conn.execute(text("SELECT id FROM principals WHERE token_hash=:hash"), {"hash": token_hash}).scalar_one_or_none()
         if principal_id is None:
             raise HTTPException(401, headers={"WWW-Authenticate": "Bearer"})
-        return principal_id
+        return PrincipalContext(principal_id, token_hash)
+
+    def principal(context=Depends(event_principal)):
+        return context.principal_id
 
     def require_grant(conn, principal_id, case_id, write=False):
         allowed = conn.execute(text("SELECT can_write FROM case_grants WHERE principal_id=:p AND case_id=:c"), {"p": principal_id, "c": case_id}).scalar_one_or_none()
@@ -267,7 +272,11 @@ def create_app(settings=None):
             "X-End-Byte": str(end_byte), "X-Total-Bytes": str(item["bytes"]),
         })
 
-    app.include_router(build_router(RunBindings(engine, principal, require_grant, idem, save_idem)))
+    from services.api.runs.repository import read_stream_page
+    app.state.event_streams = StreamService(engine, read_stream_page, policy=stream_policy)
+    app.include_router(build_router(RunBindings(engine, principal, require_grant, idem, save_idem,
+                                               event_principal=event_principal,
+                                               stream_events=app.state.event_streams.open)))
     app.include_router(profile_router(ProfileBindings(engine, principal, idem, save_idem)))
     return app
 

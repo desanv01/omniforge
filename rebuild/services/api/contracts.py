@@ -102,6 +102,7 @@ ERROR_RESPONSES = {
         401: "Bearer authentication required", 403: "Case grant required", 404: "Resource not found",
         405: "Method not allowed", 409: "Idempotency or revision conflict", 413: "Upload limit exceeded",
         415: "Unsupported media type", 422: "Sanitized request validation error",
+        429: "Stream concurrency limit reached",
         500: "Sanitized internal error", 501: "Requested capability is unsupported",
         503: "Dependency or publication unavailable",
     }.items()

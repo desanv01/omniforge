@@ -1,10 +1,12 @@
 """B1 router binding to the existing trusted core authority and transaction seam."""
 from dataclasses import dataclass
+import re
 from typing import Callable
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from services.api.db import digest
 from services.api.errors import Problem
@@ -19,6 +21,32 @@ class RunBindings:
     require_grant: Callable
     idem: Callable
     save_idem: Callable
+    event_principal: Callable | None = None
+    stream_events: Callable | None = None
+
+
+def accepts_sse(accept):
+    """Specific q=0 excludes a range; generic wildcards retain JSON defaults."""
+    if type(accept) is not str:
+        return False
+    ranges = {}
+    for part in accept.lower().split(","):
+        pieces = [p.strip() for p in part.split(";")]
+        media, quality = pieces[0], 1.0
+        weights = []
+        for parameter in pieces[1:]:
+            name, separator, value = parameter.partition("=")
+            if name.strip() == "q":
+                weights.append(value.strip() if separator else "")
+        if weights:
+            value = weights[0]
+            quality = float(value) if len(weights) == 1 and re.fullmatch(r"(?:0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)", value) else 0.0
+        ranges[media] = max(ranges.get(media, 0.0), quality)
+    if "text/event-stream" not in ranges and "text/*" not in ranges:
+        return False
+    sse = ranges.get("text/event-stream", ranges.get("text/*", 0.0))
+    json_quality = ranges.get("application/json", ranges.get("application/*", ranges.get("*/*", 0.0)))
+    return sse > 0 and sse >= json_quality
 
 
 def cursor(after, last):
@@ -79,16 +107,23 @@ def build_router(bindings: RunBindings):
             bindings.save_idem(conn, principal_id, operation, key, fingerprint, result, 200)
         return result
 
-    @router.get("/api/v1/runs/{run_id}/events", response_model=RunEventPage, operation_id="list_run_events")
-    def get_events(run_id: UUID, principal_id=Depends(bindings.principal),
+    @router.get("/api/v1/runs/{run_id}/events", response_model=RunEventPage, operation_id="list_run_events",
+                responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}}})
+    async def get_events(request: Request, run_id: UUID, identity=Depends(bindings.event_principal or bindings.principal),
                    after: str | None = Query(default=None, max_length=19),
                    limit: int = Query(default=100, ge=1, le=100),
                    last: str | None = Header(default=None, alias="Last-Event-ID", max_length=19),
                    accept: str | None = Header(default=None, alias="Accept", max_length=256)):
-        with bindings.engine().connect() as conn:
-            row = repository.authorized_run(conn, principal_id, run_id)
-            if accept and any(part.split(";", 1)[0].strip().lower() == "text/event-stream" for part in accept.split(",")):
-                raise Problem(501, "live_events_unsupported", "unsupported", "Live event streaming is not implemented")
-            return repository.replay(conn, row, cursor(after, last), limit)
+        after_value = cursor(after, last)
+        if accepts_sse(accept):
+            if bindings.event_principal is None or bindings.stream_events is None:
+                raise Problem(503, "stream_unavailable", "storage", "Run streaming unavailable", True)
+            return await bindings.stream_events(request, identity, run_id, after_value, limit)
+        principal_id = identity if type(identity) is UUID else identity.principal_id
+        def read_json():
+            with bindings.engine().connect() as conn:
+                row = repository.authorized_run(conn, principal_id, run_id)
+                return repository.replay(conn, row, after_value, limit)
+        return await run_in_threadpool(read_json)
 
     return router
