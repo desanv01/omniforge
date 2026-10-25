@@ -837,6 +837,10 @@ export type GetArtifactAssociationErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -916,6 +920,10 @@ export type ReadArtifactRangeErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -980,6 +988,10 @@ export type GetCapabilitiesErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */
@@ -1055,6 +1067,10 @@ export type ListCasesErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -1126,6 +1142,10 @@ export type CreateCaseErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -1195,6 +1215,10 @@ export type GetCaseErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */
@@ -1274,6 +1298,10 @@ export type ListCaseArtifactsErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */
@@ -1362,6 +1390,10 @@ export type UploadArtifactErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -1445,6 +1477,10 @@ export type ListProviderProfilesErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -1521,6 +1557,10 @@ export type CreateProviderProfileErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -1594,6 +1634,10 @@ export type GetProviderProfileErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */
@@ -1675,6 +1719,10 @@ export type UpdateProviderProfileErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -1748,6 +1796,10 @@ export type GetProviderProfileDiagnosticsErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */
@@ -1825,6 +1877,10 @@ export type CreateRunErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -1894,6 +1950,10 @@ export type GetRunErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */
@@ -1970,6 +2030,10 @@ export type CancelRunErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */
@@ -2060,6 +2124,10 @@ export type ListRunEventsErrors = {
      */
     422: ErrorEnvelope;
     /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
+    /**
      * Sanitized internal error
      */
     500: ErrorEnvelope;
@@ -2124,6 +2192,10 @@ export type GetSystemHealthErrors = {
      * Sanitized request validation error
      */
     422: ErrorEnvelope;
+    /**
+     * Stream concurrency limit reached
+     */
+    429: ErrorEnvelope;
     /**
      * Sanitized internal error
      */

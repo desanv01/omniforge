@@ -1577,6 +1577,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -1863,6 +1881,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -2085,6 +2121,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {
@@ -2356,6 +2410,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -2608,6 +2680,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -2842,6 +2932,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {
@@ -3114,6 +3222,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {
@@ -3431,6 +3557,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -3703,6 +3847,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -3965,6 +4127,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -4209,6 +4389,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {
@@ -4490,6 +4688,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -4734,6 +4950,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {
@@ -5007,6 +5241,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -5241,6 +5493,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {
@@ -5514,6 +5784,24 @@
               }
             }
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "content": {
               "application/json": {
@@ -5661,6 +5949,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RunEventPage"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -5811,6 +6104,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {
@@ -6042,6 +6353,24 @@
               }
             },
             "description": "Sanitized request validation error",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Stream concurrency limit reached",
             "headers": {
               "X-Request-ID": {
                 "schema": {

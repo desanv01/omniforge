@@ -539,3 +539,63 @@ can retain unmeasured synthetic fixture counts as null, alongside existing known
 usage; this is not paid Run support or accounting. No native scheduler/process cleanup,
 OS credentials, provider use, SSE or worker image/runtime is proved by injected tests.
 SSE B3B3 and native B3C remain subsequent gates.
+
+### OF-013-B3B3 bounded authenticated SSE
+
+The existing events endpoint keeps JSON RunEventPage as its default and negotiates
+text/event-stream using media specificity/quality. An exact SSE;q=0 never opts in;
+wildcard alone keeps JSON. Invalid/conflicting/future cursors and unavailable or
+unauthorized Runs reject with a safe error before stream headers. No retention
+deletion exists and no expired cursor is invented. JSON cursor/page behavior stays
+compatible. For SSE, the existing positive query limit caps total events on that
+connection, at most100, rather than allowing an unbounded response.
+
+The server binds principal UUID and bearer SHA256 digest in a frozen internal
+context; other route dependencies still return UUID. It never persists/logs the
+raw bearer. Exact current digest/principal and current case read grant are checked
+on connect/reconnect and before every batch. Token rotation/deletion or revoked
+case authority closes the stream. Already-authorized buffered bytes cannot be
+recalled; this is a batch/check boundary, not instant global revocation.
+
+Frames have persisted per-Run sequence as id, event:run_event and one escaped JSON
+data line. Connected/heartbeat comments carry no id. Client commits a cursor only
+after a complete blank-line-delimited event and reconnects/deduplicates by Run and
+sequence. No synthetic success or terminal event is produced on stream closure.
+An incomplete timed-out frame does not advance the client's committed cursor.
+
+Default bounds are250ms poll,5s heartbeat,10events/batch,100events/1MiB/30s per
+connection,2 per principal and8 per process. Limit/byte/time termination changes
+no Run state or output. Concurrency429 is safe/retryable. Reservations occur at
+ASGI response entry before headers and release in finally; an abandoned response
+object holds no slot. The total deadline covers send/backpressure/waits, not just
+generator iteration. Response tasks join/cancel on termination/disconnect/error.
+
+Short bounded read transactions close before any response send or wait. Streaming
+never writes events, cancellation state or any application table. No migration,
+dependency, UI/native worker/provider/enrollment change or readiness claim follows.
+Controlled-ASGI limit/backpressure evidence and real socket incremental/disconnect
+evidence are separate proofs; buffering TestClient is compatibility evidence only.
+Native scheduler/process gate B3C remains subsequent.
+
+The physical SQL read lifecycle is separately supervised. Before scheduling any
+read, including pre-header validation, a process-wide nonwaiting admission budget
+allows at most8 outstanding jobs across service instances. One8-worker executor
+has no unbounded replacement/queued work. Each service lazily owns a dedicated
+read engine (pool8/nooverflow/50ms checkout/no preping/1s local connect setting).
+Server statement/lock settings begin at250ms and are clamped to the absolute
+remaining wire budget before every replay statement. Those settings are not a
+hard aggregate network/OS deadline.
+
+Cancellation shields/joins the actual physical Future; repeated async cancellation
+cannot release read permits or the response slot before its connection returns.
+Shutdown stops admission, drains tracked jobs and only then disposes its engine.
+Private snapshots distinguish active, pending/admitted, checked-out and global
+read counts. No public diagnostic endpoint or token is added.
+
+The30s limit is the wire-emission budget. A separate1.5s healthy-local settlement
+target was measured for the focused cancellation proof; it is not a guaranteed
+OS thread termination bound. If a native operation unexpectedly stalls longer,
+ownership remains visibly counted/fail-closed until actual completion rather than
+claiming cleanup or admitting unbounded replacement jobs. Guaranteed hard kill
+would need separately reviewed cancellable transport/process isolation. No such
+guarantee or native process proof is claimed here.

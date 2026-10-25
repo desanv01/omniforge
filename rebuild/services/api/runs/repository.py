@@ -13,7 +13,7 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException
 
 from services.api.errors import Problem
-from services.api.runs.contracts import InputRef, InputSnapshot, Run, RunEvent, UnusedUsage
+from services.api.runs.contracts import InputRef, InputSnapshot, Run, RunEvent, RunEventPage, UnusedUsage
 
 
 def encode(value):
@@ -130,6 +130,22 @@ def replay(conn, row, after, limit):
     items = [RunEvent.model_validate(dict(event)) for event in rows[:limit]]
     return {"schema_version": 1, "run_id": row["id"], "items": items,
             "next_after": items[-1].sequence if items else after, "has_more": len(rows) > limit}
+
+
+def read_stream_page(conn, principal_id, token_digest, run_id, after, limit):
+    """Read-only batch. Caller closes this connection before a send or wait."""
+    if (type(principal_id) is not UUID or type(token_digest) is not str
+        or re.fullmatch(r"[0-9a-f]{64}", token_digest) is None):
+        raise HTTPException(401, headers={"WWW-Authenticate": "Bearer"})
+    present = conn.execute(text("SELECT id FROM principals WHERE id=:p AND token_hash=:hash"),
+                           {"p": principal_id, "hash": token_digest}).scalar_one_or_none()
+    if present is None:
+        raise HTTPException(401, headers={"WWW-Authenticate": "Bearer"})
+    if (type(limit) is not int or not 1 <= limit <= 10 or type(after) is not int
+        or not 0 <= after <= 9223372036854775807):
+        raise Problem(422, "invalid_event_cursor", "validation", "Invalid bounded stream page")
+    row = authorized_run(conn, principal_id, run_id)
+    return RunEventPage.model_validate(replay(conn, row, after, limit))
 
 
 @dataclass(frozen=True)

@@ -211,7 +211,11 @@ class RunJournalProof(unittest.TestCase):
         for params in ({"after": -1}, {"after": "x"}, {"after": "1.0"}, {"after": "1e0"}, {"limit": 101}):
             self.error(self.client.get(path, params=params, headers=self.auth), 422)
         self.error(self.client.get(path, headers={**self.auth, "Last-Event-ID": "+1"}), 422)
-        self.error(self.client.get(path, headers={**self.auth, "Accept": "text/event-stream"}), 501)
+        stream = self.client.get(path, params={"limit": 1}, headers={**self.auth, "Accept": "text/event-stream"})
+        self.assertEqual(stream.status_code, 200)
+        self.assertTrue(stream.headers["content-type"].startswith("text/event-stream"))
+        self.assertIn("id: 1\n", stream.text)
+        self.assertEqual(json.loads(next(line[6:] for line in stream.text.splitlines() if line.startswith("data: ")))["sequence"], 1)
         fresh = create_app(self.settings)
         with TestClient(fresh, raise_server_exceptions=False) as client:
             self.assertEqual(client.get(path, headers=self.auth).json()["items"][-1]["sequence"], 3)
