@@ -1,7 +1,7 @@
 {
   "distribution": "hatchet-sdk",
   "version": "1.41.1",
-  "stage": "A-config-connection-only",
+  "stage": "B-config-connection-rpc-stream-partial",
   "license_metadata": "MIT",
   "files": {
     "hatchet_sdk/config.py": {
@@ -13,6 +13,21 @@
       "upstream_sha256": "9fa19c73de30e64150ee22dc80e21bec2c1e2f5ffed0d55ec8318b8ec96fb759",
       "upstream_lf_sha256": "9fa19c73de30e64150ee22dc80e21bec2c1e2f5ffed0d55ec8318b8ec96fb759",
       "derivative_sha256": "92460665b88db933efc08f382c8aa30b7be7ed6e1b3b8da9af7a671f2d1be8f9"
+    },
+    "hatchet_sdk/clients/dispatcher/dispatcher.py": {
+      "upstream_sha256": "c572344f1cf07495a0c2d2daf254bb5264ec5334b165d3b88c5a5f89be46051a",
+      "upstream_lf_sha256": "c572344f1cf07495a0c2d2daf254bb5264ec5334b165d3b88c5a5f89be46051a",
+      "derivative_sha256": "4516ec1fd7e7c9f0ecf30b90fd3be474ea11de93f6c3ff322d00f65990038e9e"
+    },
+    "hatchet_sdk/clients/dispatcher/action_listener.py": {
+      "upstream_sha256": "6f34e777415482ed6ad060de3c4ab55ca147b6ad9b997fe6ecaa6b6a13c666f6",
+      "upstream_lf_sha256": "6f34e777415482ed6ad060de3c4ab55ca147b6ad9b997fe6ecaa6b6a13c666f6",
+      "derivative_sha256": "5e3e2402d1c72511a1998367ae7016bc3ffe743ab444ce8b9a7bd3e37b8adc0b"
+    },
+    "hatchet_sdk/clients/admin.py": {
+      "upstream_sha256": "c1878787b59a78288ea92fba1010d1bf524d7b1cc54c8bda626298def34e4d65",
+      "upstream_lf_sha256": "c1878787b59a78288ea92fba1010d1bf524d7b1cc54c8bda626298def34e4d65",
+      "derivative_sha256": "86283c077515e88af4173c067670f7f74c50b450438f56e20fb75f8c37b63c6c"
     }
   },
   "upstream_provenance": {

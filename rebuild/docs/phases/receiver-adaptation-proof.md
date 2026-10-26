@@ -1,4 +1,40 @@
-# Receiver derivative Stage A proof
+# Receiver derivative Stage B proof (partial)
+
+Five-file deterministic overlay for SDK1.41.1: accepted Stage A config/connection
+bytes plus dispatcher, action listener and used admin workflow registration.
+No installed SDK, application default, lock or image is changed. UnsupportedReceiver
+remains correct. Stage A results below are historical, not a new native proof.
+
+Actual GetVersion/Register/PutWorkflow timeout10s and single attempt; heartbeat/
+unsubscribe5s; explicit listener lifetime1..60s before channel/registration, with
+one stream/channel and no hidden reconnect, retry-reset or backoff. Valid action
+mapping and UNIMPLEMENTED version compatibility remain. Selected failure logs use
+fixed codes. Child/parent upstream raw logging is not yet addressed.
+
+Owned read cleanup waits250ms and strongly retains resistant tasks for explicit
+bounded join, including repeated cancellation. No channel close is issued here;
+Stage A owns that. No native physical cleanup is inferred from fake cancellation.
+Existing heartbeat/unregister lifecycle, child STOP_LOOP, action-event retries and
+REST shutdown need later reviewed source stages. No whole-worker termination,
+single-delivery, native/role/provider/enrollment or Phase1 completion claim.
+
+Validation loads actual disposable derivative modules with a fake module graph;
+all RPC/channel/stream seams are fakes. Initial7checks failed in common fake setup
+(annotation stub lacked nested types); one setup correction exposed an actual
+generator mapping indentation error. That loop was stopped; an author-script
+encoding error prevented the first correction, and a bounded retry ended at20s.
+After UTF8 correction,7checks passed in2.626s. Added mapping/cancellation/applicator
+cases passed11checks in4.335s. V1 affected-module receipt:26checks PASS in13.237s after the final read-task
+exception observation guard;13new checks separately PASS in5.502s before that
+aggregate. Earlier26checks PASS in15.394s preceded the final guard.
+CI invocation: `python -B -m unittest discover -s tests/contracts/scheduler
+-p "test_receiver_adaptation*.py" -v` from the rebuild root, using the pinned
+dependency environment. Local runs add a30s faulthandler process deadline.
+
+No actual SDK/client/network/process/service construction, install or image build
+occurred. Temporary test copies contain only allowlisted source and metadata.
+
+# Historical Stage A proof
 
 This is a source-only pinned derivative artifact. Exactly two upstream files are
 eligible: SDK1.41.1 config.py and connection.py. A deterministic applicator validates
@@ -55,3 +91,27 @@ entry, hard-coded RPC/listener/event retries, PutWorkflow deadline, REST pool/pr
 and full physical shutdown remain later explicitly scoped derivative stages.
 Current application UnsupportedReceiver remains correct. Independent review and
 Main delivery are required before any new-image application or native invocation.
+
+## Independent review correction (Stage B v2)
+
+B found two defects despite v1's actual26-pass result: normal payload decode still
+logged/fell back to empty input, and the three selected unary methods propagated
+raw RPC exceptions. The old malformed fake could fail later on missing fields,
+and its logger omitted traceback capture. V1 evidence remains valid only for its
+assertions and does not override these findings.
+
+Normal decode now fails closed. Negative JSON/schema cases share the complete
+positive message skeleton, mutate only payload and assert exact payload_invalid,
+no Action, one stream cancellation and no raw markers/exception logging. The fake
+logger records actual formatted tracebacks if its exception method is called.
+Selected unary errors are fixed ReceiverRpcError values raised outside the upstream
+handler (context/cause both None); success identity, UNIMPLEMENTED, one attempt,
+actual deadlines and cancellation are preserved. Sensitive detail/token markers
+are absent from selected error serialization, formatted exception and captured logs.
+
+Four affected cases passed initially in1.218s. After reading B's final report,
+schema-invalid validation and traceback logger capture strengthened the fixtures;
+FINAL focused4cases PASS in1.154s. New module now has14cases, with the same prior
+StageA13cases retained; no corrected27case aggregate is claimed or locally rerun.
+Main's hosted intended-head discovery uses the same test_receiver_adaptation*.py
+command above. No native/runtime operation or additional upstream file was added.

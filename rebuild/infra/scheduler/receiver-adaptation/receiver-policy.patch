@@ -419,3 +419,709 @@
 +        raise ReceiverScopeError() from None
 +    scope.resources.append((channel, aio))
 +    return channel
+--- a/hatchet_sdk/clients/dispatcher/dispatcher.py
++++ b/hatchet_sdk/clients/dispatcher/dispatcher.py
+@@ -1,3 +1,4 @@
++import asyncio
+ import platform
+ from importlib.metadata import version
+ from sys import version_info
+@@ -37,7 +38,11 @@
+ from hatchet_sdk.types.labels import WorkerLabel
+ from hatchet_sdk.utils.api_auth import create_authorization_header
+ 
+-DEFAULT_REGISTER_TIMEOUT = 30
++class ReceiverRpcError(RuntimeError):
++    """Fixed selected-RPC diagnostic with no retained upstream exception."""
++
++
++DEFAULT_REGISTER_TIMEOUT = 10
+ 
+ 
+ class DispatcherClient:
+@@ -73,68 +78,65 @@
+         slot_config: dict[str, int],
+         labels: list[WorkerLabel],
+     ) -> ActionListener:
+-        aio_client = self._get_or_create_aio_client()
+-
+-        proto_labels: dict[str, WorkerLabels] = {
+-            label.key: label.to_proto() for label in labels if label.key is not None
+-        }
+-        for key, value in self.config.worker_preset_labels.items():
+-            proto_labels[key] = WorkerLabels(str_value=str(value))
+-
+-        response = cast(
+-            WorkerRegisterResponse,
+-            # fixme: figure out how to get typing right here
+-            await aio_client.Register(
+-                WorkerRegisterRequest(
+-                    worker_name=worker_name,
+-                    actions=actions,
+-                    services=services,
+-                    labels=proto_labels,
+-                    slot_config=slot_config,
+-                    runtime_info=RuntimeInfo(
+-                        sdk_version=version("hatchet_sdk"),
+-                        language=SDKS.PYTHON,
+-                        language_version=f"{version_info.major}.{version_info.minor}.{version_info.micro}",
+-                        os=platform.system().lower(),
++        ActionListener.validate_timeout(self.config)
++        try:
++            aio_client = self._get_or_create_aio_client()
++
++            proto_labels: dict[str, WorkerLabels] = {
++                label.key: label.to_proto() for label in labels if label.key is not None
++            }
++            for key, value in self.config.worker_preset_labels.items():
++                proto_labels[key] = WorkerLabels(str_value=str(value))
++
++            response = cast(
++                WorkerRegisterResponse,
++                # fixme: figure out how to get typing right here
++                await aio_client.Register(
++                    WorkerRegisterRequest(
++                        worker_name=worker_name,
++                        actions=actions,
++                        services=services,
++                        labels=proto_labels,
++                        slot_config=slot_config,
++                        runtime_info=RuntimeInfo(
++                            sdk_version=version("hatchet_sdk"),
++                            language=SDKS.PYTHON,
++                            language_version=f"{version_info.major}.{version_info.minor}.{version_info.micro}",
++                            os=platform.system().lower(),
++                        ),
+                     ),
+-                ),
+-                timeout=DEFAULT_REGISTER_TIMEOUT,
+-                metadata=create_authorization_header(self.token),
+-            ),
+-        )
+-
+-        return ActionListener(self.config, response.worker_id)
+-
+-    @tenacity.retry(
+-        reraise=True,
+-        wait=tenacity.wait_exponential_jitter(initial=0.5, max=5),
+-        stop=tenacity.stop_after_attempt(3),
+-        before_sleep=tenacity_before_sleep,
+-        retry=tenacity.retry_if_exception(tenacity_should_retry),
+-    )
+-    async def get_version(self) -> str | None:
+-        """Call GetVersion RPC. Returns the engine semantic version string,
+-        or ``None`` if the engine is too old to support GetVersion.
+-
+-        Retries transient gRPC errors up to 3 times with exponential backoff.
+-        """
+-        aio_client = self._get_or_create_aio_client()
+-
+-        try:
+-            response = cast(
+-                GetVersionResponse,
+-                await aio_client.GetVersion(  # type: ignore
+-                    GetVersionRequest(),
+                     timeout=DEFAULT_REGISTER_TIMEOUT,
+                     metadata=create_authorization_header(self.token),
+                 ),
+             )
+-        except grpc.RpcError as e:
+-            if e.code() == grpc.StatusCode.UNIMPLEMENTED:
++
++            return ActionListener(self.config, response.worker_id)
++        except asyncio.CancelledError:
++            raise
++        except Exception:
++            pass
++        raise ReceiverRpcError("worker_register_failed")
++
++    async def get_version(self) -> str | None:
++        """Call GetVersion RPC. Returns the engine semantic version string,
++        or ``None`` if the engine is too old to support GetVersion.
++
++        One bounded RPC attempt; no automatic retry.
++        """
++        try:
++            aio_client = self._get_or_create_aio_client()
++            response = await aio_client.GetVersion(
++                GetVersionRequest(), timeout=DEFAULT_REGISTER_TIMEOUT,
++                metadata=create_authorization_header(self.token))
++            return response.version
++        except asyncio.CancelledError:
++            raise
++        except grpc.RpcError as error:
++            if error.code() == grpc.StatusCode.UNIMPLEMENTED:
+                 return None
+-            raise
+-
+-        return response.version
++        except Exception:
++            pass
++        raise ReceiverRpcError("version_failed")
+ 
+     async def send_step_action_event(
+         self,
+--- a/hatchet_sdk/clients/dispatcher/action_listener.py
++++ b/hatchet_sdk/clients/dispatcher/action_listener.py
+@@ -36,12 +36,16 @@
+ )
+ from hatchet_sdk.runnables.types import BatchMemberId
+ from hatchet_sdk.utils.api_auth import create_authorization_header
+-from hatchet_sdk.utils.backoff import exp_backoff_sleep
+ from hatchet_sdk.utils.proto_enums import convert_proto_enum_to_python
+ from hatchet_sdk.utils.typing import JSONSerializableMapping
+ 
+ DEFAULT_ACTION_TIMEOUT = 600  # seconds
+-DEFAULT_ACTION_LISTENER_RETRY_COUNT = 15
++READ_SETTLE_SECONDS = 0.25
++
++
++class ReceiverListenerError(RuntimeError):
++    """Fixed diagnostic only; upstream bodies must not reach selected logs."""
++
+ 
+ 
+ def parse_additional_metadata(additional_metadata: str) -> JSONSerializableMapping:
+@@ -56,13 +60,20 @@
+ 
+ class ActionListener:
+     def __init__(self, config: "ClientConfig", worker_id: str) -> None:
++        self.validate_timeout(config)
+         self.config = config
+         self.worker_id = worker_id
+ 
+         self.aio_client = DispatcherStub(new_conn(self.config, True))
+         self.token = self.config.token
+ 
+-        self.retries = 0
++        self._acquired = False
++        self._iterated = False
++        self.terminal_code = None
++        self._stream = None
++        self._stream_cancelled = False
++        self._reads = set()
++        self._cancelled_reads = set()
+         self.last_heartbeat_succeeded = True
+         self.time_last_hb_succeeded = 9999999999999.0
+         self.last_connection_attempt = 0.0
+@@ -75,68 +86,74 @@
+     def is_healthy(self) -> bool:
+         return self.last_heartbeat_succeeded
+ 
+-    async def heartbeat(self) -> None:
+-        # send a heartbeat every 4 seconds
+-        heartbeat_delay = 4
+-
+-        while True:
+-            if not self.run_heartbeat:
+-                break
+-
++    @staticmethod
++    def validate_timeout(config):
++        value = config.listener_v2_timeout
++        if type(value) is not int or not 1 <= value <= 60:
++            raise ReceiverListenerError("listener_lifetime_invalid")
++
++    def _terminal(self, code):
++        if self.terminal_code is None:
++            self.terminal_code = code
++        if self.interrupt is not None:
++            self.interrupt.set()
++
++    def _cancel_stream(self):
++        if self._stream is not None and not self._stream_cancelled:
++            self._stream_cancelled = True
+             try:
+-                logger.debug("sending heartbeat")
+-                # fixme: figure out how to get typing right here
++                self._stream.cancel()
++            except Exception:
++                self._terminal("stream_cancel_failed")
++
++    @staticmethod
++    def _observe_read(task):
++        if not task.cancelled():
++            task.exception()
++
++    @property
++    def unresolved_reads(self):
++        return tuple(self._reads)
++
++    async def join_reads(self, timeout=READ_SETTLE_SECONDS):
++        if type(timeout) not in (int, float) or not 0 < timeout <= 5:
++            raise ReceiverListenerError("read_join_timeout_invalid")
++        tasks = set(self._reads)
++        if tasks:
++            done, pending = await asyncio.wait(tasks, timeout=timeout)
++            for task in done:
++                if not task.cancelled():
++                    task.exception()
++                self._reads.discard(task)
++                self._cancelled_reads.discard(task)
++            if pending:
++                raise ReceiverListenerError("reader_unresolved")
++        return True
++
++    async def _settle_reads(self):
++        for task in self._reads:
++            if not task.done() and task not in self._cancelled_reads:
++                self._cancelled_reads.add(task)
++                task.cancel()
++        await self.join_reads()
++
++    async def heartbeat(self):
++        while self.run_heartbeat:
++            try:
+                 await self.aio_client.Heartbeat(
+-                    HeartbeatRequest(
+-                        worker_id=self.worker_id,
+-                        heartbeat_at=proto_timestamp_now(),
+-                    ),
+-                    timeout=5,
+-                    metadata=create_authorization_header(self.token),
+-                )
+-
+-                if self.last_heartbeat_succeeded is False:
+-                    logger.info("action listener established")
+-
+-                now = time.time()
+-                diff = now - self.time_last_hb_succeeded
+-                if diff > heartbeat_delay + 1:
+-                    logger.warn(
+-                        f"time since last successful heartbeat: {diff:.2f}s, expects {heartbeat_delay}s"
+-                    )
+-
++                    HeartbeatRequest(worker_id=self.worker_id,
++                                     heartbeat_at=proto_timestamp_now()),
++                    timeout=5, metadata=create_authorization_header(self.token))
+                 self.last_heartbeat_succeeded = True
+-                self.time_last_hb_succeeded = now
+-                self.missed_heartbeats = 0
+-            except grpc.RpcError as e:
+-                self.missed_heartbeats = self.missed_heartbeats + 1
++                self.time_last_hb_succeeded = time.time()
++                await asyncio.sleep(4)
++            except asyncio.CancelledError:
++                raise
++            except Exception:
+                 self.last_heartbeat_succeeded = False
+-
+-                if e.code() in [
+-                    grpc.StatusCode.UNAVAILABLE,
+-                    grpc.StatusCode.FAILED_PRECONDITION,
+-                    grpc.StatusCode.CANCELLED,
+-                    grpc.StatusCode.DEADLINE_EXCEEDED,
+-                ]:
+-                    # todo case on "recvmsg:Connection reset by peer" for updates?
+-                    if self.missed_heartbeats >= 5:
+-                        # we don't reraise the error here, as we don't want to stop the heartbeat thread
+-                        logger.exception(
+-                            f"⛔️ failed heartbeat ({self.missed_heartbeats})"
+-                        )
+-                    elif self.missed_heartbeats > 1:
+-                        logger.warning(
+-                            f"failed to send heartbeat ({self.missed_heartbeats}): {e.details()}"
+-                        )
+-                else:
+-                    logger.exception("failed to send heartbeat")
+-
+-                if self.interrupt is not None:
+-                    self.interrupt.set()
+-
+-                if e.code() == grpc.StatusCode.UNIMPLEMENTED:
+-                    break
+-            await asyncio.sleep(heartbeat_delay)
++                self.run_heartbeat = False
++                self._terminal("heartbeat_failed")
++                return
+ 
+     async def start_heartbeater(self) -> None:
+         if self.heartbeat_task is not None:
+@@ -149,198 +166,153 @@
+     def __aiter__(self) -> AsyncGenerator[Action | None, None]:
+         return self._generator()
+ 
+-    async def _generator(self) -> AsyncGenerator[Action | None, None]:
+-        listener = None
+-
+-        while not self.stop_signal:
+-            if listener is not None:
+-                listener.cancel()
+-
+-            try:
+-                listener = await self.get_listen_client()
+-            except Exception:
+-                logger.info("closing action listener loop")
+-                yield None
+-
+-            try:
+-                while not self.stop_signal:
+-                    self.interrupt = ThreadSafeEvent()
+-
+-                    if listener is None:
+-                        continue
+-
+-                    t = asyncio.create_task(
+-                        read_with_interrupt(listener, self.interrupt)
++    async def _generator(self):
++        if self._iterated:
++            raise ReceiverListenerError("listener_already_iterated")
++        self._iterated = True
++        try:
++            listener = await self.get_listen_client()
++            while not self.stop_signal and self.terminal_code is None:
++                self.interrupt = ThreadSafeEvent()
++                task = asyncio.create_task(read_with_interrupt(listener, self.interrupt))
++                self._reads.add(task)
++                task.add_done_callback(self._observe_read)
++                await self.interrupt.wait()
++                if not task.done():
++                    if self.stop_signal:
++                        break
++                    raise ReceiverListenerError(self.terminal_code or "read_interrupted")
++                result = task.result()
++                self._reads.discard(task)
++                if isinstance(result, UnexpectedEOF):
++                    raise ReceiverListenerError("stream_eof")
++                assigned_action = result.data
++
++                action_type = convert_proto_enum_to_python(
++                    assigned_action.action_type,
++                    ActionType,
++                    ActionTypeProto,
++                )
++
++                batch_items: dict[BatchMemberId, BatchItemData] | None = None
++                if (
++                    action_type == ActionType.START_BATCH
++                    and assigned_action.action_payload
++                ):
++                    try:
++                        raw_items = json.loads(assigned_action.action_payload)
++                        batch_items = {
++                            k: BatchItemData.model_validate(v)
++                            for k, v in raw_items.items()
++                        }
++                    except Exception:
++                        raise ReceiverListenerError("payload_invalid") from None
++                    action_payload = ActionPayload()
++                else:
++                    try:
++                        action_payload = (
++                            ActionPayload()
++                            if not assigned_action.action_payload
++                            else ActionPayload.model_validate_json(
++                                assigned_action.action_payload
++                            )
++                        )
++                    except (ValueError, json.JSONDecodeError):
++                        action_payload = None
++                    if action_payload is None:
++                        raise ReceiverListenerError("payload_invalid")
++
++                batch_start_payload: BatchStartPayload | None = None
++                if assigned_action.batchStartPayload is not None:
++                    batch_start_payload = BatchStartPayload(
++                        expected_size=assigned_action.batchStartPayload.expectedSize,
++                        trigger_reason=assigned_action.batchStartPayload.triggerReason,
++                        trigger_time=assigned_action.batchStartPayload.triggerTime.ToDatetime(),
+                     )
+-                    await self.interrupt.wait()
+-
+-                    if not t.done():
+-                        logger.warning(
+-                            "interrupted read_with_interrupt task of action listener"
+-                        )
+-
+-                        t.cancel()
+-                        listener.cancel()
+-
+-                        break
+-
+-                    result = t.result()
+-
+-                    if isinstance(result, UnexpectedEOF):
+-                        logger.debug("handling EOF in Action Listener")
+-                        self.retries = self.retries + 1
+-                        break
+-
+-                    self.retries = 0
+-
+-                    assigned_action = result.data
+-
+-                    action_type = convert_proto_enum_to_python(
+-                        assigned_action.action_type,
+-                        ActionType,
+-                        ActionTypeProto,
+-                    )
+-
+-                    batch_items: dict[BatchMemberId, BatchItemData] | None = None
+-                    if (
+-                        action_type == ActionType.START_BATCH
+-                        and assigned_action.action_payload
+-                    ):
+-                        try:
+-                            raw_items = json.loads(assigned_action.action_payload)
+-                            batch_items = {
+-                                k: BatchItemData.model_validate(v)
+-                                for k, v in raw_items.items()
+-                            }
+-                        except Exception:
+-                            logger.exception("error decoding batch items payload")
+-                        action_payload = ActionPayload()
+-                    else:
+-                        try:
+-                            action_payload = (
+-                                ActionPayload()
+-                                if not assigned_action.action_payload
+-                                else ActionPayload.model_validate_json(
+-                                    assigned_action.action_payload
+-                                )
+-                            )
+-                        except (ValueError, json.JSONDecodeError):
+-                            logger.exception("error decoding payload")
+-                            action_payload = ActionPayload()
+-
+-                    batch_start_payload: BatchStartPayload | None = None
+-                    if assigned_action.batchStartPayload is not None:
+-                        batch_start_payload = BatchStartPayload(
+-                            expected_size=assigned_action.batchStartPayload.expectedSize,
+-                            trigger_reason=assigned_action.batchStartPayload.triggerReason,
+-                            trigger_time=assigned_action.batchStartPayload.triggerTime.ToDatetime(),
+-                        )
+-                    action = Action(
+-                        tenant_id=assigned_action.tenant_id,
+-                        worker_id=self.worker_id,
+-                        workflow_run_id=assigned_action.workflow_run_id,
+-                        job_id=assigned_action.job_id,
+-                        job_name=assigned_action.job_name,
+-                        job_run_id=assigned_action.job_run_id,
+-                        step_id=assigned_action.task_id,
+-                        step_run_id=assigned_action.task_run_external_id,
+-                        action_id=assigned_action.action_id,
+-                        step_name=assigned_action.task_name,
+-                        action_payload=action_payload,
+-                        action_type=action_type,
+-                        retry_count=assigned_action.retry_count,
+-                        additional_metadata=parse_additional_metadata(
+-                            assigned_action.additional_metadata
+-                        ),
+-                        child_workflow_index=assigned_action.child_workflow_index,
+-                        child_workflow_key=assigned_action.child_workflow_key,
+-                        parent_workflow_run_id=assigned_action.parent_workflow_run_id,
+-                        priority=assigned_action.priority,
+-                        workflow_version_id=assigned_action.workflow_version_id,
+-                        workflow_id=assigned_action.workflow_id,
+-                        durable_task_invocation_count=assigned_action.durable_task_invocation_count
+-                        or None,
+-                        triggering_event_external_id=assigned_action.triggering_event_external_id,
+-                        triggering_event_key=assigned_action.triggering_event_key,
+-                        batch_items=batch_items,
+-                        batch_id=(
+-                            assigned_action.batchId
+-                            if assigned_action.HasField("batchId")
+-                            else None
+-                        ),
+-                        batch_key=(
+-                            assigned_action.batchKey
+-                            if assigned_action.batchKey
+-                            else None
+-                        ),
+-                        batch_start=batch_start_payload,
+-                    )
+-
+-                    yield action
+-            except grpc.RpcError as e:
+-                self.last_heartbeat_succeeded = False
+-
+-                # Handle different types of errors
+-                if e.code() == grpc.StatusCode.CANCELLED:
+-                    # Context cancelled, unsubscribe and close
+-                    logger.debug("context cancelled, closing listener")
+-                elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+-                    logger.info("deadline exceeded, retrying subscription")
+-                else:
+-                    # falls through to retry
+-                    logger.debug("action listener error - reconnecting")
+-
+-                    self.retries = self.retries + 1
++                action = Action(
++                    tenant_id=assigned_action.tenant_id,
++                    worker_id=self.worker_id,
++                    workflow_run_id=assigned_action.workflow_run_id,
++                    job_id=assigned_action.job_id,
++                    job_name=assigned_action.job_name,
++                    job_run_id=assigned_action.job_run_id,
++                    step_id=assigned_action.task_id,
++                    step_run_id=assigned_action.task_run_external_id,
++                    action_id=assigned_action.action_id,
++                    step_name=assigned_action.task_name,
++                    action_payload=action_payload,
++                    action_type=action_type,
++                    retry_count=assigned_action.retry_count,
++                    additional_metadata=parse_additional_metadata(
++                        assigned_action.additional_metadata
++                    ),
++                    child_workflow_index=assigned_action.child_workflow_index,
++                    child_workflow_key=assigned_action.child_workflow_key,
++                    parent_workflow_run_id=assigned_action.parent_workflow_run_id,
++                    priority=assigned_action.priority,
++                    workflow_version_id=assigned_action.workflow_version_id,
++                    workflow_id=assigned_action.workflow_id,
++                    durable_task_invocation_count=assigned_action.durable_task_invocation_count
++                    or None,
++                    triggering_event_external_id=assigned_action.triggering_event_external_id,
++                    triggering_event_key=assigned_action.triggering_event_key,
++                    batch_items=batch_items,
++                    batch_id=(
++                        assigned_action.batchId
++                        if assigned_action.HasField("batchId")
++                        else None
++                    ),
++                    batch_key=(
++                        assigned_action.batchKey
++                        if assigned_action.batchKey
++                        else None
++                    ),
++                    batch_start=batch_start_payload,
++                )
++
++                yield action
++            if self.terminal_code is not None and not self.stop_signal:
++                raise ReceiverListenerError(self.terminal_code)
++        except asyncio.CancelledError:
++            self._terminal("listener_cancelled")
++            raise
++        except Exception as error:
++            code = str(error) if type(error) is ReceiverListenerError else "stream_failed"
++            self._terminal(code)
++            raise ReceiverListenerError(code) from None
++        finally:
++            self._cancel_stream()
++            await self._settle_reads()
++            if self.terminal_code == "stream_cancel_failed":
++                raise ReceiverListenerError("stream_cancel_failed")
+ 
+     async def get_listen_client(
+         self,
+     ) -> grpc.aio.UnaryStreamCall[WorkerListenRequest, AssignedAction]:
+-        current_time = time.time()
+-
+-        if (
+-            current_time - self.last_connection_attempt
+-            > DEFAULT_ACTION_LISTENER_RETRY_INTERVAL
+-        ):
+-            # reset retries if last connection was long lived
+-            self.retries = 0
+-
+-        if self.retries > DEFAULT_ACTION_LISTENER_RETRY_COUNT:
+-            # TODO this is the problem case...
+-            logger.error(
+-                f"could not establish action listener connection after {DEFAULT_ACTION_LISTENER_RETRY_COUNT} retries"
+-            )
+-            self.run_heartbeat = False
+-            raise Exception("retry_exhausted")
+-        if self.retries >= 1:
+-            # logger.info
+-            # if we are retrying, we wait for a bit. this should eventually be replaced with exp backoff + jitter
+-            await exp_backoff_sleep(
+-                self.retries, DEFAULT_ACTION_LISTENER_RETRY_INTERVAL
+-            )
+-
+-            logger.info(
+-                f"action listener connection interrupted, retrying... ({self.retries}/{DEFAULT_ACTION_LISTENER_RETRY_COUNT})"
+-            )
+-
+-        self.aio_client = DispatcherStub(new_conn(self.config, True))
+-
+-        listener = self.aio_client.ListenV2(
+-            WorkerListenRequest(worker_id=self.worker_id),
+-            timeout=self.config.listener_v2_timeout,
+-            metadata=create_authorization_header(self.token),
+-        )
+-
+-        await self.start_heartbeater()
+-
+-        self.last_connection_attempt = current_time
+-
+-        return cast(
+-            grpc.aio.UnaryStreamCall[WorkerListenRequest, AssignedAction], listener
+-        )
++        if self._acquired or self.stop_signal or self.terminal_code is not None:
++            raise ReceiverListenerError("listener_already_acquired")
++        self._acquired = True
++        try:
++            self._stream = self.aio_client.ListenV2(
++                WorkerListenRequest(worker_id=self.worker_id),
++                timeout=self.config.listener_v2_timeout,
++                metadata=create_authorization_header(self.token))
++            await self.start_heartbeater()
++            self.last_connection_attempt = time.time()
++            return self._stream
++        except asyncio.CancelledError:
++            self._terminal("listener_cancelled")
++            self._cancel_stream()
++            raise
++        except Exception:
++            self._terminal("stream_acquire_failed")
++            self._cancel_stream()
++            raise ReceiverListenerError("stream_acquire_failed") from None
+ 
+     def stop_stream(self) -> None:
+         """Stop reading from the action stream, without touching the heartbeat."""
+         self.stop_signal = True
++        self._cancel_stream()
+         if self.interrupt is not None:
+             self.interrupt.set()
+ 
+@@ -352,7 +324,7 @@
+         try:
+             self.unregister()
+         except Exception:
+-            logger.exception("failed to unregister")
++            logger.warning("unregister_failed")
+ 
+     def unregister(self) -> WorkerUnsubscribeRequest:
+         self.run_heartbeat = False
+--- a/hatchet_sdk/clients/admin.py
++++ b/hatchet_sdk/clients/admin.py
+@@ -132,6 +132,10 @@
+     done: bool = False
+ 
+ 
++class ReceiverRpcError(RuntimeError):
++    """Fixed selected-RPC diagnostic with no retained upstream exception."""
++
++
+ class AdminClient:
+     def __init__(
+         self,
+@@ -301,15 +305,19 @@
+         self,
+         workflow: workflow_protos.CreateWorkflowVersionRequest,
+     ) -> workflow_protos.CreateWorkflowVersionResponse:
+-        client = self._get_or_create_v1_client()
+-        put_workflow = tenacity_retry(client.PutWorkflow, self.config.tenacity)
+-        return cast(
+-            workflow_protos.CreateWorkflowVersionResponse,
+-            put_workflow(
+-                workflow,
+-                metadata=create_authorization_header(self.token),
+-            ),
+-        )
++        try:
++            client = self._get_or_create_v1_client()
++            return cast(
++                workflow_protos.CreateWorkflowVersionResponse,
++                client.PutWorkflow(
++                    workflow,
++                    timeout=10,
++                    metadata=create_authorization_header(self.token),
++                ),
++            )
++        except Exception:
++            pass
++        raise ReceiverRpcError("workflow_register_failed")
+ 
+     def put_rate_limit(
+         self,

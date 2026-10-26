@@ -1,7 +1,8 @@
-# Receiver derivative Stage A
+# Receiver derivative Stage B (partial)
 
-This source artifact changes ONLY copied `hatchet_sdk/config.py` and
-`hatchet_sdk/connection.py` from exactly1.41.1. It is not installed automatically,
+This source artifact changes five copied files from exactly1.41.1: config.py,
+connection.py, clients/dispatcher/dispatcher.py, clients/dispatcher/action_listener.py
+and clients/admin.py. The accepted Stage A config/connection output bytes are retained. It is not installed automatically,
 does not patch a running/imported SDK, and is not a runnable native receiver.
 The application's UnsupportedReceiver default remains unchanged.
 
@@ -11,11 +12,11 @@ Run the applicator with two explicit disposable paths:
 python -B apply_patch.py /disposable/upstream /new/disposable/derivative
 ```
 
-The source root must contain the two exact upstream files and the installed
+The source root must contain the five exact upstream files and the installed
 `hatchet_sdk-1.41.1.dist-info/METADATA` with matching name/version. Destination must
 be absent, separate and not an ancestor/descendant of source. The applicator checks
-both original byte hashes, exact unified-diff context and final derivative hashes
-BEFORE creating output. It writes only those two files and returns their hashes.
+all original byte hashes, exact unified-diff context and final derivative hashes
+BEFORE creating output. It writes only those five files and returns their hashes.
 The output is an overlay, not a complete installable package. Failures use a fixed
 CLI message; no force, fuzzy patch, in-place, overwrite or version fallback exists.
 Apply only to a new disposable copy or later reviewed NEW image-layer staging,
@@ -68,7 +69,41 @@ and fixed exceptions avoid vendor diagnostic echoes. A noncooperative close rema
 an explicit unresolved resource, not an instruction to kill a guessed process.
 
 Remaining stages require reviewed Worker/child scope entry and shutdown, exact
-registration deadlines, version/listener/event resend policy, used REST pool policy,
+action-event resend policy, used REST pool policy,
 native constructor, new-image identity and separately released native execution.
 This patch intentionally fails closed when those unimplemented paths lack a scope.
 No global rebinding, dependency resolution or installed source edit is used.
+
+## Stage B RPC and stream policy
+
+GetVersion, Register and PutWorkflow make one attempt with actual10s RPC deadlines.
+UNIMPLEMENTED version compatibility and successful protocol results are retained.
+Listener lifetime must be an explicit integer1..60 seconds before construction;
+ListenV2 uses that lifetime, heartbeat/unsubscribe pass5s. There is one channel
+and one stream acquisition per listener; reset/retry/backoff paths are removed.
+EOF, stream/heartbeat/decode failure are terminal with fixed diagnostics. Valid
+action mapping is preserved. Periodic successful heartbeats remain liveness calls.
+
+Read tasks are strongly owned. Cancellation/interrupt/stop/close cancels the stream
+once and waits at most250ms for reads. Resistant reads remain in unresolved_reads;
+join_reads(timeout=...) performs a later bounded join (0<timeout<=5) without reissuing
+cancel. Repeated cancellation cannot remove outstanding task ownership. The owner
+must eventually settle these tasks before closing its loop. Channel closure is
+still exclusively ReceiverResources. Stream cancellation failure is explicit.
+
+This stage does not join the existing heartbeat or await the existing synchronous
+unregister API's asynchronous call. Successful heartbeats may continue while the
+later parent drains active work. Child code still catches terminal stream errors
+and waits for parent STOP_LOOP. Event methods retain upstream retries and channel
+reset behavior; REST/parent/child scope, logs and physical shutdown remain open.
+No worker exit, event single-delivery or native readiness is claimed.
+
+### Review correction
+
+Selected GetVersion/Register/PutWorkflow failures now become fixed ReceiverRpcError
+values (version_failed, worker_register_failed, workflow_register_failed), raised
+after the upstream exception handler so neither context nor cause retains the
+upstream diagnostic. Cancellation propagates and UNIMPLEMENTED stays compatible.
+Normal malformed JSON/schema payloads fail with payload_invalid and never create
+an Action. The focused fake logger records traceback diagnostics if exception
+logging is invoked; malformed cases assert that none leaks.

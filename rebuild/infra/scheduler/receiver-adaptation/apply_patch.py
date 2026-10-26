@@ -1,11 +1,11 @@
-"""Deterministic two-file derivative applicator, never an installed SDK patcher."""
+"""Deterministic five-file derivative applicator, never an installed SDK patcher."""
 import hashlib
 import json
 from pathlib import Path
 import re
 
 
-FILES=("hatchet_sdk/config.py","hatchet_sdk/connection.py")
+FILES=('hatchet_sdk/config.py', 'hatchet_sdk/connection.py', 'hatchet_sdk/clients/dispatcher/dispatcher.py', 'hatchet_sdk/clients/dispatcher/action_listener.py', 'hatchet_sdk/clients/admin.py')
 
 
 def sha(data): return hashlib.sha256(data).hexdigest()
@@ -38,6 +38,14 @@ def patched(original,lines):
     return "".join(output).encode()
 
 
+def unique_object(pairs):
+    result={}
+    for key,value in pairs:
+        if key in result: raise ValueError("Duplicate manifest key")
+        result[key]=value
+    return result
+
+
 def apply(source,destination):
     base=Path(__file__).resolve().parent
     source=Path(source).resolve(strict=True)
@@ -48,7 +56,8 @@ def apply(source,destination):
     raw=metadata.read_bytes()
     if b"Name: hatchet-sdk\n" not in raw.replace(b"\r\n",b"\n") or b"Version: 1.41.1\n" not in raw.replace(b"\r\n",b"\n"):
         raise ValueError("Upstream version mismatch")
-    manifest=json.loads((base/"upstream-manifest.json").read_text())
+    manifest=json.loads((base/"upstream-manifest.json").read_text(),object_pairs_hook=unique_object)
+    if set(manifest["files"]) != set(FILES): raise ValueError("Manifest surface mismatch")
     patch=(base/"receiver-policy.patch").read_text(encoding="utf-8").splitlines(keepends=True)
     sections={};index=0
     while index<len(patch):
@@ -62,7 +71,7 @@ def apply(source,destination):
     results={}
     for name in FILES:
         path=source/name
-        if path.is_symlink(): raise ValueError("Upstream symlink rejected")
+        if any(part.is_symlink() for part in (path, *path.parents)) or source not in path.resolve().parents: raise ValueError("Upstream symlink rejected")
         original=path.read_bytes()
         entry=manifest["files"][name]
         if sha(original)!=entry["upstream_sha256"]: raise ValueError("Upstream hash mismatch")
@@ -70,7 +79,7 @@ def apply(source,destination):
         result=patched(normalized,sections[name])
         if sha(result)!=entry["derivative_sha256"]: raise ValueError("Derivative hash mismatch")
         results[name]=result
-    # Validate everything before creating output; copy only the exact two files.
+    # Validate everything before creating output; copy only the exact five files.
     destination.mkdir(parents=True,exist_ok=False)
     for name,data in results.items():
         path=destination/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
