@@ -80,3 +80,88 @@ inspection/no mutation and rejected-before-read host paths were verified with fa
 No actual DBAPI call/config read/env mutation occurred. The original15 aggregate
 was not repeated; the final20-case module discovery remains for intended-head CI.
 Independent B delta review and Main delivery remain required.
+
+## Actual role proof source — PREPARED / UNEXECUTED
+
+`tests/integration/core/worker_authority.py` prepares a separate, explicitly released
+actual PostgreSQL role proof. Importing it performs no I/O; it has no CLI or discovery
+path. Static AST inspection only has been performed. No actual role, password,
+config, database, native scheduler or network operation has been executed for this
+preparation. Independent review and Main's bounded execution release remain required.
+
+The complete SELECT/INSERT/UPDATE column matrix and generated non-secret GRANT SQL
+are in that module. It grants no table-wide/future-column permissions. The candidate
+is the accepted trusted development receiver: nonowner LOGIN, NOINHERIT,
+NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS, connection limit four.
+UPDATE of case_grants.can_write, artifact_associations.revision and artifacts.bytes
+is real mutation authority required for PostgreSQL FOR SHARE; this is not SQL or
+per-Run isolation. Receiver code must remain trusted. Shared PUBLIC grants are never
+revoked. Effective privileges are checked against every extant public table column;
+PUBLIC/default ACLs, TEMP and executable function metadata are reported separately.
+
+The future proof creates exactly seven fresh additive synthetic Runs, each with its
+own principal, case, grant and metadata-only input. Purposes are completion, cleanup
+after grant revocation, revoked-grant admission, changed-input admission, wrong
+registration payload, stale renewal and wrong registration context. These are a
+separate ledger from any later seven native-case Runs. Positive register/admit/renew/
+complete/cleanup calls use actual nonowner connections and injected observations;
+they prove no native execution or OS termination. Denial queries use WHERE false or
+transactional DDL rolled back even on unexpected success; sensitive rows are never
+returned, and no old row is intentionally mutated. No pending queue scan occurs.
+
+Future invocation is `execute(owner_engine=..., expected_owner=...,
+expected_cluster=..., new_secret=..., release=RELEASE, evidence=evidence)` from this module in the
+Backend-owned proof process. All values must come through the separately approved
+private runtime channel. It checks exact database/schema, cluster system identifier,
+database/table ownership, expected resources and role absence before provisioning.
+An existing role is never reset. The exclusive owner engine must have echo disabled,
+hidden parameters and bounded connection timeouts. Every owner transaction sets
+bounded statement/lock/idle timeouts. Accepted receiver construction retains the
+literal of-core-db:5432 endpoint and PG-environment rejection; no host fallback or
+SET ROLE substitutes for an actual receiver login.
+
+Required before that call: independent source review, exclusive isolated core
+runtime window, verified resource/cluster identity, approved endpoint resolution,
+fresh synthetic secret delivery and PostgreSQL password-log controls. The proof
+does not read or write a credential/config file or mount owner credentials into a
+receiver. Caller owns private receipt persistence and supplied secret retirement.
+The caller-owned evidence must be retained even on failure or interruption. It records preservation of
+all original row projection multisets across eighteen tables, catalog structure,
+seven proof identities/purposes, denials and receiver checks, pool settlement and
+role disposition. Finalization retains the new role NOLOGIN with grants/history;
+failed or uncertain provisioning/disable is reported for Main action. No rows,
+roles or resources are silently deleted, no database stop is implied, and actual
+runtime/config/native execution gates remain separate.
+
+### Interruption protocol correction — PREPARED / UNEXECUTED
+
+The caller must allocate an empty plain `evidence` dict before invoking `execute`
+and persist that same dict to the approved private receipt destination in its own
+`finally`, whether the call returns or raises any BaseException. The caller must
+catch `ProofInterrupted` at its outer control boundary, retain its `.report` (the
+same dict), and propagate a fixed interrupted outcome to Main without printing a
+traceback, exception locals, SQL parameters, DSN or secret. Ordinary operation
+errors also produce only fixed failure-stage labels. No control interruption can
+produce a passing outcome. The caller must implement receipt persistence before
+any separately released actual invocation; this source writes no receipt/config.
+
+The body and each settlement stage catch BaseException separately. Receiver pool
+inspection and disposal, confirmed-created role NOLOGIN, baseline/schema
+verification, and owner pool inspection and disposal are independent attempts.
+An interruption in one attempt records a sanitized interrupted state and allows
+the subsequent attempts to run; after settlement a sanitized ProofInterrupted
+propagates with the evidence. No automatic retry or resource reset is added.
+Provisioning and NOLOGIN commit states become unconfirmed before their respective
+transactions and confirmed only after successful transaction exit. An uncertain
+creation is reported for Main inspection rather than altering a possibly existing
+role. The seven-Run ledger is recorded before provisioning commit and baseline
+evidence is recorded before provisioning begins. Interrupted pool construction or
+disposal stays explicitly unconfirmed; disposal never claims physical connection
+termination, and NOLOGIN never claims existing sessions were terminated.
+
+These are Python control-exception boundaries, not a guarantee against repeated
+asynchronous interruption between instructions, hard kill or process/host loss.
+The caller's outer runtime controller must retain whatever private evidence is
+available, inspect unconfirmed resources and report unresolved disposition to Main.
+No actual role/runtime operation or fake runtime test has been performed by this
+source-only correction. Independent C delta review remains required.
