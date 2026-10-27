@@ -1,4 +1,4 @@
-# Receiver REST derivative REST1 (partial)
+# Receiver REST derivative REST2 (partial)
 
 This separate artifact modifies four copied `hatchet-sdk==1.41.1` files:
 features/workers.py, clients/v1/api_client.py, clients/rest/api_client.py and
@@ -83,3 +83,60 @@ worker_update method body using fake model/HTTP graphs. Run from the rebuild roo
 No real SDK import or external connection is required. Windows asyncio uses local
 socketpair IPC. Tests gate, release and join their fake threads and restrict cleanup
 to the explicitly created disposable directory.
+
+REST2 adds a separate synchronous prepared path for future C2 integration:
+
+```python
+# C2 must register and own each thread operation BEFORE starting it.
+client = workers.prepare_pause_client(owner_capture=retain_partial_client)
+# Physically join the preparation thread before launching a request thread.
+result = workers.pause_prepared(worker_id, client)
+# Physically join that request thread before launching the one cleanup sweep.
+complete = client.close()
+```
+
+`prepare_pause_client(*, owner_capture: Callable[[ApiClient], None]) -> ApiClient`
+requires a synchronous capture callback. The exact partial ApiClient already has
+an accessible REST owner, immutable snapshot and close method at capture time,
+before manager creation or later header/property initialization. The manager is
+attached to that REST owner before the manager's upstream constructor executes.
+Failed/blocked construction therefore remains observable to the capturing caller.
+Capture failure aborts before manager/request side effects. If a concrete manager
+constructor fails, its retained partial owner remains conservatively incomplete
+even if its clear method returns; that return cannot prove all init resources closed.
+Header/property failure after manager initialization also preserves the exact owner
+for the caller's later cleanup. Prepared construction does not auto-close on failure.
+
+`pause_prepared(worker_id: str, client: ApiClient) -> Worker` validates the exact
+ApiClient type, local PID, full initialization, binding to this WorkersClient by
+object identity and unclaimed/open transport state before invocation. It atomically
+claims admission once. A failed preflight still consumes that prepared claim;
+there is no automatic retry. External/unprepared, partial, foreign owner/PID,
+already used or closed clients are refused. No native handle or identity token
+is serialized. This is a local API contract, not protection against malicious
+same-process mutation of Python private attributes.
+
+The prepared request does not call client.close on success, ordinary failure or
+control interruption. Ordinary errors remain fixed safe not-sent/uncertain errors.
+The generated response read retains its existing response-close/release behavior;
+concrete pools and client sweep stay under the caller's ownership. The parent
+must physically join request execution before its one cleanup operation. Existing
+pause/aio_pause remains a separate auto-close path; its external owner_capture
+still runs after complete construction, while an internal early capture now
+retains partial construction for its own finally cleanup. BaseRestClient.client
+accepts the optional construction-only capture keyword; custom overrides must
+forward it to retain the partial-construction guarantee.
+
+Snapshots additionally expose construction_active, construction_complete,
+prepared_admission and prepared_claimed. prepared_admission becomes true only
+after all initialization succeeds and binding is installed. An early close while
+construction is active latches incomplete cleanup, never clears a concurrently
+initializing manager, and prevents successful prepared dispatch. Repeated close
+does not erase that uncertainty. No source code automatically starts a thread or
+installs a supervisor. Preparation can block in manager/config/header work;
+request and cleanup can also block. C2 must retain the exact preparation operation
+before launch, record the callback in a thread-safe local ledger, physically join
+preparation before dispatch and request before cleanup, and report unresolved
+operations at its supervisor deadline. Cancelling an asyncio observation is not
+thread completion. No event-loop synchronous constructor or Future timeout may
+be presented as a hard completion bound.

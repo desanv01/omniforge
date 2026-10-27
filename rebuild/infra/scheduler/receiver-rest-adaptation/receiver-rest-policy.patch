@@ -1,6 +1,12 @@
 --- a/hatchet_sdk/features/workers.py
 +++ b/hatchet_sdk/features/workers.py
-@@ -89,27 +89,45 @@
+@@ -1,4 +1,5 @@
+ import asyncio
++from collections.abc import Callable
+ 
+ from hatchet_sdk.clients.rest.api.worker_api import WorkerApi
+ from hatchet_sdk.clients.rest.api_client import ApiClient
+@@ -89,27 +90,102 @@
          """
          return await asyncio.to_thread(self.update, worker_id, opts)
  
@@ -13,21 +19,88 @@
 -        """
 -        with self.client() as client:
 -            return self._wa(client).worker_update(
++    def prepare_pause_client(self, *, owner_capture: Callable[[ApiClient], None]) -> ApiClient:
++        """Capture construction before manager/header work; caller owns supervision.
++
++        This synchronous preparation may block. Join its thread before dispatch.
++        On partial failure the captured client remains caller-owned for cleanup.
++        """
++        from hatchet_sdk.clients.rest.rest import ReceiverRestError
++        captured = None
++        failed = False
++        def capture(client: ApiClient) -> None:
++            nonlocal captured
++            captured = client
++            owner_capture(client)
++        try:
++            if not callable(owner_capture):
++                failed = True
++            else:
++                client = self.client(owner_capture=capture)
++                client._receiver_prepared_for = self
++        except Exception:
++            failed = True
++        if not failed:
++            return client
++        state = captured.settlement_snapshot if captured is not None else {}
++        raise ReceiverRestError("rest_not_sent", state)
++
++    def pause_prepared(self, worker_id: str, client: ApiClient) -> Worker:
++        """One request on this owner's prepared client, with NO automatic close."""
++        from hatchet_sdk.clients.rest.rest import ReceiverRestError
++        result = None
++        failed = False
++        claimed = False
++        state = {}
++        try:
++            if type(client) is not ApiClient:
++                failed = True
++            else:
++                client._claim_prepared_pause(self)
++                claimed = True
++                result = self._wa(client).worker_update(
++                    worker=worker_id,
++                    update_worker_request=UpdateWorkerRequest(isPaused=True),
++                    _request_timeout=8.0,
++                )
++                failed = result is None
++        except Exception:
++            failed = True
++        if type(client) is ApiClient:
++            state = client.settlement_snapshot
++        if not failed:
++            return result
++        code = "rest_delivery_uncertain" if claimed and state.get("request_started", False) else "rest_not_sent"
++        raise ReceiverRestError(code, state)
++
 +    def pause(self, worker_id: str, *, owner_capture=None) -> Worker:
 +        """One explicit pause attempt; capture the process-local owner before send."""
 +        from hatchet_sdk.clients.rest.rest import ReceiverRestError
 +        client = None
 +        result = None
 +        failed = False
++        def capture_partial(partial: ApiClient) -> None:
++            nonlocal client
++            client = partial
 +        try:
-+            client = self.client()
++            client = self.client(owner_capture=capture_partial)
 +            if owner_capture is not None:
 +                owner_capture(client)
 +            result = self._wa(client).worker_update(
                  worker=worker_id,
                  update_worker_request=UpdateWorkerRequest(isPaused=True),
+-            )
+-
+-    async def aio_pause(self, worker_id: str) -> Worker:
+-        """
+-        Pause a worker by its ID.
+-
+-        :param worker_id: The ID of the worker to pause.
+-        :return: The paused worker.
+-        """
+-        return await asyncio.to_thread(self.pause, worker_id)
 +                _request_timeout=8.0,
-             )
++            )
 +            if result is None:
 +                failed = True
 +        except Exception:
@@ -48,15 +121,7 @@
 +            return result
 +        # Raise outside the vendor handler: do not retain its exception chain.
 +        raise ReceiverRestError(code, state)
- 
--    async def aio_pause(self, worker_id: str) -> Worker:
--        """
--        Pause a worker by its ID.
--
--        :param worker_id: The ID of the worker to pause.
--        :return: The paused worker.
--        """
--        return await asyncio.to_thread(self.pause, worker_id)
++
 +    async def aio_pause(self, worker_id: str, *, owner_capture=None) -> Worker:
 +        """Cancellation does not prove completion of the underlying thread."""
 +        return await asyncio.to_thread(self.pause, worker_id, owner_capture=owner_capture)
@@ -65,7 +130,13 @@
          """
 --- a/hatchet_sdk/clients/v1/api_client.py
 +++ b/hatchet_sdk/clients/v1/api_client.py
-@@ -34,11 +34,15 @@
+@@ -1,4 +1,5 @@
+ from typing import ParamSpec, TypeVar
++from collections.abc import Callable
+ 
+ from hatchet_sdk.clients.rest.api_client import ApiClient
+ from hatchet_sdk.clients.rest.configuration import Configuration
+@@ -34,12 +35,16 @@
  
          self.client_config = config
          self.api_config = Configuration(
@@ -80,20 +151,84 @@
 +
          self.api_config.datetime_format = "%Y-%m-%dT%H:%M:%S.%fZ"
  
-     def client(self) -> ApiClient:
+-    def client(self) -> ApiClient:
+-        return ApiClient(self.api_config)
++    def client(self, *, owner_capture: Callable[[ApiClient], None] | None = None) -> ApiClient:
++        return ApiClient(self.api_config, owner_capture=owner_capture)
 --- a/hatchet_sdk/clients/rest/api_client.py
 +++ b/hatchet_sdk/clients/rest/api_client.py
-@@ -90,11 +90,23 @@
-         self.user_agent = "OpenAPI-Generator/1.0.0/python"
-         self.client_side_validation = configuration.client_side_validation
+@@ -11,6 +11,7 @@
+ Do not edit the class manually.
+ """  # noqa: E501
  
++from collections.abc import Callable
+ from hatchet_sdk.logger import logger
+ import datetime
+ from dateutil.parser import parse
+@@ -74,27 +75,66 @@
+     _pool = None
+ 
+     def __init__(
+-        self, configuration=None, header_name=None, header_value=None, cookie=None
++        self, configuration=None, header_name=None, header_value=None, cookie=None,
++        *, owner_capture: Callable[["ApiClient"], None] | None = None
+     ) -> None:
+         # use default configuration if none is provided
+         if configuration is None:
+             configuration = Configuration.get_default()
+         self.configuration = configuration
+-
+-        self.rest_client = rest.RESTClientObject(configuration)
+-        self.default_headers = {}
+-        if header_name is not None:
+-            self.default_headers[header_name] = header_value
+-        self.cookie = cookie
+-        # Set default User-Agent.
+-        self.user_agent = "OpenAPI-Generator/1.0.0/python"
+-        self.client_side_validation = configuration.client_side_validation
++        self._receiver_initialized = False
++        self._receiver_initialization_active = True
++        self._receiver_prepared_for = None
++        self._receiver_pid = os.getpid()
++        self.rest_client = None
++        def capture_owner(owner: rest.RESTClientObject) -> None:
++            self.rest_client = owner
++            if owner_capture is not None:
++                owner_capture(self)
++        try:
++            self.rest_client = rest.RESTClientObject(configuration, owner_capture=capture_owner)
++            self.default_headers = {}
++            if header_name is not None:
++                self.default_headers[header_name] = header_value
++            self.cookie = cookie
++            # Set default User-Agent.
++            self.user_agent = "OpenAPI-Generator/1.0.0/python"
++            self.client_side_validation = configuration.client_side_validation
++            self._receiver_initialized = True
++        finally:
++            self._receiver_initialization_active = False
++
 +    @property
 +    def settlement_snapshot(self):
-+        return self.rest_client.settlement_snapshot
++        state = dict(self.rest_client.settlement_snapshot)
++        state["construction_complete"] = self._receiver_initialized and state["construction_complete"]
++        state["construction_active"] = self._receiver_initialization_active or state["construction_active"]
++        state["cleanup_complete"] = state["cleanup_complete"] and not state["construction_active"]
++        state["prepared_admission"] = bool(
++            state["construction_complete"] and self._receiver_prepared_for is not None and
++            self._receiver_pid == os.getpid() and not state["admission_closed"] and
++            not state["prepared_claimed"] and not state["request_started"])
++        return rest.MappingProxyType(state)
++
++    def _claim_prepared_pause(self, owner):
++        if (self._receiver_pid != os.getpid() or not self._receiver_initialized or
++                self._receiver_prepared_for is not owner or type(self.rest_client) is not rest.RESTClientObject):
++            raise rest.ReceiverRestError("rest_not_sent", self.settlement_snapshot)
++        self.rest_client.claim_prepared_pause()
 +
 +    def close(self):
-+        return self.rest_client.close()
-+
++        return self.rest_client.close(construction_active=self._receiver_initialization_active)
+ 
      def __enter__(self):
 +        if self.settlement_snapshot["admission_closed"]:
 +            raise rest.ReceiverRestError("rest_not_sent", self.settlement_snapshot)
@@ -110,7 +245,7 @@
      def user_agent(self):
 --- a/hatchet_sdk/clients/rest/rest.py
 +++ b/hatchet_sdk/clients/rest/rest.py
-@@ -1,309 +1,291 @@
+@@ -1,309 +1,322 @@
 -# coding: utf-8
 -
 +# Pinned Hatchet SDK 1.41.1 REST derivative; MIT, see artifact NOTICE.md.
@@ -138,6 +273,7 @@
 -
 +import threading
 +from types import MappingProxyType
++from collections.abc import Callable
  import urllib3
 -
 -from hatchet_sdk.clients.rest.exceptions import (
@@ -266,6 +402,8 @@
 +class _OwnedPoolManager(urllib3.PoolManager):
 +    def __init__(self, owner, **kwargs):
 +        self._receiver_owner = owner
++        # Retain a partial manager before its upstream constructor can block/fail.
++        owner.pool_manager = self
 +        super().__init__(**kwargs)
 +
 +    def connection_from_pool_key(self, pool_key, request_context=None):
@@ -285,10 +423,7 @@
 -        # cert_reqs
 -        if configuration.verify_ssl:
 -            cert_reqs = ssl.CERT_REQUIRED
--        else:
--            cert_reqs = ssl.CERT_NONE
--
-+    def __init__(self, configuration):
++    def __init__(self, configuration, *, owner_capture: Callable[["RESTClientObject"], None] | None = None):
 +        # No proxy or unspecified retry policy is admitted, even via direct use.
 +        if (type(configuration.retries) is not int or configuration.retries != 0 or
 +                configuration.proxy is not None or configuration.proxy_headers is not None):
@@ -305,46 +440,44 @@
 +        self._pools = []
 +        self._clear_attempted = False
 +        self._clear_ok = False
-         pool_args = {
--            "cert_reqs": cert_reqs,
-+            "cert_reqs": ssl.CERT_REQUIRED if configuration.verify_ssl else ssl.CERT_NONE,
-             "ca_certs": configuration.ssl_ca_cert,
-             "cert_file": configuration.cert_file,
-             "key_file": configuration.key_file,
-             "ca_cert_data": configuration.ca_cert_data,
-+            "retries": 0,
-         }
--        if configuration.assert_hostname is not None:
--            pool_args["assert_hostname"] = configuration.assert_hostname
--
--        if configuration.retries is not None:
--            pool_args["retries"] = configuration.retries
--
--        if configuration.tls_server_name:
--            pool_args["server_hostname"] = configuration.tls_server_name
--
--        if configuration.socket_options is not None:
--            pool_args["socket_options"] = configuration.socket_options
--
--        if configuration.connection_pool_maxsize is not None:
--            pool_args["maxsize"] = configuration.connection_pool_maxsize
--
--        # https pool manager
--        self.pool_manager: urllib3.PoolManager
--
--        if configuration.proxy:
--            if is_socks_proxy_url(configuration.proxy):
--                from urllib3.contrib.socks import SOCKSProxyManager
--
--                pool_args["proxy_url"] = configuration.proxy
--                pool_args["headers"] = configuration.proxy_headers
--                self.pool_manager = SOCKSProxyManager(**pool_args)
-+        for field, key in (("assert_hostname", "assert_hostname"), ("tls_server_name", "server_hostname"),
-+                           ("socket_options", "socket_options"), ("connection_pool_maxsize", "maxsize")):
-+            value = getattr(configuration, field)
-+            if value is not None:
-+                pool_args[key] = value
-+        self.pool_manager = _OwnedPoolManager(self, **pool_args)
++        self._prepared_claimed = False
++        self._manager_construction_started = False
++        self._manager_ready = False
++        self.pool_manager = None
++        self._construction_active = True
++        try:
++            # Owner state exists before pool-manager or subsequent ApiClient work.
++            if owner_capture is not None:
++                owner_capture(self)
++            if self._closed:
++                raise ReceiverRestError("rest_not_sent")
++            pool_args = {
++                "cert_reqs": ssl.CERT_REQUIRED if configuration.verify_ssl else ssl.CERT_NONE,
++                "ca_certs": configuration.ssl_ca_cert,
++                "cert_file": configuration.cert_file,
++                "key_file": configuration.key_file,
++                "ca_cert_data": configuration.ca_cert_data,
++                "retries": 0,
++            }
++            for field, key in (("assert_hostname", "assert_hostname"), ("tls_server_name", "server_hostname"),
++                               ("socket_options", "socket_options"), ("connection_pool_maxsize", "maxsize")):
++                value = getattr(configuration, field)
++                if value is not None:
++                    pool_args[key] = value
++            self._manager_construction_started = True
++            self.pool_manager = _OwnedPoolManager(self, **pool_args)
++            if self._closed:
++                raise ReceiverRestError("rest_not_sent")
++            self._manager_ready = True
++        finally:
++            self._construction_active = False
++
++    def claim_prepared_pause(self):
++        with self._lock:
++            if (os.getpid() != self.pid or not self._manager_ready or self._closed or
++                    self._prepared_claimed or self._request_started or self._request_active):
++                raise ReceiverRestError("rest_not_sent", self.settlement_snapshot)
++            self._prepared_claimed = True
 +
 +    def _own_pool(self, pool):
 +        with self._lock:
@@ -359,15 +492,18 @@
 +            pools = sum(not entry[2] for entry in self._pools)
 +            active = self._request_active or any(response._reading for response in self._responses)
 +            complete = (self._close_attempted and not active and
-+                        not responses and not orphans and not pools and self._clear_ok)
++                        not responses and not orphans and not pools and self._clear_ok and
++                        (self._manager_ready or not self._manager_construction_started))
 +            return MappingProxyType({
++                "construction_active": self._construction_active,
++                "construction_complete": self._manager_ready, "prepared_claimed": self._prepared_claimed,
 +                "admission_closed": self._closed, "request_started": self._request_started,
 +                "request_active": active, "response_observed": self._response_observed,
 +                "unresolved_response_count": responses + orphans, "unresolved_pool_count": pools,
 +                "cleanup_attempted": self._close_attempted, "cleanup_complete": complete,
 +            })
 +
-+    def close(self):
++    def close(self, *, construction_active=False):
 +        with self._lock:
 +            if os.getpid() != self.pid:
 +                return False
@@ -377,7 +513,7 @@
 +            self._close_attempted = True
 +            # A premature close is permanently incomplete; it cannot stop an
 +            # active request or make a later retry into a clean first sweep.
-+            if self.settlement_snapshot["request_active"]:
++            if construction_active or self._construction_active or self.settlement_snapshot["request_active"]:
 +                return False
 +            responses, orphans, pools = tuple(self._responses), tuple(self._orphans), tuple(self._pools)
 +        # Never hold the snapshot/admission lock across vendor resource calls.
@@ -407,7 +543,8 @@
 +        if not self._clear_attempted:
 +            self._clear_attempted = True
 +            try:
-+                self.pool_manager.clear()
++                if self.pool_manager is not None:
++                    self.pool_manager.clear()
 +                self._clear_ok = True
 +            except BaseException as error:
 +                if not isinstance(error, Exception) and control is None:
@@ -443,7 +580,41 @@
 +                  "retries": 0, "redirect": False}
 +        if method in ("GET", "HEAD"):
 +            kwargs["fields"] = {}
-+        else:
+         else:
+-            cert_reqs = ssl.CERT_NONE
+-
+-        pool_args = {
+-            "cert_reqs": cert_reqs,
+-            "ca_certs": configuration.ssl_ca_cert,
+-            "cert_file": configuration.cert_file,
+-            "key_file": configuration.key_file,
+-            "ca_cert_data": configuration.ca_cert_data,
+-        }
+-        if configuration.assert_hostname is not None:
+-            pool_args["assert_hostname"] = configuration.assert_hostname
+-
+-        if configuration.retries is not None:
+-            pool_args["retries"] = configuration.retries
+-
+-        if configuration.tls_server_name:
+-            pool_args["server_hostname"] = configuration.tls_server_name
+-
+-        if configuration.socket_options is not None:
+-            pool_args["socket_options"] = configuration.socket_options
+-
+-        if configuration.connection_pool_maxsize is not None:
+-            pool_args["maxsize"] = configuration.connection_pool_maxsize
+-
+-        # https pool manager
+-        self.pool_manager: urllib3.PoolManager
+-
+-        if configuration.proxy:
+-            if is_socks_proxy_url(configuration.proxy):
+-                from urllib3.contrib.socks import SOCKSProxyManager
+-
+-                pool_args["proxy_url"] = configuration.proxy
+-                pool_args["headers"] = configuration.proxy_headers
+-                self.pool_manager = SOCKSProxyManager(**pool_args)
 +            content_type = headers.get("Content-Type")
 +            if not content_type or re.search("json", content_type, re.IGNORECASE):
 +                kwargs["body"] = json.dumps(body) if body is not None else None

@@ -1,28 +1,28 @@
 {
   "distribution": "hatchet-sdk",
   "version": "1.41.1",
-  "stage": "REST1-partial",
+  "stage": "REST2-prepared-pause-partial",
   "license_metadata": "MIT",
   "files": {
     "hatchet_sdk/features/workers.py": {
       "upstream_sha256": "742c74173541e0f9315b36cd0b5c94d1ff075ca3ec4a10fd3acbd0bf471e84e0",
       "upstream_lf_sha256": "742c74173541e0f9315b36cd0b5c94d1ff075ca3ec4a10fd3acbd0bf471e84e0",
-      "derivative_sha256": "77ea68627e5d0e14cffcbe8b8f9cda89c31f6e2d99b075b22010366c56a9e133"
+      "derivative_sha256": "6541677d0059af491d55ada2f1d4d23ad8f9d5def285ac0339db3c4449979a5e"
     },
     "hatchet_sdk/clients/v1/api_client.py": {
       "upstream_sha256": "2debfca888bdbfe93c00996ddc7182c45938879cafafe8d828f43480b446ea7b",
       "upstream_lf_sha256": "2debfca888bdbfe93c00996ddc7182c45938879cafafe8d828f43480b446ea7b",
-      "derivative_sha256": "d539c7dd6646c7507402b3e8eed20c92ed463918878a61f3f124b05ded7dcc0a"
+      "derivative_sha256": "9deacd2bd781bcdd0c109e0c25bf7dba09da3c806a368362ad05a1d3734e2f32"
     },
     "hatchet_sdk/clients/rest/api_client.py": {
       "upstream_sha256": "2723aedacfcb51d23a1709ac9f36b07e36cb182033259714f44b285cd347c3aa",
       "upstream_lf_sha256": "2723aedacfcb51d23a1709ac9f36b07e36cb182033259714f44b285cd347c3aa",
-      "derivative_sha256": "01cfb72bbf3e20c451692fc658c0befaef735b05fd831f1228c7f21b4a920699"
+      "derivative_sha256": "c6288ffead66218739e32d725ac733cae3cb42b23c7efe3a6b63bc06162e8ae8"
     },
     "hatchet_sdk/clients/rest/rest.py": {
       "upstream_sha256": "9a542fdb50bd870aba475cfafa93222f962b918cb0e838a8d9e737cd172ec739",
       "upstream_lf_sha256": "9a542fdb50bd870aba475cfafa93222f962b918cb0e838a8d9e737cd172ec739",
-      "derivative_sha256": "7b9bfc50d094b8fd664172a71e77c1e61c0f5c717a9c55967a124fcba13860e6"
+      "derivative_sha256": "ca1b6dcec71f6d0324cc43c3ed9826860dd4ad4bebdfed0967be267ec6b9f871"
     }
   },
   "upstream_provenance": {
