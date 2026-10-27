@@ -421,12 +421,14 @@
 +    return channel
 --- a/hatchet_sdk/clients/dispatcher/dispatcher.py
 +++ b/hatchet_sdk/clients/dispatcher/dispatcher.py
-@@ -1,3 +1,4 @@
+@@ -1,4 +1,6 @@
 +import asyncio
  import platform
++import asyncio
  from importlib.metadata import version
  from sys import version_info
-@@ -37,7 +38,11 @@
+ from typing import cast
+@@ -37,7 +39,15 @@
  from hatchet_sdk.types.labels import WorkerLabel
  from hatchet_sdk.utils.api_auth import create_authorization_header
  
@@ -436,10 +438,14 @@
 +
 +
 +DEFAULT_REGISTER_TIMEOUT = 10
++
++
++class EventDeliveryError(RuntimeError):
++    """Fixed event status; never retain a vendor exception."""
  
  
  class DispatcherClient:
-@@ -73,68 +78,65 @@
+@@ -73,148 +83,100 @@
          slot_config: dict[str, int],
          labels: list[WorkerLabel],
      ) -> ActionListener:
@@ -555,12 +561,241 @@
 -            raise
 -
 -        return response.version
+-
+-    async def send_step_action_event(
+-        self,
+-        action: Action,
+-        event_type: StepActionEventType,
+-        payload: str | None,
+-        should_not_retry: bool,
+-    ) -> ActionEventResponse | None:
+-        try:
+-            return await self._try_send_step_action_event(
+-                action, event_type, payload, should_not_retry
 +        except Exception:
 +            pass
 +        raise ReceiverRpcError("version_failed")
++
++    async def send_step_action_event(self, action, event_type, payload, should_not_retry):
++        return await self._try_send_step_action_event(action, event_type, payload, should_not_retry)
++
++    async def _try_send_step_action_event(self, action, event_type, payload, should_not_retry):
++        status = "event_not_sent"
++        try:
++            aio_client = self._get_or_create_aio_client()
++            event_timestamp = Timestamp()
++            event_timestamp.GetCurrentTime()
++
++            event = StepActionEvent(
++                worker_id=action.worker_id,
++                job_id=action.job_id,
++                job_run_id=action.job_run_id,
++                task_id=action.step_id,
++                task_run_external_id=action.step_run_id,
++                action_id=action.action_id,
++                event_timestamp=event_timestamp,
++                event_type=event_type,
++                event_payload=payload,
++                retry_count=action.retry_count,
++                should_not_retry=should_not_retry,
+             )
+-        except Exception:
+-            was_completed = event_type == STEP_EVENT_TYPE_COMPLETED
+-            was_failed = event_type == STEP_EVENT_TYPE_FAILED
+-
+-            message = f"failed to send step action event {event_type} for action {action.action_id}."
+-
+-            if was_completed:
+-                message += "**IMPORTANT**: the task completed successfully on the worker, but the engine failed to receive the completed event."
+-
+-            if was_failed:
+-                message += "**IMPORTANT**: the task failed, but the engine failed to receive the failed event."
+-
+-            if was_completed or was_failed:
+-                message += "the engine will eventually consider the task timed out, and invoke any retries configured on the task."
+-
+-            logger.exception(message)
+-            return None
+-
+-    @tenacity.retry(
+-        reraise=True,
+-        wait=tenacity.wait_exponential_jitter(initial=0.5, max=10),
+-        stop=tenacity.stop_after_attempt(20),
+-        before_sleep=tenacity_before_sleep,
+-        retry=tenacity.retry_if_exception(tenacity_should_retry),
+-    )
+-    async def _try_send_step_action_event(
+-        self,
+-        action: Action,
+-        event_type: StepActionEventType,
+-        payload: str | None,
+-        should_not_retry: bool,
+-    ) -> ActionEventResponse:
+-        aio_client = self._get_or_create_aio_client()
+-
+-        event_timestamp = Timestamp()
+-        event_timestamp.GetCurrentTime()
+-
+-        event = StepActionEvent(
+-            worker_id=action.worker_id,
+-            job_id=action.job_id,
+-            job_run_id=action.job_run_id,
+-            task_id=action.step_id,
+-            task_run_external_id=action.step_run_id,
+-            action_id=action.action_id,
+-            event_timestamp=event_timestamp,
+-            event_type=event_type,
+-            event_payload=payload,
+-            retry_count=action.retry_count,
+-            should_not_retry=should_not_retry,
+-        )
+-
+-        try:
+-            return cast(
+-                ActionEventResponse,
+-                await aio_client.SendStepActionEvent(
+-                    event,
+-                    metadata=create_authorization_header(self.token),
+-                ),
+-            )
+-        except grpc.aio.AioRpcError as e:
+-            if e.code() == grpc.StatusCode.UNAVAILABLE:
+-                # resetting the client if we get `UNAVAILABLE` to try making
+-                # a new connection on the next retry, to see if that helps recover
+-                old_channel, self.aio_channel = self.aio_channel, None
+-                self.aio_client = None
+-                if old_channel is not None:
+-                    await old_channel.close()
+-            raise
++
++            metadata = create_authorization_header(self.token)
++            status = "event_delivery_uncertain"
++            response = await aio_client.SendStepActionEvent(event, metadata=metadata, timeout=10)
++            if response is not None:
++                return response
++        except asyncio.CancelledError:
++            raise
++        except Exception:
++            pass
++        raise EventDeliveryError(status)
  
-     async def send_step_action_event(
+     def _build_batch_action_event(
          self,
+@@ -243,80 +205,40 @@
+             ],
+         )
+ 
+-    @tenacity.retry(
+-        reraise=True,
+-        wait=tenacity.wait_exponential_jitter(initial=0.5, max=10),
+-        stop=tenacity.stop_after_attempt(20),
+-        before_sleep=tenacity_before_sleep,
+-        retry=tenacity.retry_if_exception(tenacity_should_retry),
+-    )
+-    def send_batch_action_event(
+-        self,
+-        action: Action,
+-        event_type: StepActionEventType,
+-        items: list[BatchEventItem],
+-    ) -> ActionEventResponse:
+-        client = self._get_or_create_client()
+-        event = self._build_batch_action_event(action, event_type, items)
+-
+-        return cast(
+-            ActionEventResponse,
+-            client.SendBatchActionEvent(  # type: ignore[attr-defined]
+-                event,
+-                metadata=create_authorization_header(self.token),
+-            ),
+-        )
+-
+-    async def aio_send_batch_action_event(
+-        self,
+-        action: Action,
+-        event_type: StepActionEventType,
+-        items: list[BatchEventItem],
+-    ) -> ActionEventResponse | None:
+-        try:
+-            return await self._try_aio_send_batch_action_event(
+-                action, event_type, items
+-            )
+-        except Exception:
+-            message = f"failed to send batch action event {event_type} for action {action.action_id}."
+-
+-            if event_type == STEP_EVENT_TYPE_FAILED:
+-                message += "**IMPORTANT**: the batch failed, but the engine failed to receive the failed event. the engine will eventually consider the tasks timed out, and invoke any retries configured on the task."
+-
+-            logger.exception(message)
+-            return None
+-
+-    @tenacity.retry(
+-        reraise=True,
+-        wait=tenacity.wait_exponential_jitter(initial=0.5, max=10),
+-        stop=tenacity.stop_after_attempt(20),
+-        before_sleep=tenacity_before_sleep,
+-        retry=tenacity.retry_if_exception(tenacity_should_retry),
+-    )
+-    async def _try_aio_send_batch_action_event(
+-        self,
+-        action: Action,
+-        event_type: StepActionEventType,
+-        items: list[BatchEventItem],
+-    ) -> ActionEventResponse:
+-        aio_client = self._get_or_create_aio_client()
+-        event = self._build_batch_action_event(action, event_type, items)
+-
+-        try:
+-            return cast(
+-                ActionEventResponse,
+-                await aio_client.SendBatchActionEvent(  # type: ignore[attr-defined]
+-                    event,
+-                    metadata=create_authorization_header(self.token),
+-                ),
+-            )
+-        except grpc.aio.AioRpcError as e:
+-            if e.code() == grpc.StatusCode.UNAVAILABLE:
+-                old_channel, self.aio_channel = self.aio_channel, None
+-                self.aio_client = None
+-                if old_channel is not None:
+-                    await old_channel.close()
+-            raise
++    def send_batch_action_event(self, action, event_type, items):
++        status = "event_not_sent"
++        try:
++            client = self._get_or_create_client()
++            event = self._build_batch_action_event(action, event_type, items)
++            metadata = create_authorization_header(self.token)
++            status = "event_delivery_uncertain"
++            response = client.SendBatchActionEvent(event, metadata=metadata, timeout=10)
++            if response is not None:
++                return response
++        except asyncio.CancelledError:
++            raise
++        except Exception:
++            pass
++        raise EventDeliveryError(status)
++
++    async def aio_send_batch_action_event(self, action, event_type, items):
++        return await self._try_aio_send_batch_action_event(action, event_type, items)
++
++    async def _try_aio_send_batch_action_event(self, action, event_type, items):
++        status = "event_not_sent"
++        try:
++            aio_client = self._get_or_create_aio_client()
++            event = self._build_batch_action_event(action, event_type, items)
++            metadata = create_authorization_header(self.token)
++            status = "event_delivery_uncertain"
++            response = await aio_client.SendBatchActionEvent(event, metadata=metadata, timeout=10)
++            if response is not None:
++                return response
++        except asyncio.CancelledError:
++            raise
++        except Exception:
++            pass
++        raise EventDeliveryError(status)
+ 
+     def put_overrides_data(self, data: OverridesData) -> ActionEventResponse:
+         client = self._get_or_create_client()
 --- a/hatchet_sdk/clients/dispatcher/action_listener.py
 +++ b/hatchet_sdk/clients/dispatcher/action_listener.py
 @@ -36,12 +36,16 @@
@@ -1125,3 +1360,306 @@
  
      def put_rate_limit(
          self,
+--- a/hatchet_sdk/worker/action_listener_process.py
++++ b/hatchet_sdk/worker/action_listener_process.py
+@@ -20,7 +20,7 @@
+ 
+ from hatchet_sdk.client import Client
+ from hatchet_sdk.clients.dispatcher.action_listener import ActionListener
+-from hatchet_sdk.clients.dispatcher.dispatcher import DispatcherClient
++from hatchet_sdk.clients.dispatcher.dispatcher import DispatcherClient, EventDeliveryError
+ from hatchet_sdk.config import ClientConfig
+ from hatchet_sdk.contracts.dispatcher_pb2 import (
+     STEP_EVENT_TYPE_STARTED,
+@@ -41,7 +41,8 @@
+ from hatchet_sdk.utils.typing import STOP_LOOP, STOP_LOOP_TYPE
+ from hatchet_sdk.worker.slot_usage import SharedSlotUsageByPool, read_slot_usage
+ 
+-ACTION_EVENT_RETRY_COUNT = 5
++EVENT_SEND_WAIT_SECONDS = 12.0
++EVENT_SEND_SETTLE_SECONDS = 0.25
+ STARTING_UNHEALTHY_AFTER_SECONDS = 10.0
+ 
+ 
+@@ -121,7 +122,10 @@
+         self.event_send_loop_task: asyncio.Task[None] | None = None
+         self._stop_event_task: asyncio.Task[None] | None = None
+         self.running_step_runs: dict[str, float] = {}
+-        self.step_action_events: set[asyncio.Task[ActionEventResponse | None]] = set()
++        self.step_action_events: set[asyncio.Task] = set()
++        self.unresolved_sends: dict[asyncio.Task, dict] = {}
++        self.terminal_delivery: dict | None = None
++        self._event_sequence = 0
+ 
+         if self.debug:
+             logger.setLevel(logging.DEBUG)
+@@ -391,48 +395,109 @@
+         self._stop_event_task = asyncio.create_task(self._wait_for_stop_event())
+ 
+     # TODO move event methods to separate class
+-    async def _get_event(
+-        self, timeout_seconds: float
+-    ) -> ActionEvent | QueuedBatchActionEvent | STOP_LOOP_TYPE:
+-        loop = asyncio.get_running_loop()
+-        return await loop.run_in_executor(
+-            None, self.event_queue.get, True, timeout_seconds
+-        )
+-
+-    def _drain_ready_events(
+-        self, first_event: ActionEvent | QueuedBatchActionEvent | STOP_LOOP_TYPE
+-    ) -> list[ActionEvent | QueuedBatchActionEvent | STOP_LOOP_TYPE]:
+-        events = [first_event]
+-        with contextlib.suppress(Empty):
+-            while len(events) < MAX_EVENTS_PER_SEND_LOOP_ITERATION:
+-                events.append(self.event_queue.get_nowait())
+-        return events
+-
+-    async def start_event_send_loop(self) -> None:
+-        stopping = False
+-        while not stopping:
++    async def _get_event(self, timeout_seconds):
++        # No executor get can consume a late item after waiter cancellation.
++        deadline = asyncio.get_running_loop().time() + timeout_seconds
++        while True:
+             try:
+-                first_event = await self._get_event(timeout_seconds=1.0)
++                return self.event_queue.get_nowait()
++            except Empty:
++                if asyncio.get_running_loop().time() >= deadline:
++                    raise
++                await asyncio.sleep(0.01)
++
++    def _observe_send(self, task, state):
++        # Same-loop synchronous transition: competing bounded waiters retain the
++        # same state, but only the first consumes result(). No historical cache.
++        if "outcome" in state:
++            return state["outcome"]
++        if not task.done():
++            return None
++        try:
++            response = task.result()
++            outcome = "event_not_sent" if response == "event_not_sent" else "server_response"
++        except asyncio.CancelledError:
++            outcome = "event_delivery_uncertain" if state["began"] else "event_not_sent"
++        except Exception:
++            # Never copy exception text, payload or response into a receipt.
++            outcome = "event_delivery_uncertain" if state["began"] else "event_not_sent"
++        state["outcome"] = outcome
++        self.step_action_events.discard(task)
++        self.unresolved_sends.pop(task, None)
++        return outcome
++
++    def _cancel_send_once(self, task, state=None):
++        if state is None:
++            state = self.unresolved_sends.get(task)
++        if state is None:
++            return
++        if not task.done() and not state["cancel_requested"]:
++            state["cancel_requested"] = True
++            task.cancel()
++
++    async def join_sends(self, timeout=0.25):
++        if not 0 < timeout <= 5:
++            raise ValueError("invalid_send_join_timeout")
++        sends = tuple(self.unresolved_sends.items())
++        tasks = tuple(task for task, _ in sends)
++        if tasks:
++            await asyncio.wait(tasks, timeout=timeout)
++        for task, state in sends:
++            if task.done():
++                self._observe_send(task, state)
++        return not self.unresolved_sends
++
++    async def _await_send(self, task):
++        state = self.unresolved_sends[task]
++        interrupted = False
++        try:
++            done, _ = await asyncio.wait((task,), timeout=EVENT_SEND_WAIT_SECONDS)
++        except asyncio.CancelledError:
++            interrupted = True
++            done = set()
++        if done and not interrupted:
++            return self._observe_send(task, state)
++        # Deadline/cancellation stays terminal even after a late response.
++        self.terminal_delivery = {
++            "sequence": state["sequence"],
++            "classification": "event_delivery_uncertain" if state["began"] else "event_not_sent",
++            "admission_stopped": True,
++        }
++        self._cancel_send_once(task, state)
++        try:
++            await self.join_sends(EVENT_SEND_SETTLE_SECONDS)
++        except asyncio.CancelledError:
++            interrupted = True
++        if interrupted:
++            raise asyncio.CancelledError()
++        return self.terminal_delivery["classification"]
++
++    async def start_event_send_loop(self):
++        if self.terminal_delivery is not None or self.unresolved_sends:
++            return
++        while True:
++            try:
++                event = await self._get_event(timeout_seconds=1.0)
+             except Empty:
+                 if self._parent_is_dead():
+-                    logger.error("stopping event send loop, parent is dead...")
+-                    # setting the stop event manually because we need to unblock the thread waiting on it in
+-                    # _wait_for_stop_event and trigger the normal stop path, since the parent is dead at this point
+-                    # so it can't set it for us
+                     self._stop_event.set()
+-                    break
++                    return
+                 continue
+-
+-            for event in self._drain_ready_events(first_event):
+-                if event == STOP_LOOP:
+-                    logger.debug("stopping event send loop...")
+-                    stopping = True
+-                    break
+-
+-                logger.debug(f"tx: event: {event.action.action_id}/{event.type}")
+-                t = asyncio.create_task(self.send_event(event))
+-                self.step_action_events.add(t)
+-                t.add_done_callback(lambda t: self.step_action_events.discard(t))
++            if event == STOP_LOOP:
++                return
++            # Consume one item: later events and STOP stay ordered in the queue.
++            self._event_sequence += 1
++            state = {"event": event, "sequence": self._event_sequence,
++                     "began": False, "cancel_requested": False}
++            task = asyncio.create_task(self.send_event(event, ownership=state))
++            self.unresolved_sends[task] = state
++            self.step_action_events.add(task)
++            outcome = await self._await_send(task)
++            if outcome not in ("server_response", "event_not_sent") or self.terminal_delivery:
++                if self.terminal_delivery is None:
++                    self.terminal_delivery = {"sequence": state["sequence"],
++                        "classification": outcome, "admission_stopped": True}
++                return
+ 
+     async def start_blocked_main_loop(self) -> None:
+         threshold = 1
+@@ -455,79 +520,36 @@
+                 self._waiting_steps_blocked_since = None
+             await asyncio.sleep(1)
+ 
+-    async def send_event(
+-        self,
+-        event: ActionEvent | QueuedBatchActionEvent,
+-        retry_attempt: int = 1,
+-    ) -> None:
++    async def send_event(self, event, *, ownership=None):
++        status = "event_not_sent"
+         try:
+             if isinstance(event, QueuedBatchActionEvent):
+-                send_batch_event_task = asyncio.create_task(
+-                    self.dispatcher_client.aio_send_batch_action_event(
+-                        event.action,
+-                        event.type,
+-                        event.items,
+-                    )
+-                )
+-
+-                self.step_action_events.add(send_batch_event_task)
+-                send_batch_event_task.add_done_callback(
+-                    lambda t: self.step_action_events.discard(t)
+-                )
+-                return
+-
+-            match event.action.action_type:
+-                # FIXME: all events sent from an execution of a function are of type ActionType.START_STEP_RUN since
+-                # the action is re-used. We should change this.
+-                case ActionType.START_STEP_RUN:
+-                    # TODO right now we're sending two start_step_run events
+-                    # one on the action loop and one on the event loop
+-                    # ideally we change the first to an ack to set the time
+-                    if event.type == STEP_EVENT_TYPE_STARTED:
+-                        if event.action.step_run_id in self.running_step_runs:
+-                            diff = (
+-                                self.now()
+-                                - self.running_step_runs[event.action.step_run_id]
+-                            )
+-                            if diff > 0.1:
+-                                logger.warning(
+-                                    f"{BLOCKED_THREAD_WARNING} time to start: {diff}s"
+-                                )
+-                            else:
+-                                logger.debug(f"start time: {diff}")
+-                            del self.running_step_runs[event.action.step_run_id]
+-                        else:
+-                            self.running_step_runs[event.action.step_run_id] = (
+-                                self.now()
+-                            )
+-
+-                    send_started_event_task = asyncio.create_task(
+-                        self.dispatcher_client.send_step_action_event(
+-                            event.action,
+-                            event.type,
+-                            event.payload,
+-                            event.should_not_retry,
+-                        )
+-                    )
+-
+-                    self.step_action_events.add(send_started_event_task)
+-                    send_started_event_task.add_done_callback(
+-                        lambda t: self.step_action_events.discard(t)
+-                    )
+-                case ActionType.CANCEL_STEP_RUN:
+-                    logger.debug("unimplemented event send")
+-                case ActionType.START_BATCH:
+-                    # START_BATCH is a coordination signal; it does not emit step action events.
+-                    logger.debug("skipping event send for START_BATCH")
+-                case _:
+-                    logger.error("unknown action type for event send")
++                if ownership is not None:
++                    ownership["began"] = True
++                status = "event_delivery_uncertain"
++                response = await self.dispatcher_client.aio_send_batch_action_event(
++                    event.action, event.type, event.items)
++            elif event.action.action_type == ActionType.START_STEP_RUN:
++                # Upstream queues STARTED twice; each explicit item is one send.
++                if event.type == STEP_EVENT_TYPE_STARTED:
++                    if event.action.step_run_id in self.running_step_runs:
++                        del self.running_step_runs[event.action.step_run_id]
++                    else:
++                        self.running_step_runs[event.action.step_run_id] = self.now()
++                if ownership is not None:
++                    ownership["began"] = True
++                status = "event_delivery_uncertain"
++                response = await self.dispatcher_client.send_step_action_event(
++                    event.action, event.type, event.payload, event.should_not_retry)
++            else:
++                return "event_not_sent"
++            if response is not None:
++                return response
++        except asyncio.CancelledError:
++            raise
+         except Exception:
+-            logger.exception(
+-                f"could not send action event ({retry_attempt}/{ACTION_EVENT_RETRY_COUNT})"
+-            )
+-            if retry_attempt <= ACTION_EVENT_RETRY_COUNT:
+-                await exp_backoff_sleep(retry_attempt, 1)
+-                await self.send_event(event, retry_attempt + 1)
++            pass
++        raise EventDeliveryError(status)
+ 
+     def now(self) -> float:
+         return time.time()
+@@ -669,13 +691,8 @@
+         if process.event_send_loop_task is not None:
+             await process.event_send_loop_task
+ 
+-        # Drain any in-flight send_event tasks before shutting down.
+-        # event_send_loop creates them as fire-and-forget; if we exit before
+-        # they complete asyncio.run() will cancel them, dropping completion events.
+-        if process.step_action_events:
+-            await asyncio.gather(
+-                *list(process.step_action_events), return_exceptions=True
+-            )
++        # Bounded event settlement only; remaining child lifetime is C2.
++        await process.join_sends(timeout=0.25)
+         # wait for stop_event_task to finish before continuing
+         if process._stop_event_task is not None and not process._stop_event_task.done():
+             try:
