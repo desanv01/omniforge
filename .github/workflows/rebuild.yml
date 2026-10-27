@@ -95,7 +95,7 @@ jobs:
           OMNIFORGE_EVIDENCE_PROOF_ROOT: ${{ runner.temp }}/omniforge-evidence-proof
         run: uv run --locked --no-sync python -B -m tests.contracts.evidence.check
       - name: Apply isolated database migration
-        run: uv run --locked --no-sync python -m infra.core.migrate --target 0008_run_cancellation
+        run: uv run --locked --no-sync python -m infra.core.migrate --target 0009_provider_diagnostics
       - name: Seed synthetic local principal
         run: uv run --locked --no-sync python -m infra.core.bootstrap seed "$OMNIFORGE_CI_ROOT"
       - name: Check persisted cases, grants, artifacts and recovery
