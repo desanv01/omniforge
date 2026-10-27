@@ -271,4 +271,201 @@ class AuthorityExtraction(unittest.TestCase):
             with self.assertRaises(Problem):d.normal_authority(conn,cmd,"inert")
 
 
+class StagedMigrationTests(unittest.TestCase):
+    def test_default_is_stable_and_explicit_journal_is_exact(self):
+        from infra.core import migrate
+        applied=[]
+        self.assertEqual(migrate.upgrade(read_current=lambda:None,apply=applied.append),migrate.STABLE)
+        self.assertEqual(migrate.upgrade(migrate.JOURNAL,read_current=lambda:migrate.STABLE,apply=applied.append),migrate.JOURNAL)
+        self.assertEqual(applied,[migrate.STABLE,migrate.JOURNAL])
+
+    def test_bad_targets_fail_before_any_io(self):
+        from infra.core import migrate
+        for target in (None,True,"head","base","0008","0009_provider_diagnostics ","+1"):
+            with self.subTest(target=target),patch.object(migrate,"current_revision") as read:
+                with self.assertRaises(ValueError):migrate.upgrade(target,apply=lambda value:self.fail("migration attempted"))
+                read.assert_not_called()
+
+    def test_ahead_or_unknown_never_applies(self):
+        from infra.core import migrate
+        for current,target in ((migrate.JOURNAL,migrate.STABLE),("unexpected",migrate.JOURNAL)):
+            with self.subTest(current=current),self.assertRaises(RuntimeError):
+                migrate.upgrade(target,read_current=lambda:current,apply=lambda value:self.fail("migration attempted"))
+
+    def test_same_target_delegates_exact_noop_without_seed(self):
+        from infra.core import migrate
+        applied=[]
+        migrate.upgrade(migrate.JOURNAL,read_current=lambda:migrate.JOURNAL,apply=applied.append)
+        self.assertEqual(applied,[migrate.JOURNAL])
+
+    def test_cli_default_and_explicit_target(self):
+        from infra.core import migrate
+        with patch.object(migrate,"upgrade") as upgrade,patch("builtins.print"):
+            migrate.main([]);upgrade.assert_called_once_with(migrate.STABLE)
+            upgrade.reset_mock();migrate.main(["--target",migrate.JOURNAL]);upgrade.assert_called_once_with(migrate.JOURNAL)
+
+
+class JournalContextTests(unittest.TestCase):
+    def setUp(self):
+        from pathlib import Path
+        from tests.integration.core import provider_diagnostics_runner as runner
+        self.runner=runner
+        # Virtual nonexistent paths; no config, credentials or database are read.
+        temporary=(Path.cwd().anchor and Path(Path.cwd().anchor)/"synthetic-journal-runner-temp").resolve()
+        workspace=(temporary.parent/"synthetic-journal-workspace").resolve()
+        root=temporary/"omniforge-journal-ci-inert"
+        self.env=dict(GITHUB_ACTIONS="true",GITHUB_JOB=runner.JOB,GITHUB_RUN_ID="42",GITHUB_RUN_ATTEMPT="1",
+            RUNNER_TEMP=str(temporary),GITHUB_WORKSPACE=str(workspace),OMNIFORGE_JOURNAL_CI_ROOT=str(root),
+            OMNIFORGE_CONFIG=str(root/"config.json"),OMNIFORGE_JOURNAL_CI_MANIFEST=str(root/"manifest.json"))
+        self.manifest=dict(schema_version=1,purpose=runner.PURPOSE,run_id="42",run_attempt="1",job=runner.JOB,
+            root=str(root),config=str(root/"config.json"),workspace=str(workspace))
+        self.data=dict(database_url="synthetic-url-never-connected",artifact_root=str(root/"artifacts"))
+        self.url=dict(drivername="postgresql+psycopg",host="127.0.0.1",port=5432,database=runner.DATABASE,
+            username=runner.DATABASE,password="ephemeral-journal-ci-only",query={})
+        self.reads=[]
+
+    def validate(self):
+        def read(path):
+            self.reads.append(path.name)
+            return self.manifest if path.name=="manifest.json" else self.data
+        return self.runner.validate_context(self.env,reader=read,parse_url=lambda value:SimpleNamespace(**self.url))
+
+    def test_complete_closed_tuple_accepts_without_external_io(self):
+        ctx=self.validate()
+        self.assertEqual(ctx.config.name,"config.json");self.assertEqual(self.reads,["manifest.json","config.json"])
+        self.assertNotIn(self.data["database_url"],repr(ctx))
+
+    def test_missing_or_wrong_job_and_identity_fail_before_config(self):
+        for key,value in (("GITHUB_ACTIONS","false"),("GITHUB_JOB","postgres-core"),("GITHUB_RUN_ID","0"),
+                          ("GITHUB_RUN_ATTEMPT","01"),("OMNIFORGE_CONFIG","relative.json")):
+            original=self.env[key];self.env[key]=value;self.reads.clear()
+            with self.subTest(key=key),self.assertRaises(RuntimeError):self.validate()
+            self.assertEqual(self.reads,[]);self.env[key]=original
+
+    def test_prefix_or_marker_cannot_select_checkout_or_other_config(self):
+        from pathlib import Path
+        for key,value in (("GITHUB_WORKSPACE",self.env["RUNNER_TEMP"]),
+            ("OMNIFORGE_CONFIG",str(Path(self.env["OMNIFORGE_CONFIG"]).parent/"retained.json")),
+            ("OMNIFORGE_JOURNAL_CI_ROOT",str(Path(self.env["RUNNER_TEMP"])/"nested"/"omniforge-journal-ci-x"))):
+            original=self.env[key];self.env[key]=value;self.reads.clear()
+            with self.subTest(key=key),self.assertRaises(RuntimeError):self.validate()
+            self.assertEqual(self.reads,[]);self.env[key]=original
+
+    def test_manifest_requires_exact_provenance_and_closed_fields(self):
+        for key,value in (("schema_version",True),("run_id","43"),("purpose","marker"),("job","postgres-core"),("extra",True)):
+            original=dict(self.manifest);self.manifest[key]=value
+            with self.subTest(key=key),self.assertRaises(RuntimeError):self.validate()
+            self.manifest=original
+
+    def test_config_refuses_extra_fields_and_wrong_artifact_root(self):
+        for replacement in ({**self.data,"auth_token":"forbidden"},{**self.data,"artifact_root":self.env["GITHUB_WORKSPACE"]}):
+            original=self.data;self.data=replacement
+            with self.assertRaises(RuntimeError):self.validate()
+            self.data=original
+
+    def test_database_endpoint_user_password_and_options_are_closed(self):
+        for key,value in (("database","omniforge_rebuild"),("username","postgres"),("host","localhost"),
+            ("port",63140),("password","other"),("drivername","postgresql"),("query",{"options":"other"})):
+            original=self.url[key];self.url[key]=value
+            with self.subTest(key=key),self.assertRaises(RuntimeError):self.validate()
+            self.url[key]=original
+
+    def test_symlink_path_refused_before_config(self):
+        from pathlib import Path
+        with patch.object(Path,"is_symlink",return_value=True),self.assertRaises(RuntimeError):self.validate()
+        self.assertEqual(self.reads,[])
+
+    def test_main_refusal_never_calls_runtime(self):
+        with patch.dict("os.environ",{},clear=True),patch.object(self.runner,"run") as run:
+            with self.assertRaises(RuntimeError):self.runner.main()
+            run.assert_not_called()
+
+    def test_preservation_detects_loss_and_structure_change(self):
+        old={"table":dict(columns=["id"],structure="fixed",hashes={"one":2},count=2)}
+        for new,expected in ((dict(columns=["id"],structure="fixed",hashes={"one":2,"new":1}),True),
+            (dict(columns=["id"],structure="fixed",hashes={"one":1}),False),
+            (dict(columns=["id"],structure="changed",hashes={"one":2}),False)):
+            self.assertEqual(self.runner.preserved(old,{"table":new}),expected)
+
+
+class MigrationEngineSettlementTests(unittest.TestCase):
+    def test_disposes_on_success_connect_failure_and_migration_failure(self):
+        from pathlib import Path
+        import runpy
+        from unittest.mock import MagicMock
+        from alembic import context
+        from services.api import db,settings
+        source=Path(__file__).resolve().parents[3]/"migrations"/"env.py"
+        for stage in ("success","connect","migrate","migrate_and_dispose"):
+            engine=MagicMock();failure=RuntimeError("injected inert failure")
+            if stage=="connect":engine.connect.side_effect=failure
+            if stage=="migrate_and_dispose":engine.dispose.side_effect=RuntimeError("secondary disposal failure")
+            with self.subTest(stage=stage),patch.object(settings.Settings,"from_env",return_value=object()),\
+                patch.object(db,"engine_for",return_value=engine),patch.object(context,"configure"),\
+                patch.object(context,"begin_transaction",return_value=MagicMock()),\
+                patch.object(context,"run_migrations",side_effect=failure if stage.startswith("migrate") else None):
+                if stage=="success":runpy.run_path(str(source))
+                else:
+                    with self.assertRaises(RuntimeError) as caught:runpy.run_path(str(source))
+                    self.assertIs(caught.exception,failure)
+                engine.dispose.assert_called_once_with()
+
+
+class RunnerSettlementTests(unittest.TestCase):
+    def test_first_unexpected_failure_aborts_later_mutation_but_settles_and_reports(self):
+        from unittest.mock import MagicMock
+        from tests.integration.core import provider_diagnostics_runner as runner,provider_diagnostics as fixture
+        events=[]
+        class InertMatrix(unittest.TestCase):
+            engine=None
+            def setUp(self):self.addCleanup(lambda:events.append("test_cleanup"))
+            def test_01_unexpected_barrier_failure(self):
+                events.append("first");self.fail("injected missing barrier")
+            def test_02_must_not_mutate(self):events.append("SECOND_MUTATION")
+        engine=MagicMock();engine.pool.checkedout.return_value=0
+        engine.connect.return_value.__enter__.return_value.execute.return_value.scalar_one.return_value=0
+        engine.begin.return_value.__enter__.return_value.execute.return_value.scalar_one.return_value=0
+        chunks=[];handle=MagicMock();handle.write.side_effect=chunks.append;handle.fileno.return_value=17
+        root=MagicMock();receipt=root.__truediv__.return_value;receipt.exists.return_value=False
+        receipt.open.return_value.__enter__.return_value=handle
+        projections={"original":dict(columns=["id"],structure="fixed",hashes={"synthetic":1},count=1)}
+        with patch("sqlalchemy.create_engine",return_value=engine),patch.object(runner,"identities",return_value="inert-cluster"),\
+            patch.object(runner,"schema_at",side_effect=[None,runner.JOURNAL]),patch.object(runner.os,"fsync"),\
+            patch.object(runner,"projections",side_effect=lambda conn:(events.append("projection_check") or projections)),\
+            patch("infra.core.migrate.upgrade"),patch.object(fixture,"ORIGINAL",("original",)),\
+            patch.object(fixture,"seed_original_baseline"),patch.object(fixture,"JournalPostgresProof",InertMatrix):
+            self.assertEqual(runner.run(runner.Context(root,root,"inert-never-connected")),1)
+        self.assertNotIn("SECOND_MUTATION",events);self.assertEqual(events.count("first"),1)
+        self.assertIn("test_cleanup",events);self.assertEqual(events[-1],"projection_check")
+        engine.dispose.assert_called_once_with();self.assertIsNone(InertMatrix.engine)
+        data=json.loads("".join(chunks))
+        self.assertEqual(data["tests"],1);self.assertTrue(data["aborted"])
+        self.assertEqual(len(data["planned_test_ids"]),2);self.assertEqual(len(data["started_test_ids"]),1)
+        self.assertEqual(data["passed_test_ids"],[]);self.assertEqual(len(data["unexecuted_test_ids"]),1)
+        self.assertTrue(data["unexecuted_test_ids"][0].endswith("test_02_must_not_mutate"))
+        self.assertEqual(data["skipped"],0);self.assertTrue(data["original18_preserved"])
+        self.assertEqual(data["checked_out"],0);self.assertTrue(data["pool_disposed"])
+        self.assertEqual(data["status"],"failed");self.assertNotIn("injected missing barrier","".join(chunks))
+
+    def test_migration_setup_failure_disposes_pool_and_keeps_sanitized_receipt(self):
+        from unittest.mock import MagicMock
+        from tests.integration.core import provider_diagnostics_runner as runner
+        engine=MagicMock();engine.pool.checkedout.return_value=0
+        engine.connect.return_value.__enter__.return_value.execute.return_value.scalar_one.return_value=0
+        chunks=[];handle=MagicMock();handle.write.side_effect=chunks.append;handle.fileno.return_value=17
+        root=MagicMock();receipt=root.__truediv__.return_value;receipt.exists.return_value=False
+        receipt.open.return_value.__enter__.return_value=handle
+        context=runner.Context(root,root,"inert-never-connected")
+        with patch("sqlalchemy.create_engine",return_value=engine),patch.object(runner,"identities",return_value="inert-cluster"),\
+            patch.object(runner,"schema_at",return_value=None),patch.object(runner.os,"fsync") as sync,\
+            patch("infra.core.migrate.upgrade",side_effect=RuntimeError("private failure detail")):
+            self.assertEqual(runner.run(context),1)
+        engine.dispose.assert_called_once_with();sync.assert_called_once_with(17)
+        serialized="".join(chunks)
+        self.assertNotIn("private failure detail",serialized);self.assertNotIn(context.database_url,serialized)
+        data=json.loads(serialized)
+        self.assertEqual(data["status"],"failed");self.assertEqual(data["checked_out"],0)
+        self.assertTrue(data["pool_disposed"]);self.assertFalse(data["migration_applied"])
+
+
 if __name__=="__main__":unittest.main()

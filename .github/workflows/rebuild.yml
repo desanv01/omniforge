@@ -1,9 +1,9 @@
 name: Rebuild foundation
 on:
   push:
-    paths: ['rebuild/**', '.github/workflows/rebuild.yml', 'scripts/rebuild-ci-config.py']
+    paths: ['rebuild/**', '.github/workflows/rebuild.yml', 'scripts/rebuild-ci-config.py', 'scripts/rebuild-ci-journal-config.py']
   pull_request:
-    paths: ['rebuild/**', '.github/workflows/rebuild.yml', 'scripts/rebuild-ci-config.py']
+    paths: ['rebuild/**', '.github/workflows/rebuild.yml', 'scripts/rebuild-ci-config.py', 'scripts/rebuild-ci-journal-config.py']
   workflow_dispatch:
 permissions:
   contents: read
@@ -95,7 +95,7 @@ jobs:
           OMNIFORGE_EVIDENCE_PROOF_ROOT: ${{ runner.temp }}/omniforge-evidence-proof
         run: uv run --locked --no-sync python -B -m tests.contracts.evidence.check
       - name: Apply isolated database migration
-        run: uv run --locked --no-sync python -m infra.core.migrate
+        run: uv run --locked --no-sync python -m infra.core.migrate --target 0008_run_cancellation
       - name: Seed synthetic local principal
         run: uv run --locked --no-sync python -m infra.core.bootstrap seed "$OMNIFORGE_CI_ROOT"
       - name: Check persisted cases, grants, artifacts and recovery
@@ -232,3 +232,45 @@ jobs:
         env:
           UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/omniforge-scheduler-ci-venv
         run: uv run --project infra/scheduler --locked --no-sync python -B -m unittest discover -s tests/contracts/scheduler -p 'test_receiver_rest_adaptation.py' -v
+  postgres-provider-journal:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres@sha256:32ebb7185baf2c9d38f91684417d140c0745aeff5082dfbb62edb330c2af6197
+        env:
+          POSTGRES_USER: omniforge_rebuild_journal_ci
+          POSTGRES_DB: omniforge_rebuild_journal_ci
+          POSTGRES_PASSWORD: ephemeral-journal-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U omniforge_rebuild_journal_ci -d omniforge_rebuild_journal_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: rebuild
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: '0.11.25'
+          python-version: '3.11.15'
+          working-directory: rebuild
+          enable-cache: false
+      - run: uv sync --locked
+      - name: Prepare distinct synthetic journal configuration outside checkout
+        id: journal-config
+        run: uv run --locked --no-sync python ../scripts/rebuild-ci-journal-config.py
+      - name: Verify staged migration and synthetic journal SQL behavior
+        run: uv run --locked --no-sync python -B -m tests.integration.core.provider_diagnostics_runner
+      - name: Preserve bounded synthetic proof receipt in job log
+        if: always() && steps.journal-config.outcome == 'success'
+        env:
+          JOURNAL_RECEIPT_PATH: ${{ steps.journal-config.outputs.receipt }}
+        run: uv run --locked --no-sync python -B ../scripts/rebuild-ci-journal-config.py --export-receipt
+      - name: Record unavailable receipt after configuration failure
+        if: always() && steps.journal-config.outcome != 'success'
+        run: echo "Journal receipt unavailable because isolated configuration was not prepared."
