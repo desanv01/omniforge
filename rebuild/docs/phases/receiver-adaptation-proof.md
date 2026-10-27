@@ -216,3 +216,38 @@ cancellation test10 PASS1 in0.377s. FINAL two new gated cases PASS2 in2.309s,11
 scenarios total. New event inventory is16, retained accepted inventory27; no43-case
 aggregate was run locally or claimed. Main intended-head CI and B delta review
 remain required. All v1/native/source-only limits continue to apply.
+
+## Event fixture native import lifetime correction
+
+A provider-only CI head inheriting C1 v2 failed with process exit139; the last
+listed event test did not identify the failing operation. One bounded unchanged
+immutable Linux comparator captured the actual fatal stack: event03 setUp imported
+the copied child, whose multiprocessing.synchronize import faulted at the stdlib
+SemLock.SEM_VALUE_MAX access.13StageA and2event cases had completed; this was not
+a full suite pass. The retained container actually exited139/PID0/noOOM, without
+watchdog expiry. A preceding Windows debug-allocator/GC diagnostic passed3 focused
+cases and did not resolve the failure. All incomplete/failure history is preserved.
+
+The fixture's whole-sys.modules snapshots were taken before the child's first
+native multiprocessing import. Restoring them evicted modules lazily imported
+under those guards; later cases reinitialized the native import graph. Preloading
+multiprocessing.synchronize at test-module import puts this graph in both snapshots
+before copied child loading. No process or synchronization primitive is constructed.
+A cleanup registered before both guards asserts the same synchronize/_multiprocessing
+module identities after restoration. All16event test bodies/assertions, including
+safe errors, cancellation resistance, exact task/event retention and concurrent
+observer scenarios remain; no skip, blanket retry or dependency change is added.
+Product patch/manifest and its six derivative outputs are unchanged. This is a
+fixture import-lifetime correction, not a product-task or whole-worker guarantee.
+
+One changed Linux verification completed all43cases PASS in18.032s with the same
+cached dependency image, debug allocator, development mode, faulthandler, START/STOP
+boundaries and final GC. Actual container exit0/PID0/noOOM/no external timeout;
+supervisor duration20.98798s. Both module identities survived all event fixture
+restorations; all16existing event test bodies and helpers except additive setUp
+registration are AST-identical to the accepted baseline. The immutable nine-file
+verification packet retained seven original files and the corrected test/proof;
+its hashes stayed unchanged. This result supports the narrow fixture correction,
+not a universal interpreter/platform or native-worker guarantee. The final proof
+paragraph was added after verification; tested event source bytes are unchanged.
+Independent review, separate Main fix delivery and intended-head CI remain gates.
