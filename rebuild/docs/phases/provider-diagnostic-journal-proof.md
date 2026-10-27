@@ -137,3 +137,137 @@ registered provenance, capability capture and committed receipt publication rema
 unavailable by default. Importable source and passing inert checks do not establish
 a usable journal, completed integration or production execution capability. Main's
 separate inert CI step does not authorize migration application or deferred SQL.
+
+## Staged schema source packet (28 October 2026)
+
+This later packet prepares the reviewed, byte-preserved 0009 migration together
+with a closed migration CLI and a separate synthetic CI runner. Historical commands
+above describe their original release. No-argument `python -m infra.core.migrate`
+now targets **0008_run_cancellation**. The only other accepted target is
+`--target 0009_provider_diagnostics`. Unknown targets fail before configuration or
+migration I/O; an unknown current revision or a database ahead of the target fails
+without downgrade, stamp, reset or seed. Same-target calls delegate the normal
+Alembic no-op. API and worker guards remain exactly 0008; this is no global schema
+promotion or claim that either service operates at 0009.
+
+Main owns the workflow and independent config generator. The runner requires
+GITHUB_ACTIONS=true, exact job postgres-provider-journal and positive decimal run
+ID/attempt, explicit canonical RUNNER_TEMP and GITHUB_WORKSPACE paths with neither
+containing the other, and a fresh root directly under RUNNER_TEMP named
+omniforge-journal-ci-*. OMNIFORGE_CONFIG must select that root's config.json;
+OMNIFORGE_JOURNAL_CI_MANIFEST must select manifest.json there. Manifest fields are
+closed: schema_version integer1, purpose omniforge-provider-journal-ci-v1, run_id,
+run_attempt, job, root, config and workspace, all matching the current trusted job.
+Config fields are exactly database_url and artifact_root, the latter root/artifacts.
+No auth-token is made or accepted. The URL is postgresql+psycopg with exact host
+127.0.0.1, port5432, database AND user omniforge_rebuild_journal_ci, static public
+test password ephemeral-journal-ci-only and no URL options. Marker/prefix alone
+does not authorize a database. Trusted Main workflow provenance remains a required
+boundary; these metadata checks are not a cryptographic attestation of CI.
+
+The separately released command will be
+`python -B -m tests.integration.core.provider_diagnostics_runner`. It first requires
+the exact connected database/user/session-user and an empty public schema, records
+the cluster identity, applies 0008, seeds representative synthetic metadata into
+all eighteen original tables, captures ordered column projections, counts and row
+hash multisets plus schema/constraint/index digests, then explicitly applies 0009.
+It compares preservation, repeats the same target without reseeding, and runs the
+injected-engine matrix. Empty baseline tables fail; incomplete setup is reported
+separately. One runner invocation owns this lifecycle; there is no phase handoff or
+retained configuration discovery. Baseline includes completed synthetic Run output,
+an active cancellation with unknown cleanup receipt and an untouched queued intent.
+Those are test metadata, never native scheduler or process evidence.
+
+Seventeen deferred PostgreSQL cases cover lifecycle and exact replay; observed
+grant revocation and exact profile-lock timeout; empty candidate denial; concurrent
+exact admission; constraints, foreign keys and immutable history; token rotation;
+profile disable/revision serialization; concurrent exact reserve/observe; changed
+replay denial; partial/unknown usage with truthful overshoot; both stop/candidate
+orders and discarded candidate ACK; fresh final authority; settlement after work
+expiry/revoke with wrong capability/context/purpose/extended cutoff/conflicting
+batch denial and exact replay; observed profile-lock release before bound followed
+by elapsed decision time and fresh-clock denial; conflicting concurrent
+admit/reserve/observe winners; and explicit rollback with no committed readback.
+The exact lock-holder/contender/key barriers remain required. The start barrier in
+concurrent replay cases does not itself prove overlap. Future waits, database-clock
+polls, lock/statement timeouts and pool acquisition are bounded. The discarded-ACK
+and rollback cases simulate specific transaction outcomes, not an actual unknown
+network COMMIT. Native transport uncertainty remains unproved.
+
+Each fixture cleanup checks preservation and checked-out connections even after
+setup failure. Runner finally independently attempts final projection checks,
+zero-checkout verification, pool disposal and an exclusive flushed/fsynced
+journal-proof.json containing only synthetic projection digests, fixed failure
+categories and test identifiers. It does not persist SQL tracebacks, URL/password,
+synthetic bearer values or capabilities. Receipt write failure returns74 rather
+than success. Alembic's separate engine now has finally disposal on connect or
+migration failure; a secondary disposal exception cannot mask the original
+failure. A disposal attempt is not independent proof that an unavailable database
+stopped. CI job/service termination and local retained-container stop evidence are
+different observations and remain Main's separately released responsibility.
+
+Actual evidence for this source packet: 31 inert tests first passed; after adding
+failure cleanup regressions, 33 tests ran with one error because the sandbox denied
+the test's temporary receipt write and directory cleanup. That test was corrected
+to inject receipt I/O and fsync, and all **33 inert tests passed**. Existing seventeen
+journal/authority checks remain included. These tests inject target readers,
+migration application, URL parsing, engine/context operations and receipt writes;
+they do not connect, migrate or execute PostgreSQL fixture cases. AST validation
+and exact hashes are recorded in the private delivery report. No actual SQL,
+container, service, enrollment, store/provider or native operation ran. Real
+cutoff/provenance/capability/ACK producers remain unavailable by default, prepared
+values remain non-ACKs, external capture remains unknown, and runtime readiness,
+global promotion, authority/native/live-provider and whole Phase1 remain open.
+
+## Schema packet v2: first-failure stop and commit boundary correction
+
+Independent B source review required F1/F2 corrections before any SQL release.
+The runner now enables unittest failfast, including errors from setup and cleanup;
+an unexpected skip also stops further cases. Expected exceptions caught inside a
+test remain expected outcomes. Receipt records planned, started, passed and
+unexecuted test IDs plus aborted and actual partial count. It never labels later
+unexecuted cases as passed or skipped. Test cleanup and independent final
+projection/pool/disposal/receipt attempts still run after the first failure.
+A new inert end-to-end runner check injects a first barrier assertion failure and
+a second mutation case: only the first starts, its cleanup runs, the second is
+unexecuted, and final preservation/pool disposal/failed receipt are asserted.
+
+Deferred case12's v2 operation-prelock approach was rejected by independent B: it
+reversed authority/profile-before-operation hierarchy on the contender transaction.
+The v3 correction removes that prelock and its unused helper option. Both holder
+and contender invoke normal public candidate/stop entrypoints. The holder retains
+its candidate or stop transaction while a second connection requests the opposite
+operation. Before committing the holder, the fixture observes the exact contender
+PID blocked by that exact holder on the SHA-derived PROFILE advisory key, matching
+the production serialization path. Stop-first yields diagnostic_conflict for
+candidate; candidate-first yields original_prepared for stop. Both histories retain
+the expected candidate presence and execution_permission=false. All current
+token/grant/profile/binding checks and trusted entry cutoffs precede operation
+acquisition normally; there is no raw internal operation call or forced reverse
+lock order. Finite futures, exact wait observation and cleanup remain in place.
+
+New deferred case18 prepares candidate inside an open transaction, marks a modeled
+parent local-stop event, observes database time past the fixed work expiry while
+the transaction remains active, then commits. It retains/discards the prepared
+value without real publication. Default committed publication is explicitly denied;
+expired exact candidate replay and final-authority checks are denied. A separate
+synthetic capability settles stopped history within the original bounded grace;
+readback retains candidate_digest and execution_permission=false. This is a
+controlled late durable commit and delayed/unconsumed ACK model. It does not prove
+an unknown network COMMIT outcome, actual parent stop, IPC capture or native return.
+The rollback case17 remains separate. The runner now requires all eighteen planned
+cases to execute successfully without skips or unexecuted IDs.
+
+Focused v2 verification: **34 inert tests passed**, including the new first-failure
+mutation prevention/cleanup/receipt check; original33 remain included. All eighteen
+PostgreSQL cases remain SOURCE ONLY and unexecuted. No migration bytes, API/worker
+guards, Main workflow/config, default-unavailable producers or runtime permissions
+changed. Independent B delta review and Main's separate actual SQL release remain
+required. Original v1 evidence and its sandbox-temp failure chronology are retained.
+
+V3 changes only the deferred fixture/profile-wait explanation; F1 and late-commit
+case18 remain unchanged and B accepted those source portions. Focused static AST
+checks confirm both normal entrypoints, no internal operation call, exact
+profile-key/holder/contender barrier and specific outcomes in both orders. The
+unchanged inert suite was not rerun; its latest actual result remains34PASS for v2.
+All eighteen actual SQL cases remain unexecuted pending B delta and Main release.
