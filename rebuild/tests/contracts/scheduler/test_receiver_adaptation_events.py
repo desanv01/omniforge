@@ -3,6 +3,7 @@ import ast
 import asyncio
 import copy
 import json
+import multiprocessing.synchronize
 from pathlib import Path
 from queue import Queue
 import shutil
@@ -15,11 +16,20 @@ from unittest.mock import patch
 import test_receiver_adaptation_rpc as support
 
 
+# Keep this native stdlib import graph alive before either whole-sys.modules
+# snapshot. Loading it inside the copied child's fixture import lets restoration
+# evict/reinitialize _multiprocessing between cases (Linux crash at SemLock).
+_SYNCHRONIZE_MODULE = sys.modules['multiprocessing.synchronize']
+_MULTIPROCESSING_EXTENSION = sys.modules['_multiprocessing']
+
+
 class EventProof(unittest.IsolatedAsyncioTestCase):
     setUpClass = classmethod(support.RpcProof.setUpClass.__func__)
     assert_safe_rpc_error = support.RpcProof.assert_safe_rpc_error
 
     def setUp(self):
+        # Registered first, so this runs after both module guards restore state.
+        self.addCleanup(self.assert_native_import_identity)
         support.RpcProof.setUp(self)
         modules = {}
 
@@ -51,6 +61,10 @@ class EventProof(unittest.IsolatedAsyncioTestCase):
         guard.start()
         self.addCleanup(guard.stop)
         self.child = support.load('event_child', path)
+
+    def assert_native_import_identity(self):
+        self.assertIs(sys.modules.get('multiprocessing.synchronize'), _SYNCHRONIZE_MODULE)
+        self.assertIs(sys.modules.get('_multiprocessing'), _MULTIPROCESSING_EXTENSION)
 
     def action(self, kind='normal'):
         return support.Value(action_type=kind, worker_id='worker', job_id='job',
