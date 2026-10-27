@@ -6,7 +6,7 @@ The official pinned [py/1.41.1 release](https://github.com/hatchet-dev/hatchet/r
 and its [monorepo LICENSE](https://raw.githubusercontent.com/hatchet-dev/hatchet/py/1.41.1/LICENSE)
 provide the upstream provenance and full terms reproduced below.
 
-Only a five-file patch and hash manifest are distributed here; no complete copied
+Only a six-file patch and hash manifest are distributed here; no complete copied
 package, installed environment or private runtime data is included. The installed
 distribution inspected for this stage did not include a standalone LICENSE file
 in its package/dist-info directories; the pinned upstream notice is included here
@@ -35,4 +35,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 The changes are an OmniForge-specific pinned derivative, not an untouched SDK or
-an upstream endorsement. Stage A modifies copied config.py and connection.py only.
+an upstream endorsement. Stage A modifies copied config.py and connection.py. Stage B adds selected
+dispatcher/listener/admin boundaries. Stage C1 changes selected dispatcher event
+methods and adds worker/action_listener_process.py event-send ownership only.

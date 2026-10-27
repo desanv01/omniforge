@@ -115,3 +115,104 @@ FINAL focused4cases PASS in1.154s. New module now has14cases, with the same prio
 StageA13cases retained; no corrected27case aggregate is claimed or locally rerun.
 Main's hosted intended-head discovery uses the same test_receiver_adaptation*.py
 command above. No native/runtime operation or additional upstream file was added.
+
+## Stage C1: explicit queued event sends (partial)
+
+C1 extends the accepted Stage B overlay from five to six exact upstream members,
+adding only worker/action_listener_process.py. Config, connection, admin and action
+listener derivative bytes remain at their accepted hashes. Dispatcher changes are
+limited to selected event methods and their fixed EventDeliveryError definition.
+Raw source, LF source, patch context, exact six-file surface and final hashes are
+validated before any derivative output is created. The retained verified MIT
+notice remains included. Installed SDK and application defaults are unchanged.
+
+Normal and sync/async batch event sends now perform one invocation with timeout10s.
+Both the dispatcher retry layer and child's recursive/nested-task layer are removed.
+The child directly awaits the actual RPC. Request fields, timestamp, retry count,
+should_not_retry, batch payload fallback and successful response identity survive.
+A missing response never becomes ACK. A failure after invocation is uncertain even
+for auth/deadline status; pre-invocation failures can be event_not_sent. Fixed
+errors are raised outside the vendor handler, without cause/context or raw error
+logs. Cancellation propagates. Explicit skipped action types are event_not_sent.
+Duplicate queued STARTED items remain separate sends; no deduplication is claimed.
+
+Admission is one strongly owned send Task at a time, with exact event identity in
+unresolved_sends. Queue reads use nonblocking polling, so a canceled executor get
+cannot later steal an event. No bulk dequeue remains; later items and STOP stay
+ordered in the original queue on failure. A local sequence/classification/stop
+receipt contains no payload/token/vendor response. Normal response observation
+removes Task ownership only after task.result() is consumed. Any uncertain outcome
+stops further admission. The12s local wait cancels once and reserves250ms for
+settlement; a resistant Task remains strongly owned. join_sends accepts a bounded
+later wait up to5s, observes late results/errors without resend or recancel, and
+never changes terminal uncertainty into a retrospective delivery acknowledgement.
+
+Actual focused fake evidence: initial12 new event cases plus the affected existing
+six-file/drift fixture PASS13 in4.911s. After adding LF-hash refusal, cooperative
+cancellation and selected-method AST assertions, final LF/cancellation/affected
+config fixture PASS3 in1.508s; standalone AST case PASS1 in0.376s. There are14 new
+event cases total. These targeted results are not a new full aggregate result.
+The accepted Stage B27 result remains historical. Main's intended-head discovery
+must cover test_receiver_adaptation*.py through ordinary CI.
+
+Checks exercise actual disposable copied methods against isolated fake graphs:
+three send variants with fields/deadline/metadata/identity; transient/auth/deadline/
+unknown failure, None response and cancellation; sensitive exception serialization,
+str/repr, formatted traceback and traceback-aware logger capture; preflight versus
+post-invocation uncertainty; direct awaited normal/batch child calls; skipped
+signals; duplicate STARTED sends; queue ordering/STOP; cancellation-resistant late
+success/error and repeated cancellation with exact task/event retention; cooperative
+cancel; no latent queue dequeue; six-member gates, new upstream drift, wrong LF or
+final hash, missing/extra/duplicate manifest/patch members and unsafe targets.
+All resistant fake tasks were explicitly released and joined in finally blocks.
+
+One sandbox run stopped in Windows asyncio self-pipe socketpair initialization;
+normal elevated tool approval allowed local IPC for fake checks. A later four-case
+focused process ended with exit1 after two reported ok cases and no unittest
+summary. The bounded isolated AST diagnostic passed; final three-case verification
+then passed. Failed/incomplete attempts are not counted as aggregate passes.
+
+This remains partial source preparation awaiting independent review and Main Git/
+CI delivery. Entry event-send gather alone is bounded. Child status-to-parent,
+stop-event wait, heartbeat/unsubscribe, asyncio.run/default executor teardown,
+parent/REST/runner lifetimes and native execution remain open. A bounded send wait
+is not physical whole-process shutdown or native readiness. No DB, credential,
+image, installed SDK, native transport or actual provider operation occurred.
+
+## Stage C1 v2 independent-review correction
+
+B identified F1 P2 in v1: the active send waiter and join_sends, or two joins, could
+both observe the same completed Task and index a deleted ledger entry. The prior
+focused passes did not cover competing observers and do not supersede this finding.
+The original evidence and incomplete attempts above remain historical.
+
+Each bounded waiter now captures the shared task/state before yielding. The first
+same-loop synchronous observation consumes result(), caches only a fixed safe
+classification and removes outstanding ownership. Other observers return the cached
+classification without consuming result again or touching a removed ledger entry.
+State is retained only by outstanding ledger/current waiters; no permanent task
+history/cache is introduced. The cancellation helper safely tolerates already
+settled state. Exact unresolved Task/event ownership and single admission remain;
+late success/error cannot overwrite a terminal uncertainty receipt. No RPC policy,
+upstream surface, parent/REST/native behavior or accepted output elsewhere changed.
+
+Two new actual copied-derivative tests use a gated CountingTask and await all distinct
+observers before releasing completion. Six active-waiter-plus-two-join scenarios
+cover success, error, send cancellation, resistant late success/error and active
+waiter cancellation. Five two-join scenarios cover success/error/cancellation and
+resistant late success/error with permanent terminal uncertainty. They assert one
+RPC, exactly one result() observation, cached additional observation, coherent
+remaining queue/STOP, strong pending Task/event identity and safe receipt/logs.
+Fake-resistant tasks are released/joined in finally; the temporary task factory is
+restored. No native transport is constructed.
+
+The first v2 run's fake barrier counted calls rather than distinct observers, so
+slow scheduling could expire the active wait before both joins started. Its failure
+was diagnosed as2distinct waiters where3were required. Corrected the fake barrier
+to wait for distinct observers before starting deadlines. The next combined run
+reported both new cases ok then ended exit1 during the retained cancellation check
+without a summary; it is incomplete, not an aggregate pass. Bounded isolated
+cancellation test10 PASS1 in0.377s. FINAL two new gated cases PASS2 in2.309s,11
+scenarios total. New event inventory is16, retained accepted inventory27; no43-case
+aggregate was run locally or claimed. Main intended-head CI and B delta review
+remain required. All v1/native/source-only limits continue to apply.

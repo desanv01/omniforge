@@ -1,8 +1,8 @@
-# Receiver derivative Stage B (partial)
+# Receiver derivative Stage C1 (partial)
 
-This source artifact changes five copied files from exactly1.41.1: config.py,
-connection.py, clients/dispatcher/dispatcher.py, clients/dispatcher/action_listener.py
-and clients/admin.py. The accepted Stage A config/connection output bytes are retained. It is not installed automatically,
+This source artifact changes six copied files from exactly1.41.1: config.py,
+connection.py, clients/dispatcher/dispatcher.py, clients/dispatcher/action_listener.py,
+clients/admin.py and worker/action_listener_process.py. The accepted Stage A config/connection output bytes are retained. It is not installed automatically,
 does not patch a running/imported SDK, and is not a runnable native receiver.
 The application's UnsupportedReceiver default remains unchanged.
 
@@ -12,11 +12,11 @@ Run the applicator with two explicit disposable paths:
 python -B apply_patch.py /disposable/upstream /new/disposable/derivative
 ```
 
-The source root must contain the five exact upstream files and the installed
+The source root must contain the six exact upstream files and the installed
 `hatchet_sdk-1.41.1.dist-info/METADATA` with matching name/version. Destination must
 be absent, separate and not an ancestor/descendant of source. The applicator checks
-all original byte hashes, exact unified-diff context and final derivative hashes
-BEFORE creating output. It writes only those five files and returns their hashes.
+all original raw/LF hashes, exact unified-diff context and final derivative hashes
+BEFORE creating output. It writes only those six files and returns their hashes.
 The output is an overlay, not a complete installable package. Failures use a fixed
 CLI message; no force, fuzzy patch, in-place, overwrite or version fallback exists.
 Apply only to a new disposable copy or later reviewed NEW image-layer staging,
@@ -94,8 +94,8 @@ still exclusively ReceiverResources. Stream cancellation failure is explicit.
 This stage does not join the existing heartbeat or await the existing synchronous
 unregister API's asynchronous call. Successful heartbeats may continue while the
 later parent drains active work. Child code still catches terminal stream errors
-and waits for parent STOP_LOOP. Event methods retain upstream retries and channel
-reset behavior; REST/parent/child scope, logs and physical shutdown remain open.
+and waits for parent STOP_LOOP. Stage C1 below supersedes the upstream event retry behavior.
+REST/parent/child scope, logs and physical shutdown remain open.
 No worker exit, event single-delivery or native readiness is claimed.
 
 ### Review correction
@@ -107,3 +107,49 @@ upstream diagnostic. Cancellation propagates and UNIMPLEMENTED stays compatible.
 Normal malformed JSON/schema payloads fail with payload_invalid and never create
 an Action. The focused fake logger records traceback diagnostics if exception
 logging is invoked; malformed cases assert that none leaks.
+
+## Stage C1 event boundary
+
+Normal and both batch event methods make one RPC per explicit call with timeout10s.
+No event retry, reconnect, nested send task or log-and-return-None remains.
+Request mapping, timestamps, should_not_retry and response identity are preserved.
+A failure before the stub invocation is event_not_sent. Any failure after invocation,
+including auth/deadline/unknown errors or a missing response, is conservatively
+event_delivery_uncertain. Fixed EventDeliveryError values are raised outside the
+vendor exception handler without cause/context or copied diagnostics. Cancellation
+stays cancellation. A server response is observed protocol success, not a durable
+domain receipt, deduplication promise or proof that delivery occurred only once.
+
+Child send_event directly awaits the dispatcher. Explicit non-sending action types
+return event_not_sent. Duplicate STARTED queue items remain distinct explicit sends.
+The queue is polled without an executor thread and consumes exactly one item at a
+time. STOP remains ordered. Admission is one owned Task, held strongly with its
+exact event in unresolved_sends before the first await. Later items stay queued on
+failure. A safe terminal_delivery records only a local sequence, classification
+and admission_stopped; it never copies payload, token, vendor text or responses.
+
+The local send wait is12s, then one cancellation and at most250ms settlement.
+Cancellation of the waiter does not propagate another cancellation to the send.
+Resistant Tasks remain owned by unresolved_sends and step_action_events. Later
+join_sends(timeout=...) accepts0<timeout<=5 and observes completed results/errors
+once without resending or recancelling. It returns whether owned sends physically
+settled; it never clears terminal uncertainty or means the event queue was drained.
+A late success/error can settle a Task without rewriting the terminal receipt.
+The owner must release/join resistant tasks before closing its event loop.
+
+Entry event-send gather is replaced by the same bounded join. This does not bound
+the whole child: parent terminal notification, stop-event wait, heartbeat cleanup,
+listener shutdown, executor/asyncio.run teardown and parent/REST/runner ownership
+remain C2/later gates. No native image/application/default change is included.
+
+### C1 F1 correction: competing bounded observers
+
+One admission loop remains the owner. Its active send wait and multiple concurrent
+join_sends calls on the same event loop can safely overlap. Each captures the
+same Task/state before awaiting. Observation is a synchronous idempotent transition:
+the first observer consumes task.result(), stores only its safe classification in
+that state and removes outstanding ownership; later observers reuse that status.
+There is no unbounded task/result history: after ledger removal only current
+waiters retain the state, and they release it on return. No raw response/error is
+cached in a receipt. The cancellation helper tolerates already settled ownership.
+Terminal uncertainty stays permanent even if another join observes a late success.

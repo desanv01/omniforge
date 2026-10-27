@@ -1,4 +1,4 @@
-"""Copied five-file derivative proof; no SDK/client/channel/process construction."""
+"""Copied six-file derivative proof; no SDK/client/channel/process construction."""
 import asyncio
 import ast
 import builtins
@@ -78,7 +78,7 @@ class AdaptationProof(unittest.IsolatedAsyncioTestCase):
             tls_config={"strategy":"none"},healthcheck={"enabled":False},otel={},
             tenacity={"max_attempts":1,"retry_429":False,"retry_not_found":False,"retry_transport_errors":False})
 
-    async def test_01_exact_five_file_derivative_hashes_and_import_defaults(self):
+    async def test_01_exact_six_file_derivative_hashes_and_import_defaults(self):
         manifest=json.loads((ARTIFACT/"upstream-manifest.json").read_text())
         self.assertEqual(set(self.hashes),set(self.applicator.FILES))
         for name,value in self.hashes.items(): self.assertEqual(value,manifest["files"][name]["derivative_sha256"])
