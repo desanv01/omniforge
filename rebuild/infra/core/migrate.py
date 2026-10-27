@@ -1,9 +1,10 @@
-"""Staged forward-only targets; no argument pins 0008, never implicit head."""
+"""Closed forward-only 0008/0009 targets; no argument pins API schema 0009."""
 import argparse
 from pathlib import Path
 
 STABLE = "0008_run_cancellation"
 JOURNAL = "0009_provider_diagnostics"
+DEFAULT = JOURNAL
 TARGETS = (STABLE, JOURNAL)
 HISTORY = ("0001_core", "0002_capture", "0003_runs", "0004_run_execution",
            "0005_provider_profiles", "0006_profile_bindings", "0007_run_delivery", STABLE, JOURNAL)
@@ -29,7 +30,7 @@ def current_revision():
         engine.dispose()
 
 
-def upgrade(target=STABLE, *, read_current=None, apply=None):
+def upgrade(target=DEFAULT, *, read_current=None, apply=None):
     if type(target) is not str or target not in TARGETS:
         raise ValueError("Unsupported staged migration target")
     # Validate before configuration/connection/migration I/O. A future unrecognized
@@ -50,7 +51,7 @@ def upgrade(target=STABLE, *, read_current=None, apply=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=TARGETS, default=STABLE)
+    parser.add_argument("--target", choices=TARGETS, default=DEFAULT)
     args = parser.parse_args(argv)
     upgrade(args.target)
     print("Staged migration upgrade completed")

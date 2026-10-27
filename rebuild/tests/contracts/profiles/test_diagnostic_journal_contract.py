@@ -272,12 +272,15 @@ class AuthorityExtraction(unittest.TestCase):
 
 
 class StagedMigrationTests(unittest.TestCase):
-    def test_default_is_stable_and_explicit_journal_is_exact(self):
+    def test_default_is_exact_api_nine_and_explicit_targets_remain_distinct(self):
         from infra.core import migrate
+        from services.api.db import MIGRATION
         applied=[]
-        self.assertEqual(migrate.upgrade(read_current=lambda:None,apply=applied.append),migrate.STABLE)
+        self.assertEqual(migrate.upgrade(read_current=lambda:None,apply=applied.append),"0009_provider_diagnostics")
+        self.assertEqual(MIGRATION,"0009_provider_diagnostics")
+        self.assertEqual(migrate.upgrade("0008_run_cancellation",read_current=lambda:None,apply=applied.append),"0008_run_cancellation")
         self.assertEqual(migrate.upgrade(migrate.JOURNAL,read_current=lambda:migrate.STABLE,apply=applied.append),migrate.JOURNAL)
-        self.assertEqual(applied,[migrate.STABLE,migrate.JOURNAL])
+        self.assertEqual(applied,["0009_provider_diagnostics","0008_run_cancellation","0009_provider_diagnostics"])
 
     def test_bad_targets_fail_before_any_io(self):
         from infra.core import migrate
@@ -288,7 +291,7 @@ class StagedMigrationTests(unittest.TestCase):
 
     def test_ahead_or_unknown_never_applies(self):
         from infra.core import migrate
-        for current,target in ((migrate.JOURNAL,migrate.STABLE),("unexpected",migrate.JOURNAL)):
+        for current,target in ((migrate.JOURNAL,migrate.STABLE),("unexpected",migrate.JOURNAL),("0010_future",migrate.JOURNAL)):
             with self.subTest(current=current),self.assertRaises(RuntimeError):
                 migrate.upgrade(target,read_current=lambda:current,apply=lambda value:self.fail("migration attempted"))
 
@@ -301,8 +304,20 @@ class StagedMigrationTests(unittest.TestCase):
     def test_cli_default_and_explicit_target(self):
         from infra.core import migrate
         with patch.object(migrate,"upgrade") as upgrade,patch("builtins.print"):
-            migrate.main([]);upgrade.assert_called_once_with(migrate.STABLE)
-            upgrade.reset_mock();migrate.main(["--target",migrate.JOURNAL]);upgrade.assert_called_once_with(migrate.JOURNAL)
+            migrate.main([]);upgrade.assert_called_once_with("0009_provider_diagnostics")
+            for target in ("0008_run_cancellation","0009_provider_diagnostics"):
+                upgrade.reset_mock();migrate.main(["--target",target]);upgrade.assert_called_once_with(target)
+
+    def test_worker_remains_eight_only_and_staged_runner_keeps_explicit_seed(self):
+        import ast
+        from pathlib import Path
+        from tests.integration.core import provider_diagnostics_runner as runner
+        root=Path(__file__).resolve().parents[3]
+        worker=ast.parse((root/"infra/core/worker_settings.py").read_text(encoding="utf-8"))
+        migration=next(node.value.value for node in worker.body if isinstance(node,ast.Assign)
+            and any(isinstance(name,ast.Name) and name.id=="MIGRATION" for name in node.targets))
+        self.assertEqual(migration,"0008_run_cancellation")
+        self.assertEqual((runner.STABLE,runner.JOURNAL),("0008_run_cancellation","0009_provider_diagnostics"))
 
 
 class JournalContextTests(unittest.TestCase):
@@ -432,10 +447,12 @@ class RunnerSettlementTests(unittest.TestCase):
         with patch("sqlalchemy.create_engine",return_value=engine),patch.object(runner,"identities",return_value="inert-cluster"),\
             patch.object(runner,"schema_at",side_effect=[None,runner.JOURNAL]),patch.object(runner.os,"fsync"),\
             patch.object(runner,"projections",side_effect=lambda conn:(events.append("projection_check") or projections)),\
-            patch("infra.core.migrate.upgrade"),patch.object(fixture,"ORIGINAL",("original",)),\
+            patch("infra.core.migrate.upgrade") as upgrade,patch.object(fixture,"ORIGINAL",("original",)),\
             patch.object(fixture,"seed_original_baseline"),patch.object(fixture,"JournalPostgresProof",InertMatrix):
             self.assertEqual(runner.run(runner.Context(root,root,"inert-never-connected")),1)
         self.assertNotIn("SECOND_MUTATION",events);self.assertEqual(events.count("first"),1)
+        self.assertEqual([call.args[0] for call in upgrade.call_args_list],
+            ["0008_run_cancellation","0009_provider_diagnostics","0009_provider_diagnostics"])
         self.assertIn("test_cleanup",events);self.assertEqual(events[-1],"projection_check")
         engine.dispose.assert_called_once_with();self.assertIsNone(InertMatrix.engine)
         data=json.loads("".join(chunks))

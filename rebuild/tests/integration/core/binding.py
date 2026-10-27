@@ -71,7 +71,7 @@ class ProviderBindingProof(unittest.TestCase):
         cls.principals = (uuid4(), uuid4()); cls.tokens = []; cls.auth = []; cls.cases = []
         with cls.engine.begin() as conn:
             assert conn.execute(text("SELECT current_database()")).scalar_one() == "omniforge_rebuild"
-            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0008_run_cancellation"
+            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0009_provider_diagnostics"
             for principal in cls.principals:
                 token = secrets.token_urlsafe(48); cls.tokens.append(token)
                 cls.auth.append({"Authorization": "Bearer "+token})

@@ -1,5 +1,48 @@
 # Provider diagnostic journal — source and inert evidence
 
+## Current API schema contract promotion (28 October 2026)
+
+The API now requires exactly **0009_provider_diagnostics**, and no-argument
+`python -m infra.core.migrate` selects that exact revision. Closed explicit targets
+`--target 0008_run_cancellation` and `--target 0009_provider_diagnostics` remain
+distinct; an already0009 database cannot be downgraded to0008, and unknown/ahead
+revisions fail. The four current core/profile/binding/provider integration fixture
+expectations move together to0009. The isolated journal runner still explicitly
+seeds at0008 before applying0009 and checking its same-target no-op.
+
+**Worker compatibility remains deliberately blocked on a0009 database.** Its exact
+schema requirement remains0008; worker settings and authority grants/projections
+were not broadened. Worker promotion requires a separate reviewed twenty-table
+compatibility and journal-table denial/grant proof. API compatibility does not
+establish worker/native readiness. No retained database, volume or configuration
+is migrated or cut over by this source change.
+
+Completed prerequisite evidence: PR44's intended-head and postmerge isolated
+synthetic PostgreSQL runs each passed all eighteen journal cases. Postmerge was
+verified at e26996ab9cce591dd1b5a84b07669764915df96d. All eighteen original tables
+had nonempty synthetic baselines; original projections were preserved and the
+runner observed zero checked-out connections and disposed its pool. Independent
+review accepted that bounded SQL evidence. This establishes the staged synthetic
+schema/journal proof only. It does not establish native termination, live-provider
+behavior, real credential enrollment, real clock/provenance/capability producers,
+committed ACK publication or final return atomicity; external capture is unknown.
+
+This subsequent API/default promotion is source and inert checks only pending
+independent review and Main's intended-head full core/provider/profile/binding,
+Run/cancellation/streaming/browser regression plus staged journal CI. The worker
+remains explicitly excluded from0009 readiness. Main owns workflow target changes
+and actual CI release. Historical source-only and0008-default statements below
+describe the earlier packets and are superseded by this current contract and the
+completed PR44 proof; their original failure/result history remains retained.
+
+Focused promotion verification passed all **35 inert tests**, including exact0009
+default/API agreement, distinct explicit0008/0009 selection, ahead/unknown denial,
+and the runner's explicit0008→0009→0009 calls. The worker's unchanged0008 contract
+was checked without starting it. No integration fixture, database or migration was
+executed during this promotion source task.
+
+## Historical initial journal source packet
+
 OF-012P-JOURNAL-A implements a connection-bound authority seam and additive journal
 source. Independent review is pending. Migration 0009 is source only; no database
 connection, schema application, credential store, provider call or native execution
