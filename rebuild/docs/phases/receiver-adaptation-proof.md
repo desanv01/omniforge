@@ -1,3 +1,40 @@
+# C2A lifecycle-only proof — pending independent review
+
+Eight-file pinned overlay, default-off empty lifecycle-only Worker. Four accepted
+config/connection/dispatcher/admin derivative identities retained. REST2 source
+unchanged; actual copied prepared methods are exercised over fake HTTP in a
+controlled-thread integration test. No real action execution or native readiness.
+All SDK/process/socket/queue/native graph is injected in tests. Harmless local
+queue-join/preparation/request/cleanup test threads are explicitly released and
+physically joined. Windows asyncio local IPC is the only native test-runner need.
+
+Selected tests cover parent/child normal and partial startup, unsupported actions,
+legacy refusal, exact scope ownership after partial Client failure, closed runner
+mode, one-sweep listener unsubscribe/heartbeat, resistant cancellation, status
+bounds/truncation/contradictions/abnormal exit, per-process queue joins and late
+peer, cancelled wait vs live thread, actual REST2 choreography, cleanup hangs and
+shared shutdown budget. No sockets/multiprocessing queues/processes/services,
+package installs, images, DB/role/config/credential/provider operations occurred.
+
+The weekly-usage pause preserved partial code/hashes and staged results before
+resume; those are not a final aggregate. After resume, four extra edge checks
+initially reported2FAIL/2PASS: fixture omitted required channel endpoint/TLS inputs,
+and fake process asserted consumer openness even after simulated join. One bounded
+fixture correction yielded4PASS15.168s. No production defect was concealed by that
+correction. Source inspection separately fixed parent worker-id consumer ordering
+and removed unsubscribe vendor exception context. Native-import fixture identity
+from the accepted C1 crash correction is preserved.
+
+V1 exact-source aggregate:69tests PASS in33.509s, exit0, no failures/skips.
+This is one actual discovery run, not a sum of staged checks. Asyncio debug
+slow-callback diagnostics appeared during fixtures; they were not test failures. Main intended-head CI: python -B -m unittest discover -s
+tests/contracts/scheduler -p 'test_receiver_adaptation*.py' -v in pinned dependency
+environment. Lifecycle-only engine compatibility, real Linux IPC/Queue feeder/fd
+behavior, arbitrary runner threads/callbacks, hard enforcement and actual process
+settlement remain unproved. UnsupportedReceiver default stays unchanged.
+
+## Historical accepted stage evidence (prior scope)
+
 # Receiver derivative Stage B proof (partial)
 
 Five-file deterministic overlay for SDK1.41.1: accepted Stage A config/connection
@@ -251,3 +288,25 @@ its hashes stayed unchanged. This result supports the narrow fixture correction,
 not a universal interpreter/platform or native-worker guarantee. The final proof
 paragraph was added after verification; tested event source bytes are unchanged.
 Independent review, separate Main fix delivery and intended-head CI remain gates.
+
+## C2A v2 independent-review correction
+
+C identified two uncovered P2 paths despite v1's actual69-pass result: failed
+Process.start or another shutdown exception could abort independent cleanup, and
+the lifecycle-only event queue could admit a sendable C1 event. V1 source/evidence
+is preserved; that aggregate is not proof of those missing paths.
+
+V2 explicitly retains attempted/confirmed/ambiguous process acquisition. No-PID
+failed acquisition is conservatively ambiguous; it is not joined as a started
+process or considered nonexistent. Safe cleanup stages latch failures and proceed
+independently under the original shutdown budget; uncertain process/thread owners
+prevent channel sweep. Lifecycle event boundary retains non-STOP as unsent with
+fixed terminal state before Task/send effects; standalone C1 remains available.
+
+Focused6cases PASS in2.287s, exit0: five process-start/factory/observation/join
+subcases, STOP/peer-read failures, actual child sendable-event rejection, parent
+happy flow, peer-drain ordering and standalone C1 queue-order/send behavior. No
+failure in this correction invocation. No unchanged full69 rerun; current discovery
+inventory72 is not a claimed corrected72-pass aggregate. Main intended-head CI
+and independent delta review remain required. No native process/socket/Queue or
+network/runtime operation; controlled harmless fixture threads physically joined.
