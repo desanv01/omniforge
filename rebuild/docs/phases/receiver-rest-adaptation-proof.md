@@ -1,4 +1,4 @@
-# Receiver REST1 source proof (partial)
+# Receiver REST source proof (partial)
 
 The four-source artifact in infra/scheduler/receiver-rest-adaptation is separate
 from the event-delivery derivative. It enforces selected pause one-shot transport,
@@ -33,3 +33,31 @@ C2 must consume process-local owners and safe receipts, implement overall lifecy
 supervision and prove actual resources settled. UnsupportedReceiver remains default.
 Native construction/image, roles/DB/network, enrollment and live provider gates
 remain unexecuted. Required independent review and Main Git/CI delivery are separate.
+
+REST2 adds prepared construction capture before manager/header initialization,
+local exact-owner/PID/once-only admission, and a separate request method without
+client auto-close. Both partial ApiClient and partial pool manager remain strongly
+reachable before blocking/failing constructor work. Safe immutable snapshots add
+construction_active/construction_complete and prepared_admission/prepared_claimed.
+Only completed construction bound to the same WorkersClient admits a request.
+Premature construction close remains incomplete and does not clear a manager
+while it is initializing. Existing pause/aio_pause auto-close behavior is retained,
+including safe cleanup of partial initialization on its ordinary path.
+
+REST2 focused result: 14 tests passed in 5.541 seconds, exit 0, no skips/warnings
+reported. Ten new cases (22 through 31) and four affected REST1 regressions
+(01,09,12,14) ran; no unchanged broad suite was repeated. These new tests cover
+partial manager/header failure, failed capture before manager side effects,
+blocked preparation with an already captured owner, rejection of partial/
+foreign/external/closed/used clients, request without client sweep, cancellation
+of observation while its exact request thread remains alive, physical thread join
+before one cleanup sweep, blocked cleanup snapshots, safe error propagation and
+premature construction close. Every fake gate is released and thread joined.
+The test inventory is now 31; a 31-case aggregate is not claimed by this focused run.
+
+Preparation, request and cleanup each require a caller-owned operation registered
+before its thread starts. Physically join preparation before dispatch and request
+before cleanup; no automatic thread launch, C2 parent integration, hard deadline
+or physical cancellation is implemented here. REST1 evidence remains historical
+for its accepted source; the separate REST2 delivery requires independent review
+and Main intended-head CI before acceptance.

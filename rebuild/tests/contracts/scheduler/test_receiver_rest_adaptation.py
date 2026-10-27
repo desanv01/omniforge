@@ -188,6 +188,8 @@ class RestProof(unittest.IsolatedAsyncioTestCase):
                 self.error = None
                 self.gate = None
                 self.entered = threading.Event()
+                if graph.manager_init_action is not None:
+                    graph.manager_init_action(self)
 
             def connection_from_pool_key(self, pool_key, request_context=None):
                 return self.pools_by_key.setdefault(pool_key, Pool())
@@ -210,6 +212,7 @@ class RestProof(unittest.IsolatedAsyncioTestCase):
                     raise RuntimeError("PRIVATE_CLEAR")
 
         self.managers = []
+        self.manager_init_action = None
         urllib.PoolManager = FakeManager
         urllib.ProxyManager = lambda **kw: self.fail("proxy constructed")
         urllib.HTTPResponse = Raw
@@ -261,8 +264,8 @@ class RestProof(unittest.IsolatedAsyncioTestCase):
         worker = self.workers.WorkersClient(self.config)
         original = worker.client
 
-        def client():
-            result = original()
+        def client(**kwargs):
+            result = original(**kwargs)
             capture(result)
             return result
 
@@ -693,6 +696,287 @@ class RestProof(unittest.IsolatedAsyncioTestCase):
         with patch.object(Path, "is_symlink", linked), self.assertRaises(ValueError):
             self.app.apply(self.source, target)
         self.assertFalse(target.exists())
+
+    def test_22_prepared_capture_before_construction_and_request_no_client_close(self):
+        worker = self.workers.WorkersClient(self.config)
+        owners = []
+        def capture(client):
+            owners.append(client)
+            self.assertEqual(self.managers, [])
+            self.assertIsNotNone(client.rest_client)
+            self.assertFalse(client.settlement_snapshot["construction_complete"])
+            self.assertFalse(client.settlement_snapshot["prepared_admission"])
+            self.assertFalse(client.settlement_snapshot["cleanup_attempted"])
+        client = worker.prepare_pause_client(owner_capture=capture)
+        self.assertIs(client, owners[0])
+        self.assertTrue(client.settlement_snapshot["construction_complete"])
+        self.assertTrue(client.settlement_snapshot["prepared_admission"])
+        manager = client.rest_client.pool_manager
+        self.assertEqual(manager.calls, [])
+        result = worker.pause_prepared("worker", client)
+        self.assertEqual(result.id, "worker")
+        self.assertTrue(client.settlement_snapshot["prepared_claimed"])
+        self.assertFalse(client.settlement_snapshot["prepared_admission"])
+        self.assertFalse(client.settlement_snapshot["cleanup_attempted"])
+        self.assertFalse(client.settlement_snapshot["cleanup_complete"])
+        self.assertEqual(manager.pools_by_key["origin"].calls, 0)
+        self.assertEqual(manager.clear_calls, 0)
+        self.assertTrue(client.close())
+        self.assertTrue(client.close())
+        self.assertEqual((manager.pools_by_key["origin"].calls, manager.clear_calls), (1, 1))
+
+    def test_23_prepared_rejects_external_partial_foreign_closed_used(self):
+        worker = self.workers.WorkersClient(self.config)
+        other = self.workers.WorkersClient(self.config)
+        owners = []
+        client = worker.prepare_pause_client(owner_capture=owners.append)
+        external = worker.client()
+        self.assertFalse(external.settlement_snapshot["prepared_admission"])
+        for owner, candidate in ((other, client), (worker, external), (worker, object())):
+            with self.assertRaises(self.rest.ReceiverRestError) as caught:
+                owner.pause_prepared("worker", candidate)
+            self.assertEqual(caught.exception.code, "rest_not_sent")
+            self.assert_safe(caught.exception)
+        client._receiver_pid = -1
+        with self.assertRaises(self.rest.ReceiverRestError):
+            worker.pause_prepared("worker", client)
+        client._receiver_pid = os.getpid()
+        client._receiver_initialized = False
+        with self.assertRaises(self.rest.ReceiverRestError):
+            worker.pause_prepared("worker", client)
+        client._receiver_initialized = True
+        self.assertEqual(client.rest_client.pool_manager.calls, [])
+        worker.pause_prepared("worker", client)
+        with self.assertRaises(self.rest.ReceiverRestError) as caught:
+            worker.pause_prepared("worker", client)
+        self.assertEqual(caught.exception.code, "rest_not_sent")
+        self.assertEqual(len(client.rest_client.pool_manager.calls), 1)
+        client.close()
+        with self.assertRaises(self.rest.ReceiverRestError):
+            worker.pause_prepared("worker", client)
+        external.close()
+
+    def test_24_partial_manager_failure_owner_retained_before_constructor_returns(self):
+        worker = self.workers.WorkersClient(self.config)
+        owners = []
+        def fail(manager):
+            self.assertIs(owners[0].rest_client.pool_manager, manager)
+            self.assertFalse(owners[0].settlement_snapshot["construction_complete"])
+            raise RuntimeError("PRIVATE_CONSTRUCTOR")
+        self.manager_init_action = fail
+        with self.assertRaises(self.rest.ReceiverRestError) as caught:
+            worker.prepare_pause_client(owner_capture=owners.append)
+        self.assert_safe(caught.exception)
+        client = owners[0]
+        self.assertEqual(caught.exception.code, "rest_not_sent")
+        self.assertFalse(client.settlement_snapshot["construction_complete"])
+        self.assertFalse(client.settlement_snapshot["prepared_admission"])
+        self.assertFalse(client.settlement_snapshot["cleanup_attempted"])
+        with self.assertRaises(self.rest.ReceiverRestError):
+            worker.pause_prepared("worker", client)
+        self.assertEqual(client.rest_client.pool_manager.calls, [])
+        self.assertFalse(client.close())
+        self.assertEqual(client.rest_client.pool_manager.clear_calls, 1)
+        self.assertFalse(client.close())
+        self.assertEqual(client.rest_client.pool_manager.clear_calls, 1)
+
+    def test_25_header_failure_keeps_concrete_owner_old_pause_still_closes(self):
+        worker = self.workers.WorkersClient(self.config)
+        parent = type(worker.api_config)
+        class BadHeaderConfig(parent):
+            @property
+            def client_side_validation(self):
+                raise RuntimeError("PRIVATE_HEADER")
+        worker.api_config.__class__ = BadHeaderConfig
+        owners = []
+        with self.assertRaises(self.rest.ReceiverRestError) as caught:
+            worker.prepare_pause_client(owner_capture=owners.append)
+        self.assert_safe(caught.exception)
+        client = owners[0]
+        self.assertFalse(client.settlement_snapshot["construction_complete"])
+        self.assertFalse(client.settlement_snapshot["cleanup_attempted"])
+        self.assertEqual(client.rest_client.pool_manager.calls, [])
+        self.assertTrue(client.close())
+        self.assertEqual(client.rest_client.pool_manager.clear_calls, 1)
+        with self.assertRaises(self.rest.ReceiverRestError) as caught:
+            worker.pause("worker")
+        self.assert_safe(caught.exception)
+        self.assertTrue(caught.exception.cleanup_complete)
+        self.assertEqual(self.managers[-1].clear_calls, 1)
+
+    def test_26_prepared_capture_failure_is_before_manager_side_effects(self):
+        worker = self.workers.WorkersClient(self.config)
+        owners = []
+        def capture(client):
+            owners.append(client)
+            raise RuntimeError("PRIVATE_CAPTURE")
+        with self.assertRaises(self.rest.ReceiverRestError) as caught:
+            worker.prepare_pause_client(owner_capture=capture)
+        self.assert_safe(caught.exception)
+        self.assertEqual(self.managers, [])
+        self.assertIsNone(owners[0].rest_client.pool_manager)
+        self.assertTrue(owners[0].close())
+        self.assertFalse(owners[0].settlement_snapshot["construction_complete"])
+        with self.assertRaises(self.rest.ReceiverRestError):
+            worker.prepare_pause_client(owner_capture=None)
+        self.assertEqual(self.managers, [])
+
+    def test_27_blocked_preparation_has_captured_observable_owner(self):
+        worker = self.workers.WorkersClient(self.config)
+        owners, results, errors = [], [], []
+        entered, release = threading.Event(), threading.Event()
+        def block(manager):
+            entered.set()
+            if not release.wait(2):
+                raise RuntimeError("fake gate not released")
+        self.manager_init_action = block
+        def prepare():
+            try:
+                results.append(worker.prepare_pause_client(owner_capture=owners.append))
+            except BaseException as error:
+                errors.append(error)
+        thread = threading.Thread(target=prepare)
+        thread.start()
+        try:
+            self.assertTrue(entered.wait(1))
+            self.assertTrue(thread.is_alive())
+            self.assertIsNotNone(owners[0].rest_client.pool_manager)
+            self.assertFalse(owners[0].settlement_snapshot["construction_complete"])
+            self.assertFalse(owners[0].settlement_snapshot["prepared_admission"])
+            self.assertFalse(owners[0].settlement_snapshot["cleanup_attempted"])
+            self.assertEqual(self.managers[0].calls, [])
+        finally:
+            release.set()
+            thread.join(1)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        self.assertIs(results[0], owners[0])
+        self.assertTrue(owners[0].settlement_snapshot["prepared_admission"])
+        self.assertTrue(owners[0].close())
+
+    async def test_28_prepared_cancelled_view_no_close_until_physical_join(self):
+        worker = self.workers.WorkersClient(self.config)
+        owners = []
+        client = worker.prepare_pause_client(owner_capture=owners.append)
+        manager = client.rest_client.pool_manager
+        release = manager.gate = threading.Event()
+        returned = threading.Event()
+        errors = []
+        def request():
+            try:
+                worker.pause_prepared("worker", client)
+            except BaseException as error:
+                errors.append(error)
+            finally:
+                returned.set()
+        thread = threading.Thread(target=request)
+        # The supervising operation record is registered before launch.
+        operation = Value(thread=thread, client=client, done=returned)
+        thread.start()
+        async def observe():
+            while operation.thread.is_alive():
+                await asyncio.sleep(0.001)
+        view = asyncio.create_task(observe())
+        try:
+            self.assertTrue(await asyncio.to_thread(manager.entered.wait, 1))
+            view.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await view
+            self.assertTrue(thread.is_alive())
+            self.assertTrue(client.settlement_snapshot["request_active"])
+            self.assertFalse(client.settlement_snapshot["cleanup_attempted"])
+            self.assertEqual(manager.clear_calls, 0)
+        finally:
+            release.set()
+            thread.join(1)
+            if not view.done():
+                await view
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        self.assertTrue(returned.is_set())
+        self.assertFalse(client.settlement_snapshot["cleanup_attempted"])
+        self.assertEqual(manager.pools_by_key["origin"].calls, 0)
+        self.assertTrue(client.close())
+        self.assertEqual((manager.pools_by_key["origin"].calls, manager.clear_calls), (1, 1))
+
+    def test_29_prepared_request_error_safe_and_caller_owns_cleanup(self):
+        worker = self.workers.WorkersClient(self.config)
+        owners = []
+        client = worker.prepare_pause_client(owner_capture=owners.append)
+        manager = client.rest_client.pool_manager
+        manager.error = RuntimeError("PRIVATE_TOKEN PRIVATE_REQUEST")
+        with self.assertRaises(self.rest.ReceiverRestError) as caught:
+            worker.pause_prepared("worker", client)
+        self.assertEqual(caught.exception.code, "rest_delivery_uncertain")
+        self.assert_safe(caught.exception)
+        self.assertFalse(client.settlement_snapshot["cleanup_attempted"])
+        self.assertEqual(manager.clear_calls, 0)
+        self.assertTrue(client.close())
+
+    def test_30_prepared_blocked_cleanup_visible_after_request_join(self):
+        worker = self.workers.WorkersClient(self.config)
+        client = worker.prepare_pause_client(owner_capture=lambda owner: None)
+        worker.pause_prepared("worker", client)
+        manager = client.rest_client.pool_manager
+        entered, release = threading.Event(), threading.Event()
+        pool = manager.pools_by_key["origin"]
+        results = []
+        def blocked_close():
+            pool.calls += 1
+            entered.set()
+            if not release.wait(2):
+                raise RuntimeError("fake gate not released")
+        pool.close = blocked_close
+        thread = threading.Thread(target=lambda: results.append(client.close()))
+        thread.start()
+        try:
+            self.assertTrue(entered.wait(1))
+            self.assertFalse(client.settlement_snapshot["cleanup_complete"])
+            self.assertTrue(client.settlement_snapshot["cleanup_attempted"])
+            self.assertFalse(client.close())
+            self.assertEqual(pool.calls, 1)
+        finally:
+            release.set()
+            thread.join(1)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(results, [True])
+        self.assertTrue(client.settlement_snapshot["cleanup_complete"])
+        self.assertEqual(manager.clear_calls, 1)
+
+    def test_31_premature_close_during_construction_stays_incomplete(self):
+        worker = self.workers.WorkersClient(self.config)
+        owners, errors = [], []
+        entered, release = threading.Event(), threading.Event()
+        def block(manager):
+            entered.set()
+            if not release.wait(2):
+                raise RuntimeError("fake gate not released")
+        self.manager_init_action = block
+        def prepare():
+            try:
+                worker.prepare_pause_client(owner_capture=owners.append)
+            except BaseException as error:
+                errors.append(error)
+        thread = threading.Thread(target=prepare)
+        thread.start()
+        try:
+            self.assertTrue(entered.wait(1))
+            self.assertTrue(owners[0].settlement_snapshot["construction_active"])
+            self.assertFalse(owners[0].close())
+            self.assertEqual(self.managers[0].clear_calls, 0)
+        finally:
+            release.set()
+            thread.join(1)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], self.rest.ReceiverRestError)
+        self.assert_safe(errors[0])
+        self.assertFalse(owners[0].settlement_snapshot["construction_active"])
+        self.assertFalse(owners[0].settlement_snapshot["construction_complete"])
+        self.assertFalse(owners[0].settlement_snapshot["prepared_admission"])
+        self.assertFalse(owners[0].close())
+        self.assertFalse(owners[0].settlement_snapshot["cleanup_complete"])
+        self.assertEqual(self.managers[0].clear_calls, 0)
 
 
 if __name__ == "__main__":
