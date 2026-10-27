@@ -1,7 +1,7 @@
 {
   "distribution": "hatchet-sdk",
   "version": "1.41.1",
-  "stage": "C1-single-attempt-events-partial",
+  "stage": "C2A-empty-lifecycle-only-partial",
   "license_metadata": "MIT",
   "files": {
     "hatchet_sdk/config.py": {
@@ -22,7 +22,7 @@
     "hatchet_sdk/clients/dispatcher/action_listener.py": {
       "upstream_sha256": "6f34e777415482ed6ad060de3c4ab55ca147b6ad9b997fe6ecaa6b6a13c666f6",
       "upstream_lf_sha256": "6f34e777415482ed6ad060de3c4ab55ca147b6ad9b997fe6ecaa6b6a13c666f6",
-      "derivative_sha256": "5e3e2402d1c72511a1998367ae7016bc3ffe743ab444ce8b9a7bd3e37b8adc0b"
+      "derivative_sha256": "0e25a5481fd0d702c1ae61b6e040d00c6d68e90d25afb0463b0063477f5832fc"
     },
     "hatchet_sdk/clients/admin.py": {
       "upstream_sha256": "c1878787b59a78288ea92fba1010d1bf524d7b1cc54c8bda626298def34e4d65",
@@ -32,7 +32,17 @@
     "hatchet_sdk/worker/action_listener_process.py": {
       "upstream_sha256": "0d2641d51253f7542560ee09453a2ca61f918d348190616237c98957d0c9112a",
       "upstream_lf_sha256": "0d2641d51253f7542560ee09453a2ca61f918d348190616237c98957d0c9112a",
-      "derivative_sha256": "c277649aa63dfbc0f8978aacbe7b956a81310dc9b71ea13fa4ff7f6818e492e0"
+      "derivative_sha256": "affc08818114fc6df5f8fdda3cd4fa8cb3e0ac8b3e97d05b4c2e809de8450d01"
+    },
+    "hatchet_sdk/worker/worker.py": {
+      "upstream_sha256": "127d6f5ae3c8b51c6d013b75a2112c17dcab83d6f077764d30b93ed065dfd614",
+      "upstream_lf_sha256": "127d6f5ae3c8b51c6d013b75a2112c17dcab83d6f077764d30b93ed065dfd614",
+      "derivative_sha256": "62e8eb1debafa3086d50a57cadf5797ffa72e7d62912d768fedc7881897a20a6"
+    },
+    "hatchet_sdk/worker/runner/run_loop_manager.py": {
+      "upstream_sha256": "c6dcd66671baa7f7d24968811fdd6b662736f8b226958fab335bf22bb3cc9494",
+      "upstream_lf_sha256": "c6dcd66671baa7f7d24968811fdd6b662736f8b226958fab335bf22bb3cc9494",
+      "derivative_sha256": "92fe0dc488a71636df4f59c407a70c21d9bfb77109c81378b6b7875676b4a2df"
     }
   },
   "upstream_provenance": {

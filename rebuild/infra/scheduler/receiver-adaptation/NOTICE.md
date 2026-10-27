@@ -6,7 +6,7 @@ The official pinned [py/1.41.1 release](https://github.com/hatchet-dev/hatchet/r
 and its [monorepo LICENSE](https://raw.githubusercontent.com/hatchet-dev/hatchet/py/1.41.1/LICENSE)
 provide the upstream provenance and full terms reproduced below.
 
-Only a six-file patch and hash manifest are distributed here; no complete copied
+Only an eight-file patch and hash manifest are distributed here; no complete copied
 package, installed environment or private runtime data is included. The installed
 distribution inspected for this stage did not include a standalone LICENSE file
 in its package/dist-info directories; the pinned upstream notice is included here

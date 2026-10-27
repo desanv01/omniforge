@@ -1,11 +1,11 @@
-"""Deterministic six-file derivative applicator, never an installed SDK patcher."""
+"""Deterministic eight-file derivative applicator, never an installed SDK patcher."""
 import hashlib
 import json
 from pathlib import Path
 import re
 
 
-FILES=('hatchet_sdk/config.py', 'hatchet_sdk/connection.py', 'hatchet_sdk/clients/dispatcher/dispatcher.py', 'hatchet_sdk/clients/dispatcher/action_listener.py', 'hatchet_sdk/clients/admin.py', 'hatchet_sdk/worker/action_listener_process.py')
+FILES=('hatchet_sdk/config.py', 'hatchet_sdk/connection.py', 'hatchet_sdk/clients/dispatcher/dispatcher.py', 'hatchet_sdk/clients/dispatcher/action_listener.py', 'hatchet_sdk/clients/admin.py', 'hatchet_sdk/worker/action_listener_process.py', 'hatchet_sdk/worker/worker.py', 'hatchet_sdk/worker/runner/run_loop_manager.py')
 
 
 def sha(data): return hashlib.sha256(data).hexdigest()
@@ -80,7 +80,7 @@ def apply(source,destination):
         result=patched(normalized,sections[name])
         if sha(result)!=entry["derivative_sha256"]: raise ValueError("Derivative hash mismatch")
         results[name]=result
-    # Validate everything before creating output; copy only the exact six files.
+    # Validate everything before creating output; copy only the exact eight files.
     destination.mkdir(parents=True,exist_ok=False)
     for name,data in results.items():
         path=destination/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)

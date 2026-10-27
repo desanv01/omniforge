@@ -1,4 +1,63 @@
-# Receiver derivative Stage C1 (partial)
+# Receiver derivative C2A — lifecycle-only source preparation
+
+The deterministic overlay now emits eight pinned SDK1.41.1 files: config.py,
+connection.py, dispatcher/dispatcher.py, dispatcher/action_listener.py, admin.py,
+worker/action_listener_process.py, worker/worker.py and worker/runner/run_loop_manager.py
+(all client paths under clients/). Config, connection, dispatcher and admin output
+bytes remain identical to accepted C1. The separate reviewed REST2 overlay is a
+required read-only dependency for prepared pause; it is not copied into this patch.
+
+This is default-off, **empty lifecycle only**. Worker requires explicit
+receiver_lifecycle_only=True, externally retained ReceiverResources and capture
+callback, no workflows/actions/lifespan/labels, logging/debug/health/telemetry off,
+exact integer default slot1 and handle_kill=False. It replaces the production
+Worker interface with a closed receiver-specific surface. Registration/user action
+execution, async or sync Runner, ThreadPoolExecutor, logging sender and legacy
+engine are rejected; existing application UnsupportedReceiver remains unchanged.
+An empty registration's real engine compatibility is unproved and may fail closed.
+No native client/process/socket/queue was started by these fake proofs.
+
+Parent and child establish distinct local scopes before Client construction. Queue
+handles and operation records are retained before subsequent effects. Preparation,
+request and cleanup each have a recorded explicit thread: cancellation/observation
+of an async waiter never proves physical thread completion. Parent calls reviewed
+prepare_pause_client, physically joins it, calls pause_prepared once, joins request,
+then starts one close sweep and observes that join/snapshot. Partial owner capture
+is synchronized; cleanup never races a live preparation/request. Unknown partial
+queue allocation blocks clean state, rather than inventing an inaccessible handle.
+
+Retained queues close once after local last use; join_thread runs in an owned
+joiner thread, bounded by the same shutdown observation budget. Peer worker-id
+consumption continues until child exit/deadline before local consumer closure.
+Blocked/failed feeder joins and unsent uncertainty remain owned; cancel_join_thread
+is never a clean path. Channel closure is exclusively ReceiverResources after
+selected tasks/threads/child settle. Listener close owns one read/heartbeat sweep
+and awaited5s Unsubscribe. Resistant tasks stay observable; repeated close joins
+the same sweep. LifecycleThread.copy_context propagates only local context, never
+serializes a live scope/client/channel into the child.
+
+Linux status uses an owned nonblocking AF_UNIX datagram pair, at most4attempts,
+512UTF8bytes/record and2048application bytes. Fixed12primitive records use closed
+vocabulary/types/sequence; payload/control truncation (MSG_TRUNC/MSG_CTRUNC),
+ancillary/unknown/contradictory data refuse. No send retries, feeder or hidden
+executor. Missing final, status loss, unknown counts or abnormal/unknown process
+exit cannot become successful invocation. Resource settlement and event/pause
+uncertainty remain separate facts. Native socket/spawn/descriptor behavior still
+requires separately assigned Linux proof.
+
+Shutdown uses one30s monotonic observation budget, narrowed by12s preparation,
+10s request,2s cleanup and bounded queue/listener/channel waits. A timeout does not
+kill a thread. Unresolved owners/loop remain retained; child entry stays observable
+to external supervision instead of invoking asyncio.run hidden cleanup. There is
+no forced native-process enforcement, action execution or whole-Phase1 claim.
+
+Applicator source/destination/version/hash/context/refusal rules below now apply
+to **eight** outputs. No runtime patching, installed SDK edit, image/lock change,
+network/DB/role/credential/provider operation is implied. The source API requires
+independent review and Main's exact CI/delivery before a separately released image
+or native invocation. Historical stage contracts and evidence follow.
+
+# Historical C1 source contract (six-file stage)
 
 This source artifact changes six copied files from exactly1.41.1: config.py,
 connection.py, clients/dispatcher/dispatcher.py, clients/dispatcher/action_listener.py,
@@ -153,3 +212,19 @@ There is no unbounded task/result history: after ledger removal only current
 waiters retain the state, and they release it on return. No raw response/error is
 cached in a receipt. The cancellation helper tolerates already settled ownership.
 Terminal uncertainty stays permanent even if another join observes a late success.
+
+## C2A review correction v2
+
+Process.start acquisition has explicit attempted/confirmed/ambiguous states. A
+failed start without an observed PID remains ambiguous, never proven nonexistent.
+Never-attempted/unconfirmed no-PID objects are not joined. STOP put, peer reads,
+process observation/join, queue settlement, channel close and endpoint close use
+independent safe stages under the same original deadline. Failure labels latch;
+known independent owners still settle, while unknown/live process/thread owners
+block channel closure and successful invocation. Native-handle enforcement is not
+added. Vendor exceptions do not escape as status bodies/chains.
+
+Lifecycle child event mode admits only STOP. A non-STOP item is retained exactly
+as unsent_lifecycle_event and creates an event_not_sent terminal before any send
+Task/dispatcher effect. Its final cannot establish successful lifecycle invocation.
+Standalone accepted C1 send mode remains unchanged and separately covered.

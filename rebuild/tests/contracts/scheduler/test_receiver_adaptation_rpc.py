@@ -259,7 +259,7 @@ class RpcProof(unittest.IsolatedAsyncioTestCase):
 
     async def test_07_patch_five_outputs_and_stable_stage_a(self):
         hashes=self.app.apply(self.source,self.scratch/"second-output")
-        self.assertEqual(len(hashes),6)
+        self.assertEqual(len(hashes),8)
         self.assertEqual(hashes["hatchet_sdk/config.py"],"bbe5c491989020a316902d3aa9da18b425527714f341062090366d81c8fafbbe")
         self.assertEqual(hashes["hatchet_sdk/connection.py"],"92460665b88db933efc08f382c8aa30b7be7ed6e1b3b8da9af7a671f2d1be8f9")
         for index,name in enumerate(self.app.FILES[2:]):

@@ -304,12 +304,12 @@ class EventProof(unittest.IsolatedAsyncioTestCase):
         for timeout in (0, -1, 6):
             with self.assertRaises(ValueError): await owner.join_sends(timeout)
 
-    async def test_12_six_file_gates_retained_outputs_and_child_drift(self):
+    async def test_12_eight_file_gates_retained_outputs_and_child_drift(self):
         manifest = json.loads((support.ARTIFACT / 'upstream-manifest.json').read_text())
-        self.assertEqual(len(self.app.FILES), 6)
+        self.assertEqual(len(self.app.FILES), 8)
         retained = {'hatchet_sdk/config.py': 'bbe5c491989020a316902d3aa9da18b425527714f341062090366d81c8fafbbe',
             'hatchet_sdk/connection.py': '92460665b88db933efc08f382c8aa30b7be7ed6e1b3b8da9af7a671f2d1be8f9',
-            'hatchet_sdk/clients/dispatcher/action_listener.py': '5e3e2402d1c72511a1998367ae7016bc3ffe743ab444ce8b9a7bd3e37b8adc0b',
+            'hatchet_sdk/clients/dispatcher/dispatcher.py': 'cd5c61d8e24a275da24a99798c09d22b260b4f2e0ea2b492f8f5783a46a34d65',
             'hatchet_sdk/clients/admin.py': '86283c077515e88af4173c067670f7f74c50b450438f56e20fb75f8c37b63c6c'}
         for name, expected in retained.items():
             self.assertEqual(self.app.sha((self.output / name).read_bytes()), expected)
