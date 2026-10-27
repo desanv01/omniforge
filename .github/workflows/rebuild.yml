@@ -52,6 +52,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/secrets -v
       - name: Check standalone provider contracts without network or OS credentials
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/providers -v
+      - name: Check provider journal contracts without database or migration execution
+        run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/profiles -p 'test_diagnostic_journal_contract.py' -v
       - name: Check explicit worker configuration with injected I/O
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/worker -v
   postgres-core:
