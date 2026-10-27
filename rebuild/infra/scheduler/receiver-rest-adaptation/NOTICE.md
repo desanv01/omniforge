@@ -37,3 +37,5 @@ SOFTWARE.
 The changes are an OmniForge-specific pinned REST derivative, not an untouched
 SDK or upstream endorsement. Four copied files are modified: features/workers.py,
 clients/v1/api_client.py, clients/rest/api_client.py and clients/rest/rest.py.
+REST2 adds a prepared pause and partial-construction ownership seam within those
+same four copied files; upstream attribution and license terms remain unchanged.
