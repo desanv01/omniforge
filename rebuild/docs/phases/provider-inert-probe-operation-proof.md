@@ -246,3 +246,205 @@ Actual compile/link records show the model test translation unit includes the sh
 Artifact SHA256 identities: native supervisor119d162999e3ce136db37550826319cbc1dbd74e1a88306f67dda689e549b339 (187392bytes); model18adc20f0a756581127de80b92081840f8008afcbeaca8502826c8ce70c4da5f (169984bytes). Both hashes were unchanged after the model run. All five operation roots exited0 and were observed absent; no descendant-emptiness claim is made. Full private commands, diagnostics, tool hashes and generated metadata remain outside public source.
 
 The real supervisor was NEVER executed, including invalid arguments. Real probe launch, custody preflight, READY/permit exchange, DLL loading and native ownership outcomes remain unexecuted. Independent review of this compiled/static/model evidence precedes delivery acceptance; custody/system-window review and a separate ordinary positive operation release remain required. No Python/client/policy/provider or whole-phase acceptance follows.
+
+## Ancestor ACL precision successor — source preparation only
+
+The earlier compiled/static/model section describes the earlier frozen packet.
+Its native119d1629/187392byte and model18adc20f artifacts are historical evidence;
+they do not implement or verify this changed source. **This successor delta is
+UNCOMPILED, focused model assertions UNEXECUTED.** A new accepted exact native
+binary hash/size and coordinated collector binding are required before any later
+custody operation. No collector source, CMake, ABI, probe/DLL, client or lock is
+changed by this native three-file packet.
+
+This section supersedes the original all-directory mutation-predicate description
+for the successor source only. The common pure predicate now distinguishes:
+
+| Role | Directory/kind context | Conservative risk mask |
+|---|---|---|
+| EXISTING_CHAIN_DIRECTORY | Existing intermediate directory resolving an existing protected descendant, not a mutation/search endpoint |0x500D0152|
+| STRICT_DIRECTORY | Immediate creation parent, operation root, capsule/control/evidence, immediate file parent, Windows/System32 endpoint or stronger retained role |0x500D0156|
+| FILE | Manifest, binary or control file; directory role cannot be used |0x500D0156|
+
+Only directory bit0x4 FILE_ADD_SUBDIRECTORY is removed from the first role's
+predicate. File bit0x4 remains append-data risk. Directory0x2, DELETE_CHILD,
+DELETE, WRITE_DAC, WRITE_OWNER, WRITE_EA, WRITE_ATTRIBUTES and generic ALL/WRITE
+remain risks. No trustee SID, account, root or path whitelist is added. The
+current-user/SYSTEM/Administrators/TrustedInstaller trusted set is unchanged.
+Unknown role, role/kind mismatch or an endpoint requesting the chain role refuses
+even with a read-only mask. Same directory can retain the stricter role.
+
+This is a conservative ACL-admission predicate, not Windows effective-access
+calculation or machine clearance. Ordinary allow/deny support and unsupported
+object/callback/conditional ACE refusals remain. A deny does not cancel another
+risky allow. Inherit-only ACE is not current-object effective access; OI/CI/
+NO_PROPAGATE and effective inherited child ACEs are evaluated in each actual
+object's context. An effective untrusted0x4 at a strict endpoint still refuses.
+Owner/DACL validity and API metadata guards remain necessary before policy
+authorization. The directory/file interpretation follows Microsoft's
+[File Access Rights Constants](https://learn.microsoft.com/en-us/windows/win32/fileio/file-access-rights-constants)
+and [ACE Inheritance Rules](https://learn.microsoft.com/en-us/windows/win32/secauthz/ace-inheritance-rules).
+
+`chain_endpoint` is common to production/model source. The actual traversal opens
+existing components with the same sharing/reparse/identity checks; only internal
+prefixes receive the chain role. The terminal directory or immediate parent of a
+file is strict. Missing prefix aborts, never creates/adopts a substitute. All
+required existing descendants must resolve before admission can reach READY or
+new scope-output use; intermediate authorization is not standalone launch authority.
+
+The common `authorize_path` stores role/kind/endpoint, original handle, immutable
+path and pending/authorized/failed state. It never treats 'seen path' as sufficient
+authorization. Every reuse goes through the same retained handle, native canonical
+metadata and file-ID comparison and exact security-fingerprint comparison before
+stronger ACE evaluation. Stronger role/endpoint is recorded before validation;
+failure keeps it pending/failed, with irreversible operation failure. A weaker
+later request cannot downgrade it, adopt a changed fingerprint, reopen/replace a
+handle or recover failed authorization. Unknown cached role also refuses.
+
+`revalidate_cached_directories` is common production/model code, iterating retained
+strongest roles. Native prelaunch/post-run rechecks call it; existing manifest and
+binary rechecks retain FILE. Native ACL parsing/hash/ID and actual filesystem APIs
+remain outside SP_MODEL. That separation is explicit: injected metadata fixtures
+exercise the real cache/state transition and predicate, not Windows API behavior.
+
+Admission now has explicit manifest, operation-root and scope phases. The immediate
+manifest parent is strict before parsing. After parsing, `operation_root_path`
+derives the common capsule/control/evidence parent from the fixed sibling layout,
+independent of manifest placement. It is strictly held/promoted and registered
+before scope admission or READY. Both require the exact registered root path,
+strict authorized state and open retained handle, with no failure latch. Original
+10second preflight origin is unchanged, and interphase checks do not renew it.
+The later job flags, exact inheritance, permit/clock/work/stop/output/physical
+settlement machinery and its limits remain unchanged.
+
+Custody rows retain the earlier ID/security/path fields and add strongest `role`,
+`risk_mask`, `validations`, `authorized`, `pending` and `policy_failed`. Auxiliary
+`ace_role`, `ace_index`, `ace_type`, `ace_flags`, `ace_mask` and `intersection` refer
+to the last ACE actually evaluated in that entry, not a full ACL/effective-access
+report. If a later ID/security comparison refuses before ACE evaluation, its
+previous ACE fields remain bound to their recorded `ace_role`; UNKNOWN means no
+such ACE has been evaluated. A role label alone does not certify authorization.
+The original65536byte receipt cap remains enforced, including expanded rows.
+
+The model executable source adds a focused `--ancestor-acl` argument. If separately
+released, that branch runs only three new groups (predicate, retained cache and
+ordering), with a distinct completion line; the no-argument historical groups
+remain available and are not automatically rerun by the focused branch. No CMake
+execution/test registration or dependency was added. This is source preparation,
+not permission to run either branch.
+
+Focused literal assertions reach actual common functions for observed0x4 across
+all roles, two injected untrusted SID labels, retained prohibited bits/combinations,
+read-only behavior, generic rights, unknown role/kind/endpoint mismatch, descriptor/
+owner/DACL bounds, inheritance/unsupported ACEs and deny-plus-allow behavior.
+Trustee classification is injected; native SID/group/effective-access computation
+is not tested or inferred. Cache assertions cover same-handle strict upgrade
+refusal, no downgrade/reset, changed handle/path/ID/security, stale role, metadata/
+owner/descriptor/ACE refusal and strongest-role final recheck. Ordering assertions
+use actual component classification and root derivation, including a manifest on
+another drive, refusal before root admission, weak-to-strict failure before scopes/
+READY and successful synthetic strict promotion. All remain **UNEXECUTED**.
+
+The paired private collector correction, independent combined source review,
+necessary new focused model/build/static evidence, actual fixed-parent diagnostic,
+custody/system/window evidence and a separate Main operation release remain
+distinct gates. No unseen ACL is cleared, no actual control/permit/capsule is
+created, and no permission repair, trust expansion or source-only result releases
+a real supervisor/probe/DLL operation. Python/client/provider/Phase1 remains open.
+
+## F1 failure-emission admission correction — successor v2 source only
+
+Independent review of the preceding source successor found an unguarded failure
+route: after manifest parsing and failed root/scope admission, wmain could still
+attempt evidence-file creation during finalization. Failure exit/candidate0 did
+not authorize or undo those writes. This was a source finding, not an actual
+runtime reproduction. The original finding and frozen v1 source remain historical.
+The following correction is **UNCOMPILED and model assertions UNEXECUTED**, pending
+independent delta review; no earlier binary implements it.
+
+The actual common emission-admission record now has UNADMITTED, LIVE, CLOSED and
+REFUSED phases. It commits only after strict operation-root and both control and
+evidence parent authorization, complete preceding scope validation, exact retained
+parent-path lookup and successful same-handle checks. It captures the root/parent
+indices, immutable parent names and every retained ancestor handle relevant to
+either output path. A failed root, failed evidence parent or scope refusal before
+that commit cannot authorize any new file. A nonempty parsed pathname is never
+output permission. Operation failure is not cleared to establish or use admission.
+
+The common `file_emission_allowed` gate requires the committed record, appropriate
+resource lifecycle, unchanged strongest authorized policy/handle records and the
+exact immediate parent. It permits only control/ready.txt and evidence/
+custody.before.txt, child.stdout, child.stderr, custody.after.txt and final.txt.
+Other parents, capsule outputs and unlisted names refuse.
+Control READY is additionally restricted to LIVE admission and the READY stage;
+closed admission permits only the fixed evidence names.
+The native open_file namespace-creation choke point invokes this gate before **every CREATE_NEW**;
+other constructive dispositions are refused. Consequently all write_new callers,
+including custody and failure finalization, have the same gate immediately before
+the real CreateFile call. Existing read-only OPEN_EXISTING operations are unchanged.
+
+LIVE requires all captured namespace directory handles still OPEN with matching
+original values, valid strongest roles and no pending/failed authorization. It
+supports already-admitted bounded failure/UNKNOWN evidence while the native owner
+retains resources. It does not turn an unsuccessful operation into success.
+
+Normal dispose closes the directory handles before final evidence, as before.
+The correction explicitly transitions LIVE to CLOSED only after complete clean
+operation-resource disposal and matching CLOSED states for those same captured
+handles, with the same accepted policy/path records. Failed or incomplete disposal,
+or failed namespace revalidation, transitions to REFUSED. UNADMITTED remains
+unadmitted; no later emitter can bootstrap admission or reopen a directory handle.
+
+CLOSED is a **historical output-admission receipt**, not an assertion that closed
+handles still protect the namespace or that ACLs were freshly rechecked. Its use
+requires the original trusted immutable namespace/window to continue through final
+file flush/close, stdout confirmation and outer observation. Strong ancestor and
+strict parent ACL/owner protections exclude untrusted namespace replacement/name
+creation within that supported model; trusted user/admin/system mutation remains
+excluded. If that continuing window cannot be established, the operation must not
+be released. This adds no recovery/hostile-mutation guarantee and no inferred ACL
+clearance after handle closure. Previously valid unrelated operation failure may
+still emit diagnostics under CLOSED without clearing its failure latch.
+
+The disposed flag refers to the pre-emission operation resources. Authorized
+create-new diagnostic handles are then separately rooted, flushed and closed by
+write_new. Their close/error checks and mandatory final stdout/tool exit checks
+remain necessary; a candidate file cannot certify its own close. Captured
+namespace records are not replaced by these new diagnostic file handles.
+
+The common `finalize_output` routing is also shared with the model: admitted
+records select O_EMIT; otherwise only bounded inherited-stdout diagnostics are
+selected. The native diagnostic is one fixed ASCII OF_PROBE_DIAGNOSTIC_V1 line
+(<512bytes from bounded IDs/numeric fields), carrying operation/generation/manifest/
+owner, stage, first_failure, first_error, unknown, emission phase and pass=0. It
+opens no pathname and creates no file. Such a line is not READY, confirmation or
+passing evidence. Direct O_EMIT file paths still hit the central gate, independent
+of the routing decision. Timing, one-shot CREATE_NEW, failure/UNKNOWN and physical
+settlement requirements remain unchanged.
+
+The focused --ancestor-acl source branch now has a fourth group,
+emission_admission_cases, using the actual common establishment, gate, clean-close
+transition and final routing. Injected file-effect counts occur only after that
+gate, without native I/O. Prepared cases reproduce parsed-manifest/root refusal,
+early scope refusal, actual evidence-parent policy refusal and refusal after
+parent checks but before admission commit: dispose/finalize must leave zero file
+effects and select outer diagnostics. Additional cases cover admitted LIVE output,
+admitted CLOSED finalization despite the live-root guard being false, unrelated
+failed outcome without failure reset, failed close and changed namespace security
+refusing further output, and foreign parent/unlisted filename rejection.
+
+No case was compiled or executed. These are source assertions through the real
+gate, not filesystem/Windows evidence. The private collector, CMake, shared
+contracts and old artifacts remain unchanged by this correction. Independent delta
+review and a new exact build/focused model/static acceptance must still precede
+collector rebinding, actual diagnostics/collection or any native operation release.
+
+## Successor ancestor ACL build and focused model evidence
+
+The independently reviewed source correction was compiled using the pinned Windows x64 MSVC toolchain. One configure and the two-target Release build passed (7.516s and 10.781s). Static inspections of both produced executables passed. C11, /W4 /WX /MT and compile/link CFG were retained; both outputs are x64 PE32+ with no exports.
+
+The successor supervisor is 195072 bytes, SHA256 `29a32c86bac2841b2ee6a16dfbda7a8ae5715276104d02c96eaf2c5eaa1ca2e6`. It was never executed. The model is 205824 bytes, SHA256 `9ce1033f0aea2224282d9cfdb9f45720d8a7d72c485650d6a99d36efb3902687`. Its single `--ancestor-acl` invocation exited zero in 0.235s and completed the four predicate, cache, order and emission groups. These exercise shared decisions with injected facts and synthetic effects, excluding native adapters and wmain. Historical no-argument tests and CTest were not rerun.
+
+A separate frozen collector model invocation exited zero in 2.172s and reported 131 cases, zero native calls and execution_allowed=false. It branched before native helper compilation and live collection. Its results establish model behavior, not actual ACL permissions or custody. All six step stderr logs were empty. Exact root processes were absent afterward; descendants were not enumerated and no broader physical-settlement claim follows.
+
+Supervisor imports include bcrypt, ADVAPI32 and KERNEL32; the model imports KERNEL32. Static CRT loader/file/termination imports remain and do not imply native execution. Original failed diagnostics and earlier binary identities remain historical evidence. The collector's old binary binding remains unchanged pending coordinated acceptance of this successor. Actual corrected-chain observation, strict endpoint/custody/system/window acceptance, real supervisor/probe execution, DLL loading and provider/client integration remain open.
