@@ -8,7 +8,7 @@ from sqlalchemy.engine import make_url
 
 ROLE = "omniforge_b3c_receiver_v1"
 DATABASE = "omniforge_rebuild"
-MIGRATION = "0008_run_cancellation"
+MIGRATION = "0009_provider_diagnostics"
 
 
 class WorkerSettingsError(Exception):

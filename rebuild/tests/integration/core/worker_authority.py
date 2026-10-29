@@ -34,11 +34,12 @@ RELEASE = "EXECUTE_REVIEWED_B3C_AUTHORITY_PROOF"
 TABLES = tuple("principals cases case_grants artifacts artifact_associations idempotency "
     "provider_profile_versions provider_enrollments runs run_events run_outbox run_attempts "
     "run_outputs run_scheduler_executions run_scheduler_submissions run_cancellations "
-    "run_cancel_targets run_cancel_receipts".split())
+    "run_cancel_targets run_cancel_receipts provider_diagnostics provider_diagnostic_rounds".split())
+JOURNAL_TABLES = ("provider_diagnostics", "provider_diagnostic_rounds")
 PURPOSES = ("complete", "cleanup_after_grant_revocation", "revoked_grant_admission",
     "changed_input_admission", "wrong_payload_registration", "stale_renewal", "wrong_context_registration")
 
-# Complete SELECT projections frozen at 0008, not ALL TABLES/future-column grants.
+# Existing explicit grant projections retained at 0009; no journal/future grants.
 SELECT = {
     "alembic_version": "version_num",
     "case_grants": "principal_id case_id can_write",
@@ -231,6 +232,15 @@ def denied_sql(engine, statement):
             tx.rollback()
 
 
+def journal_denial_probes():
+    """No-row permission probes; no destructive TRUNCATE or journal values."""
+    return tuple(statement for table in JOURNAL_TABLES for statement in (
+        f"SELECT operation_id FROM public.{identifier(table)} WHERE false",
+        f"INSERT INTO public.{identifier(table)}(operation_id) SELECT NULL::uuid WHERE false",
+        f"UPDATE public.{identifier(table)} SET operation_id=NULL::uuid WHERE false",
+        f"DELETE FROM public.{identifier(table)} WHERE false"))
+
+
 def denied_domain(engine, callback, status):
     try:
         with engine.begin() as conn:
@@ -240,8 +250,8 @@ def denied_domain(engine, callback, status):
         require(getattr(exc, "status", getattr(exc, "status_code", None)) == status, "wrong_domain_denial")
 
 
-def receiver_checks(owner, worker, settings, fixtures):
-    checks = []
+def receiver_checks(owner, worker, settings, fixtures, *, checks=None):
+    checks = [] if checks is None else checks
     for index, fixture in enumerate(fixtures):
         settings.require_run(fixture.run_id)
         context, spec = fixture.context, fixture.spec
@@ -340,7 +350,9 @@ def execute(*, owner_engine, expected_owner, expected_cluster, new_secret, relea
         with owner_transaction(owner_engine) as conn:
             guard_owner(conn, expected_owner, expected_cluster)
             baseline, schema = snapshot(conn), schema_projection(conn)
-            report["baseline18"] = {table: {"count": sum(old.values()), "projection_multiset": dict(old)} for table, old in baseline.items()}
+            report["baseline20"] = {table: {"count": sum(old.values()), "projection_multiset": dict(old)} for table, old in baseline.items()}
+            report["empty_baseline_tables"] = [table for table, old in baseline.items() if not sum(old.values())]
+            require(set(baseline) == set(TABLES) and not report["empty_baseline_tables"], "nonempty_twenty_table_baseline_required")
             report["role_disposition"] = "creation_transaction_unconfirmed_requires_inspection_on_failure"
             report["provisioning_commit"] = "unconfirmed_requires_Main_inspection"
             provision(conn, new_secret)
@@ -369,10 +381,16 @@ def execute(*, owner_engine, expected_owner, expected_cluster, new_secret, relea
                    "CREATE TABLE public.authority_proof_forbidden_ddl (id integer)",
                    "ALTER TABLE public.runs ADD COLUMN authority_proof_forbidden_column integer",
                    "SET LOCAL ROLE " + identifier(expected_owner)]
-        for probe in probes:
+        probes += list(journal_denial_probes())
+        report["sql_denial_checks"] = []
+        for index, probe in enumerate(probes):
+            report["active_sql_probe_id"] = "legacy_"+str(index) if index < len(probes)-8 else "journal_"+str(index-(len(probes)-8))
             denied_sql(worker, probe)
+            report["sql_denial_checks"].append({"probe_id": report["active_sql_probe_id"], "sqlstate": "42501", "status": "passed"})
+        report["active_sql_probe_id"] = None
         report["sql_denials"] = len(probes)
-        report["receiver_checks"] = receiver_checks(owner_engine, worker, settings, fixtures)
+        report["receiver_checks"] = []
+        receiver_checks(owner_engine, worker, settings, fixtures, checks=report["receiver_checks"])
         report["status"] = "passed_pending_settlement"
     except BaseException as exc:
         failed("proof_body", exc)
@@ -405,7 +423,7 @@ def execute(*, owner_engine, expected_owner, expected_cluster, new_secret, relea
                 with owner_transaction(owner_engine) as conn:
                     current = snapshot(conn)
                     report["baseline_preserved"] = all(not (old - current[table]) for table, old in baseline.items())
-                    report["baseline18"] = {table: {"count": sum(old.values()), "projection_multiset": dict(old)} for table, old in baseline.items()}
+                    report["baseline20"] = {table: {"count": sum(old.values()), "projection_multiset": dict(old)} for table, old in baseline.items()}
                     report["schema_preserved"] = schema_projection(conn) == schema
                 require(report["baseline_preserved"] and report["schema_preserved"], "preservation_failed")
             except BaseException as exc:

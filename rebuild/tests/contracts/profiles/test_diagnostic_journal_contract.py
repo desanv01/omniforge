@@ -308,7 +308,7 @@ class StagedMigrationTests(unittest.TestCase):
             for target in ("0008_run_cancellation","0009_provider_diagnostics"):
                 upgrade.reset_mock();migrate.main(["--target",target]);upgrade.assert_called_once_with(target)
 
-    def test_worker_remains_eight_only_and_staged_runner_keeps_explicit_seed(self):
+    def test_worker_exact_nine_and_staged_runner_keeps_explicit_eight_seed(self):
         import ast
         from pathlib import Path
         from tests.integration.core import provider_diagnostics_runner as runner
@@ -316,7 +316,7 @@ class StagedMigrationTests(unittest.TestCase):
         worker=ast.parse((root/"infra/core/worker_settings.py").read_text(encoding="utf-8"))
         migration=next(node.value.value for node in worker.body if isinstance(node,ast.Assign)
             and any(isinstance(name,ast.Name) and name.id=="MIGRATION" for name in node.targets))
-        self.assertEqual(migration,"0008_run_cancellation")
+        self.assertEqual(migration,"0009_provider_diagnostics")
         self.assertEqual((runner.STABLE,runner.JOURNAL),("0008_run_cancellation","0009_provider_diagnostics"))
 
 

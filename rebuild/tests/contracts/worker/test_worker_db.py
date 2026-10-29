@@ -4,7 +4,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from infra.core.worker_db import APPLICATION, WorkerDatabaseError, build_worker_engine, validate_worker_startup
+from infra.core.worker_db import APPLICATION, JOURNAL_DENIALS, WorkerDatabaseError, build_worker_engine, validate_worker_startup
 from infra.core.worker_settings import DATABASE, MIGRATION, ROLE
 from tests.contracts.worker import test_worker_settings as settings_fixture
 
@@ -18,7 +18,7 @@ def identity():
 def privileges():
     return dict(schema_create=False, principal_read=False, case_read=False, idempotency_read=False,
         profile_read=False, enrollment_read=False, grant_lock_update=True, association_lock_update=True,
-        artifact_lock_update=True, temporary_allowed=True)
+        artifact_lock_update=True, temporary_allowed=True, **{key:False for key in JOURNAL_DENIALS})
 
 
 class FakeResult:
@@ -62,6 +62,7 @@ class WorkerDatabaseProof(unittest.TestCase):
     def test_02_explicit_startup_checks_identity_migration_and_privileges(self):
         engine = FakeEngine()
         result = validate_worker_startup(engine, self.settings())
+        self.assertEqual(result.migration,"0009_provider_diagnostics")
         self.assertEqual((result.role, result.database, result.migration), (ROLE, DATABASE, MIGRATION))
         self.assertTrue(result.temporary_allowed)
         self.assertIn("actual mutation", result.authority)
@@ -83,7 +84,7 @@ class WorkerDatabaseProof(unittest.TestCase):
                 self.assertEqual(len(engine.sql),1)
 
     def test_04_schema_version_exact_and_no_bootstrap_fallback(self):
-        for version in ("0007_run_delivery", "head", None):
+        for version in ("0008_run_cancellation", "0007_run_delivery", "0010_future", "head", None):
             engine = FakeEngine(); engine.rows[1] = version
             with self.assertRaises(WorkerDatabaseError): validate_worker_startup(engine, self.settings())
             self.assertEqual(len(engine.sql),2); self.assertEqual(engine.disposed,1)
@@ -96,6 +97,17 @@ class WorkerDatabaseProof(unittest.TestCase):
             self.assertEqual(engine.disposed,1)
         engine = FakeEngine(); engine.rows[2]["grant_lock_update"] = 1
         with self.assertRaises(WorkerDatabaseError): validate_worker_startup(engine, self.settings())
+
+    def test_05b_every_journal_denial_is_strict_and_required(self):
+        self.assertEqual(len(JOURNAL_DENIALS),16)
+        for key in JOURNAL_DENIALS:
+            for value in (True,None,0,1,"false","missing"):
+                engine=FakeEngine()
+                if value=="missing":del engine.rows[2][key]
+                else:engine.rows[2][key]=value
+                with self.subTest(key=key,value=value),self.assertRaises(WorkerDatabaseError):
+                    validate_worker_startup(engine,self.settings())
+                self.assertEqual(engine.disposed,1)
 
     def test_06_effective_temp_reported_not_silently_revoked(self):
         engine = FakeEngine(); engine.rows[2]["temporary_allowed"] = False
