@@ -17,6 +17,14 @@
 
 enum { SP_PATH=240, SP_TEXT=4096, SP_MANIFEST=4096, SP_HANDLES=128 };
 enum LIFE { R_NONE, R_ENTERED, R_OPEN, R_CLOSED, R_FAILED };
+enum POLICY_ROLE { P_UNKNOWN, P_CHAIN_DIRECTORY, P_STRICT_DIRECTORY, P_FILE };
+enum EMISSION_PHASE { E_UNADMITTED, E_LIVE, E_CLOSED, E_REFUSED };
+struct POLICY_STATE {
+    enum POLICY_ROLE role, ace_role;
+    HANDLE retained_handle;
+    unsigned registered, directory, endpoint, pending, authorized, failed, validations;
+    DWORD ace_mask, intersection, ace_flags, ace_type, ace_index;
+};
 enum RESOURCE { R_TOKEN, R_MANIFEST, R_PROBE, R_TARGET, R_SELF, R_JOB,
     R_OUT_READ, R_OUT_WRITE, R_ERR_READ, R_ERR_WRITE, R_NUL, R_PROCESS,
     R_THREAD, R_READY, R_PERMIT, R_CANCEL, R_FINAL, R_LOG_OUT, R_LOG_ERR, R_FIND,
@@ -28,7 +36,8 @@ enum OP { O_CLOCK, O_ADMIT, O_RECHECK, O_JOB, O_SET_LIMIT, O_GET_LIMIT,
     O_PIPE_OUT, O_PIPE_ERR, O_NUL, O_ATTR_INIT, O_ATTR_HANDLES, O_ATTR_JOB,
     O_READY, O_PERMIT, O_CANCEL, O_PAUSE, O_CREATE, O_MEMBER, O_RESUME,
     O_DRAIN_OUT, O_DRAIN_ERR, O_WAIT, O_ACTIVE, O_EXIT, O_TERMINATE,
-    O_ATTR_DELETE, O_CLOSE, O_EMIT };
+    O_ATTR_DELETE, O_CLOSE, O_POLICY_VALIDATE, O_OPERATION_ROOT, O_SCOPE_ADMIT,
+    O_OUTER_DIAGNOSTIC, O_EMIT };
 /* Adapter return: 1 success, 2 absent/pending/EOF (operation-specific), 0 failure.
  * All API outputs land in this pre-existing static record before projection. */
 struct RESOURCE_STATE { HANDLE handle; enum LIFE life; DWORD error; };
@@ -40,6 +49,15 @@ struct MANIFEST {
 static struct SUPERVISOR {
     struct MANIFEST manifest;
     struct RESOURCE_STATE resource[SP_HANDLES];
+    struct POLICY_STATE policy[SP_HANDLES];
+    WCHAR held_path[SP_HANDLES][SP_PATH];
+    unsigned policy_initial, operation_root_index, dir_count;
+    struct {
+        enum EMISSION_PHASE phase;
+        unsigned root_index, parent_index[2], dir_count, included[SP_HANDLES];
+        HANDLE handle[SP_HANDLES];
+        WCHAR parent[2][SP_PATH];
+    } emission;
     PROCESS_INFORMATION pi;
     STARTUPINFOEXW startup;
     union { uint64_t align; unsigned char bytes[4096]; } attributes;
@@ -66,11 +84,9 @@ static struct SUPERVISOR {
     FILE_ID_INFO identity[SP_HANDLES];
     unsigned char digest[32], file_bytes[524288], security[65536], token_info[1024];
     unsigned char security_hash[SP_HANDLES][32];
-    WCHAR held_path[SP_HANDLES][SP_PATH];
     char custody_receipt[65536];
     WIN32_FIND_DATAW find_data;
     WIN32_FIND_STREAM_DATA stream_data;
-    unsigned dir_count;
 #endif
 } sp;
 
@@ -194,6 +210,204 @@ static int checked(enum OP op) {
     if(result!=1) { fail(200u+(unsigned)op); return 0; }
     return 1;
 }
+/* Shared by native admission and SP_MODEL. These are conservative predicates,
+ * not AccessCheck; no SID or path special case selects a weaker risk mask. */
+static int policy_role_valid(enum POLICY_ROLE role,int directory,int endpoint) {
+    if((directory!=0&&directory!=1)||(endpoint!=0&&endpoint!=1)) return 0;
+    if(!directory) return role==P_FILE&&!endpoint;
+    if(role==P_STRICT_DIRECTORY) return 1;
+    return role==P_CHAIN_DIRECTORY&&!endpoint;
+}
+static DWORD policy_mask(enum POLICY_ROLE role) {
+    if(role==P_CHAIN_DIRECTORY) return 0x500D0152u;
+    if(role==P_STRICT_DIRECTORY||role==P_FILE) return 0x500D0156u;
+    return 0; /* Never admission: role validity is independently mandatory. */
+}
+static const char *policy_role_name(enum POLICY_ROLE role) {
+    switch(role) {
+    case P_CHAIN_DIRECTORY: return "EXISTING_CHAIN_DIRECTORY";
+    case P_STRICT_DIRECTORY: return "STRICT_DIRECTORY";
+    case P_FILE: return "FILE";
+    default: return "UNKNOWN";
+    }
+}
+static int policy_header_valid(int descriptor_valid,int owner_trusted,int dacl_present,unsigned count) {
+    return descriptor_valid==1&&owner_trusted==1&&dacl_present==1&&count<=128;
+}
+static int policy_ace_allowed(enum POLICY_ROLE role,int directory,int endpoint,
+    unsigned type,unsigned flags,DWORD mask,int trustee_trusted) {
+    if(!policy_role_valid(role,directory,endpoint)) return 0;
+    if(type!=ACCESS_ALLOWED_ACE_TYPE&&type!=ACCESS_DENIED_ACE_TYPE) return 0;
+    if(type==ACCESS_DENIED_ACE_TYPE) return 1; /* Does not erase another allow. */
+    if(flags&INHERIT_ONLY_ACE) return 1;
+    return !(mask&policy_mask(role))||trustee_trusted==1;
+}
+static int chain_endpoint(const WCHAR *path,size_t end,int directory,int *endpoint) {
+    size_t n;
+    if(!path||!endpoint||(directory!=0&&directory!=1)) return 0;
+    n=wcsnlen_s(path,SP_PATH);
+    if(n<3||n>=SP_PATH||end<3||end>n||(!directory&&end==n)||
+       (end!=3&&end!=n&&path[end]!=L'\\')) return 0;
+    *endpoint=directory?(end==n):
+        (wcschr(path+end+((end<n&&path[end]==L'\\')?1u:0u),L'\\')==NULL);
+    return 1;
+}
+static int operation_root_path(WCHAR out[SP_PATH]) {
+    char parent[SP_PATH],*last; size_t i,n;
+    strcpy_s(parent,sizeof(parent),sp.manifest.capsule);
+    last=strrchr(parent,'\\');
+    if(!last||strcmp(last,"\\capsule")) return 0;
+    if(last==parent+2) last[1]=0; else *last=0;
+    n=strlen(parent); if(n<3||n>=SP_PATH) return 0;
+    for(i=0;i<=n;++i) out[i]=(WCHAR)(unsigned char)parent[i];
+    return 1;
+}
+/* Reused path authorization ALWAYS revalidates the same retained handle.
+ * Stronger role is recorded before entry, failure never restores the old role.
+ * Native adapter compares old identity/security before evaluating its ACEs. */
+static int authorize_path(unsigned index,const WCHAR *path,int directory,int endpoint,
+    enum POLICY_ROLE requested,int initial) {
+    struct POLICY_STATE *p;
+    if(index>=SP_HANDLES) { fail(500); return 0; }
+    p=&sp.policy[index];
+    p->authorized=0;
+    if(!path||wcsnlen_s(path,SP_PATH)<3||wcsnlen_s(path,SP_PATH)>=SP_PATH||
+       !policy_role_valid(requested,directory,endpoint)||p->pending||p->failed||
+       sp.resource[index].life!=R_OPEN||sp.failure) { p->failed=1; fail(501); return 0; }
+    if((initial!=0&&initial!=1)||(initial&&p->registered)||(!initial&&!p->registered)) {
+        p->failed=1; fail(502); return 0;
+    }
+    if(p->registered) {
+        if(p->directory!=(unsigned)directory||
+            !policy_role_valid(p->role,(int)p->directory,(int)p->endpoint)) {
+            p->failed=1; fail(503); return 0;
+        }
+        if(p->role==P_STRICT_DIRECTORY) requested=P_STRICT_DIRECTORY;
+        endpoint=endpoint||(p->endpoint!=0);
+        p->role=requested; p->endpoint=(unsigned)endpoint;
+        if(p->retained_handle!=sp.resource[index].handle||_wcsicmp(sp.held_path[index],path)) {
+            p->failed=1; p->authorized=0; fail(503); return 0;
+        }
+    } else {
+        wcscpy_s(sp.held_path[index],SP_PATH,path);
+        p->retained_handle=sp.resource[index].handle;
+        p->directory=(unsigned)directory; p->registered=1;
+    }
+    p->role=requested; p->endpoint=(unsigned)endpoint;
+    p->authorized=0; p->pending=1;
+    sp.current_resource=index; sp.policy_initial=(unsigned)initial;
+    ++p->validations;
+    if(!checked(O_POLICY_VALIDATE)) { p->failed=1; fail(504); return 0; }
+    p->pending=0; p->authorized=1; return 1;
+}
+static int require_operation_root(void) {
+    unsigned index=sp.operation_root_index;
+    WCHAR expected[SP_PATH];
+    struct POLICY_STATE *p;
+    if(sp.failure||index<R_FIRST_DIR||index>=SP_HANDLES||!operation_root_path(expected)) return 0;
+    p=&sp.policy[index];
+    return p->registered&&p->directory&&p->endpoint&&p->role==P_STRICT_DIRECTORY&&
+        p->authorized&&!p->pending&&!p->failed&&sp.resource[index].life==R_OPEN&&
+        !_wcsicmp(sp.held_path[index],expected);
+}
+static int register_operation_root(unsigned index) {
+    sp.operation_root_index=index;
+    if(!require_operation_root()) { fail(505); return 0; }
+    return 1;
+}
+static int revalidate_cached_directories(void) {
+    unsigned i;
+    if(sp.dir_count>SP_HANDLES-R_FIRST_DIR) { fail(508); return 0; }
+    for(i=R_FIRST_DIR;i<R_FIRST_DIR+sp.dir_count;++i)
+        if(!authorize_path(i,sp.held_path[i],1,(int)sp.policy[i].endpoint,sp.policy[i].role,0)) return 0;
+    if(!require_operation_root()) { fail(509); return 0; }
+    return 1;
+}
+/* Output admission is independent of operation success, never inferred from a
+ * parsed pathname. Commit both strict output parents only after complete scope
+ * admission. A closed phase is a historical admission receipt within the SAME
+ * trusted immutable namespace window, not an open-handle or new ACL proof. */
+static int emission_parent_path(unsigned which,WCHAR out[SP_PATH]) {
+    const char *p=which?sp.manifest.evidence:sp.manifest.control; size_t i,n;
+    if(which>1) return 0;
+    n=strlen(p); if(n<4||n>=SP_PATH) return 0;
+    for(i=0;i<=n;++i) out[i]=(WCHAR)(unsigned char)p[i];
+    return 1;
+}
+static int path_prefix(const WCHAR *prefix,const WCHAR *path) {
+    size_t n=wcslen(prefix),m=wcslen(path);
+    return n<=m&&!_wcsnicmp(prefix,path,n)&&
+        (n==m||(n==3&&prefix[2]==L'\\')||path[n]==L'\\');
+}
+static int emission_records_match(enum LIFE life) {
+    unsigned i,k;
+    if(sp.emission.dir_count!=sp.dir_count||sp.dir_count>SP_HANDLES-R_FIRST_DIR||
+       sp.operation_root_index!=sp.emission.root_index) return 0;
+    for(i=R_FIRST_DIR;i<R_FIRST_DIR+sp.dir_count;++i) if(sp.emission.included[i]) {
+        struct POLICY_STATE *p=&sp.policy[i];
+        if(!p->registered||!p->directory||!p->authorized||p->pending||p->failed||
+           !policy_role_valid(p->role,1,(int)p->endpoint)||sp.resource[i].life!=life||
+           sp.resource[i].handle!=sp.emission.handle[i]||p->retained_handle!=sp.emission.handle[i]) return 0;
+    }
+    for(k=0;k<3;++k) {
+        i=k==0?sp.emission.root_index:sp.emission.parent_index[k-1];
+        if(i<R_FIRST_DIR||i>=R_FIRST_DIR+sp.dir_count||!sp.emission.included[i]||
+           sp.policy[i].role!=P_STRICT_DIRECTORY||!sp.policy[i].endpoint) return 0;
+        if(k&&!_wcsicmp(sp.held_path[i],sp.emission.parent[k-1])) continue;
+        if(k) return 0;
+    }
+    return 1;
+}
+static int establish_emission_admission(void) {
+    unsigned i,k;
+    if(sp.emission.phase!=E_UNADMITTED||!require_operation_root()) goto refused;
+    sp.emission.root_index=sp.operation_root_index; sp.emission.dir_count=sp.dir_count;
+    for(k=0;k<2;++k) {
+        if(!emission_parent_path(k,sp.emission.parent[k])) goto refused;
+        for(i=R_FIRST_DIR;i<R_FIRST_DIR+sp.dir_count;++i)
+            if(!_wcsicmp(sp.held_path[i],sp.emission.parent[k])) break;
+        if(i==R_FIRST_DIR+sp.dir_count) goto refused;
+        sp.emission.parent_index[k]=i;
+    }
+    for(i=R_FIRST_DIR;i<R_FIRST_DIR+sp.dir_count;++i)
+        if(path_prefix(sp.held_path[i],sp.emission.parent[0])||path_prefix(sp.held_path[i],sp.emission.parent[1])) {
+            sp.emission.included[i]=1; sp.emission.handle[i]=sp.resource[i].handle;
+        }
+    if(!emission_records_match(R_OPEN)) goto refused;
+    sp.emission.phase=E_LIVE; return 1;
+refused:
+    sp.emission.phase=E_REFUSED; fail(510); return 0;
+}
+static int emission_admission_valid(void) {
+    if(sp.emission.phase==E_LIVE) return emission_records_match(R_OPEN);
+    if(sp.emission.phase==E_CLOSED) return sp.disposed&&emission_records_match(R_CLOSED);
+    return 0;
+}
+static void settle_emission_admission(void) {
+    if(sp.emission.phase==E_LIVE)
+        sp.emission.phase=(sp.disposed&&emission_records_match(R_CLOSED))?E_CLOSED:E_REFUSED;
+}
+static int file_emission_allowed(const WCHAR *path) {
+    static const WCHAR *const names[]={L"ready.txt",L"custody.before.txt",L"child.stdout",
+        L"child.stderr",L"custody.after.txt",L"final.txt"};
+    const WCHAR *leaf; size_t parent_length,n; unsigned which,i;
+    if(!path||!emission_admission_valid()) return 0;
+    n=wcsnlen_s(path,SP_PATH); if(n<4||n>=SP_PATH) return 0;
+    leaf=wcsrchr(path,L'\\'); if(!leaf||!leaf[1]) return 0;
+    parent_length=(size_t)(leaf-path); ++leaf;
+    for(which=0;which<2;++which) {
+        if(which==0&&(sp.emission.phase!=E_LIVE||sp.stage!=S_READY)) continue;
+        if(wcslen(sp.emission.parent[which])!=parent_length||
+           _wcsnicmp(path,sp.emission.parent[which],parent_length)) continue;
+        for(i=which?1u:0u;i<(which?6u:1u);++i) if(!wcscmp(leaf,names[i])) return 1;
+    }
+    return 0;
+}
+static int finalize_output(void) {
+    if(emission_admission_valid()) return checked(O_EMIT);
+    fail(511); /* Bounded inherited-handle diagnostics only; never create a file. */
+    return checked(O_OUTER_DIAGNOSTIC);
+}
 static int clock_read(void) {
     if(!checked(O_CLOCK)) return 0;
     if(sp.clock_seen&&sp.now<sp.last_clock) { sp.now=sp.last_clock; fail(101); return 0; }
@@ -278,6 +492,7 @@ static void dispose(void) {
     for(i=0;i<SP_HANDLES;++i)
         if(sp.resource[i].life!=R_NONE&&sp.resource[i].life!=R_CLOSED) sp.disposed=0;
     if(!sp.disposed) fail(306);
+    settle_emission_admission();
 }
 /* Steps are also the model harness entrypoints: no second implementation. */
 static int prepare(void) {
@@ -286,6 +501,11 @@ static int prepare(void) {
     size_t i;
     sp.stage=S_ADMISSION;
     if(!clock_read()||!add_time(sp.now,10000,&sp.preflight_end)||!checked(O_ADMIT)) return 0;
+    if(!clock_read()||sp.now>=sp.preflight_end) { fail(330); return 0; }
+    if(!checked(O_OPERATION_ROOT)) return 0;
+    if(!require_operation_root()) { fail(507); return 0; }
+    if(!clock_read()||sp.now>=sp.preflight_end) { fail(330); return 0; }
+    if(!checked(O_SCOPE_ADMIT)) return 0;
     if(!clock_read()||sp.now>=sp.preflight_end) { fail(330); return 0; }
     sp.stage=S_PREPARE;
     for(i=0;i<sizeof(setup)/sizeof(setup[0]);++i) {
@@ -298,6 +518,7 @@ static int prepare(void) {
         (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE|JOB_OBJECT_LIMIT_ACTIVE_PROCESS)||
         sp.observed_limits.BasicLimitInformation.ActiveProcessLimit!=1) { fail(308); return 0; }
     if(!add_time(sp.now,30000,&sp.ready_end)||!make_controls()) { fail(309); return 0; }
+    if(!require_operation_root()) { fail(506); return 0; }
     sp.stage=S_READY; return checked(O_READY);
 }
 static int permit_step(void) {
@@ -410,6 +631,10 @@ static int native_close(unsigned index) {
 }
 static int open_file(unsigned index,const WCHAR *path,DWORD access,DWORD share,DWORD creation,DWORD flags) {
     struct RESOURCE_STATE *r=&sp.resource[index];
+    /* Single native namespace-creation choke point, including failure emission. */
+    if(creation!=OPEN_EXISTING&&(creation!=CREATE_NEW||!file_emission_allowed(path))) {
+        sp.error=ERROR_ACCESS_DENIED; return 0;
+    }
     if(r->life!=R_NONE&&r->life!=R_CLOSED) return 0;
     r->life=R_ENTERED;
     r->handle=CreateFileW(path,access,share,NULL,creation,flags,NULL);
@@ -447,27 +672,34 @@ static int trusted_sid(PSID sid) {
 static int security_check(unsigned index,int initial) {
     DWORD needed=0; PSID owner=NULL; PACL acl=NULL; BOOL defaulted=FALSE,present=FALSE;
     ACL_SIZE_INFORMATION info; unsigned i; unsigned char digest[32];
-    const DWORD mutation=GENERIC_ALL|GENERIC_WRITE|WRITE_DAC|WRITE_OWNER|DELETE|
-        FILE_WRITE_DATA|FILE_APPEND_DATA|FILE_WRITE_EA|FILE_WRITE_ATTRIBUTES|FILE_DELETE_CHILD;
+    struct POLICY_STATE *p=&sp.policy[index];
     if(!GetKernelObjectSecurity(*handle_at(index),OWNER_SECURITY_INFORMATION|DACL_SECURITY_INFORMATION,
         (PSECURITY_DESCRIPTOR)sp.security,sizeof(sp.security),&needed)) { sp.error=GetLastError(); return 0; }
     if(!needed||needed>sizeof(sp.security)||!IsValidSecurityDescriptor(sp.security)||
-        !GetSecurityDescriptorOwner(sp.security,&owner,&defaulted)||!trusted_sid(owner)||
+        !GetSecurityDescriptorOwner(sp.security,&owner,&defaulted)||
         !GetSecurityDescriptorDacl(sp.security,&present,&acl,&defaulted)||!present||!acl||
         !GetAclInformation(acl,&info,sizeof(info),AclSizeInformation)||info.AceCount>128) return 0;
+    if(!policy_header_valid(1,trusted_sid(owner),present&&acl!=NULL,info.AceCount)||
+       !p->pending||!policy_role_valid(p->role,(int)p->directory,(int)p->endpoint)||
+       !hash_data(sp.security,needed,digest)) return 0;
+    /* Cached bytes must match before the stronger role is evaluated. Never adopt
+     * changed security as a new baseline merely because a path was seen before. */
+    if(!initial&&memcmp(sp.security_hash[index],digest,32)) return 0;
     for(i=0;i<info.AceCount;++i) {
         ACE_HEADER *header=NULL;
+        DWORD mask=0; int trustee=0;
         if(!GetAce(acl,i,(LPVOID *)&header)) return 0;
-        if(header->AceType==ACCESS_DENIED_ACE_TYPE) continue;
-        if(header->AceType!=ACCESS_ALLOWED_ACE_TYPE) return 0;
-        if(!(header->AceFlags&INHERIT_ONLY_ACE)) {
+        if(header->AceType==ACCESS_ALLOWED_ACE_TYPE||header->AceType==ACCESS_DENIED_ACE_TYPE) {
             ACCESS_ALLOWED_ACE *ace=(ACCESS_ALLOWED_ACE *)header;
-            if((ace->Mask&mutation)&&!trusted_sid((PSID)&ace->SidStart)) return 0;
+            mask=ace->Mask;
+            if(header->AceType==ACCESS_ALLOWED_ACE_TYPE) trustee=trusted_sid((PSID)&ace->SidStart);
         }
+        p->ace_role=p->role; p->ace_index=i; p->ace_type=header->AceType; p->ace_flags=header->AceFlags;
+        p->ace_mask=mask; p->intersection=mask&policy_mask(p->role);
+        if(!policy_ace_allowed(p->role,(int)p->directory,(int)p->endpoint,
+            header->AceType,header->AceFlags,mask,trustee)) return 0;
     }
-    if(!hash_data(sp.security,needed,digest)) return 0;
     if(initial) memcpy(sp.security_hash[index],digest,32);
-    else if(memcmp(sp.security_hash[index],digest,32)) return 0;
     return 1;
 }
 static int identity_check(unsigned index,const WCHAR *path,int directory,int initial) {
@@ -481,7 +713,7 @@ static int identity_check(unsigned index,const WCHAR *path,int directory,int ini
     n=GetFinalPathNameByHandleW(*handle_at(index),normalized,SP_PATH+4,FILE_NAME_NORMALIZED|VOLUME_NAME_DOS);
     if(!n||n>=SP_PATH+4||wcsncmp(normalized,L"\\\\?\\",4)||_wcsicmp(normalized+4,path)) return 0;
     /* Short aliases rejected lexically; matching canonical long path still uses file ID. */
-    if(initial) { sp.identity[index]=id; wcscpy_s(sp.held_path[index],SP_PATH,path); }
+    if(initial) sp.identity[index]=id;
     else if(memcmp(&sp.identity[index],&id,sizeof(id))) return 0;
     return security_check(index,initial);
 }
@@ -491,16 +723,19 @@ static int hold_chain(const WCHAR *path,int directory) {
     root[0]=path[0]; root[1]=L':'; root[2]=L'\\'; root[3]=0;
     if(GetDriveTypeW(root)!=DRIVE_FIXED) return 0;
     for(;;) {
+        int initial=0,endpoint;
         if(end==n&&!directory) break;
+        if(!chain_endpoint(path,end,directory,&endpoint)) return 0;
         memcpy(component,path,end*sizeof(WCHAR)); component[end]=0;
         for(r=R_FIRST_DIR;r<R_FIRST_DIR+sp.dir_count;++r) if(!_wcsicmp(sp.held_path[r],component)) break;
         if(r==R_FIRST_DIR+sp.dir_count) {
             if(sp.dir_count>=SP_HANDLES-R_FIRST_DIR) return 0;
             ++sp.dir_count; /* Reserve root before the native acquisition. */
             if(!open_file(r,component,FILE_READ_ATTRIBUTES|READ_CONTROL,FILE_SHARE_READ|FILE_SHARE_WRITE,
-                OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT)||
-                !identity_check(r,component,1,1)) return 0;
+                OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT)) return 0;
+            initial=1;
         }
+        if(!authorize_path(r,component,1,endpoint,endpoint?P_STRICT_DIRECTORY:P_CHAIN_DIRECTORY,initial)) return 0;
         if(end==n) break;
         i=end; if(i<n&&path[i]==L'\\') ++i;
         while(i<n&&path[i]!=L'\\') ++i;
@@ -616,7 +851,7 @@ static int binary_check(unsigned i,int initial) {
     const char *expected_hash=i==0?probe_hash:(i==1?target_hash:sp.manifest.supervisor_hash);
     unsigned r=indices[i]; LARGE_INTEGER length,zero; char actual[65]; zero.QuadPart=0;
     if(initial&&!open_file(r,sp.path[i],GENERIC_READ|READ_CONTROL,FILE_SHARE_READ,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT)) return 0;
-    if(!identity_check(r,sp.path[i],0,initial)||!GetFileSizeEx(*handle_at(r),&length)||
+    if(!authorize_path(r,sp.path[i],0,0,P_FILE,initial)||!GetFileSizeEx(*handle_at(r),&length)||
        length.QuadPart!=(LONGLONG)expected_size||expected_size>sizeof(sp.file_bytes)||
        !SetFilePointerEx(*handle_at(r),zero,NULL,FILE_BEGIN)||
        !read_exact(r,sp.file_bytes,(DWORD)expected_size)||!hash_data(sp.file_bytes,(ULONG)expected_size,sp.digest)) return 0;
@@ -638,14 +873,21 @@ static int custody_receipt(const char *leaf) {
         char id[33],acl[65]; int n;
         hex_bytes(sp.identity[i].FileId.Identifier,16,id); hex_bytes(sp.security_hash[i],32,acl);
         n=_snprintf_s(sp.custody_receipt+used,sizeof(sp.custody_receipt)-used,_TRUNCATE,
-            "slot=%u volume=%llu id=%s acl_sha256=%s path=%ls\n",i,
-            (unsigned long long)sp.identity[i].VolumeSerialNumber,id,acl,sp.held_path[i]);
+            "slot=%u volume=%llu id=%s acl_sha256=%s role=%s risk_mask=0x%08lx validations=%u "
+            "authorized=%u pending=%u policy_failed=%u ace_role=%s "
+            "ace_index=%lu ace_type=%lu ace_flags=%lu ace_mask=0x%08lx intersection=0x%08lx path=%ls\n",i,
+            (unsigned long long)sp.identity[i].VolumeSerialNumber,id,acl,policy_role_name(sp.policy[i].role),
+            (unsigned long)policy_mask(sp.policy[i].role),sp.policy[i].validations,
+            sp.policy[i].authorized,sp.policy[i].pending,sp.policy[i].failed,policy_role_name(sp.policy[i].ace_role),
+            (unsigned long)sp.policy[i].ace_index,(unsigned long)sp.policy[i].ace_type,
+            (unsigned long)sp.policy[i].ace_flags,(unsigned long)sp.policy[i].ace_mask,
+            (unsigned long)sp.policy[i].intersection,sp.held_path[i]);
         if(n<0) return 0; used+=(size_t)n;
     }
     return write_new(R_FINAL,sp.manifest.evidence,leaf,sp.custody_receipt,(DWORD)used);
 }
 static int native_admit(void) {
-    DWORD needed=0,n; WCHAR actual[SP_PATH],system[SP_PATH],parent[SP_PATH]; unsigned i; NTSTATUS status;
+    DWORD needed=0; NTSTATUS status;
     status=BCryptOpenAlgorithmProvider(&sp.algorithm,BCRYPT_SHA256_ALGORITHM,NULL,0);
     if(status<0) { sp.error=(DWORD)status; return 0; }
     sp.algorithm_open=1;
@@ -654,13 +896,24 @@ static int native_admit(void) {
     sp.resource[R_TOKEN].life=R_OPEN;
     if(!GetTokenInformation(sp.resource[R_TOKEN].handle,TokenUser,sp.token_info,sizeof(sp.token_info),&needed)) return 0;
     if(!hold_chain(sp.manifest_path,0)||read_small(R_MANIFEST,sp.manifest_path,sp.manifest_text,sizeof(sp.manifest_text),0)!=1||
-       !identity_check(R_MANIFEST,sp.manifest_path,0,1)||!parse_manifest(sp.manifest_text,strlen(sp.manifest_text))||
+       !authorize_path(R_MANIFEST,sp.manifest_path,0,0,P_FILE,1)||!parse_manifest(sp.manifest_text,strlen(sp.manifest_text))||
        !hash_data(sp.manifest_text,(ULONG)strlen(sp.manifest_text),sp.digest)) return 0;
     hex_bytes(sp.digest,32,sp.manifest_hash);
     status=BCryptGenRandom(NULL,sp.digest,16,BCRYPT_USE_SYSTEM_PREFERRED_RNG);
     if(status<0) { sp.error=(DWORD)status; return 0; }
     hex_bytes(sp.digest,16,sp.owner);
-    if(!lower_hex(sp.owner,32)||!wide(sp.manifest.systemroot,system,SP_PATH)) return 0;
+    return lower_hex(sp.owner,32);
+}
+static int native_operation_root(void) {
+    WCHAR path[SP_PATH]; unsigned r;
+    if(!operation_root_path(path)||!hold_chain(path,1)) return 0;
+    for(r=R_FIRST_DIR;r<R_FIRST_DIR+sp.dir_count;++r)
+        if(!_wcsicmp(sp.held_path[r],path)) return register_operation_root(r);
+    return 0;
+}
+static int native_scope_admit(void) {
+    DWORD n; WCHAR actual[SP_PATH],system[SP_PATH],parent[SP_PATH]; unsigned i;
+    if(!require_operation_root()||!wide(sp.manifest.systemroot,system,SP_PATH)) return 0;
     n=GetWindowsDirectoryW(actual,SP_PATH); if(!n||n>=SP_PATH||_wcsicmp(actual,system)) return 0;
     if(!hold_chain(system,1)||!join(sp.manifest.systemroot,"System32",system)||!hold_chain(system,1)) return 0;
     if(!join(sp.manifest.capsule,"inert_load_probe.exe",sp.path[0])||
@@ -682,13 +935,13 @@ static int native_admit(void) {
         if(b<0||(size_t)a+(size_t)b+2>=1024) return 0;
         sp.environment[(size_t)a+(size_t)b+2]=0; /* sorted Unicode double-NUL block */
     }
+    if(!establish_emission_admission()) return 0;
     return custody_receipt("custody.before.txt");
 }
 static int native_recheck(void) {
     unsigned i;
-    for(i=R_FIRST_DIR;i<R_FIRST_DIR+sp.dir_count;++i)
-        if(!identity_check(i,sp.held_path[i],1,0)) return 0;
-    if(!identity_check(R_MANIFEST,sp.manifest_path,0,0)||!directory_listing(sp.manifest.capsule,1)) return 0;
+    if(!revalidate_cached_directories()||!authorize_path(R_MANIFEST,sp.manifest_path,0,0,P_FILE,0)||
+        !directory_listing(sp.manifest.capsule,1)) return 0;
     for(i=0;i<3;++i) if(!binary_check(i,0)) return 0;
     return 1;
 }
@@ -745,12 +998,28 @@ static int native_emit(void) {
         !sp.failure&&!sp.unknown&&sp.disposed?1u:0u,sp.unknown)<0||fflush(stdout)==EOF) { fail(402); ok=0; }
     return ok;
 }
+static int native_outer_diagnostic(void) {
+    /* No manifest pathname is opened. Fields are fixed bounded validated IDs. */
+    if(printf("OF_PROBE_DIAGNOSTIC_V1 operation=%s generation=%s manifest=%s owner=%s "
+        "stage=%u first_failure=%u first_error=%u unknown=%u emission=%u pass=0\n",
+        sp.manifest.operation,sp.manifest.generation,sp.manifest_hash,sp.owner,
+        (unsigned)sp.stage,sp.first_failure,sp.first_error,sp.unknown,(unsigned)sp.emission.phase)<0||
+        fflush(stdout)==EOF) return 0;
+    return 1;
+}
 static int native_dispatch(enum OP op) {
     BOOL result; DWORD size,flags; JOBOBJECT_BASIC_ACCOUNTING_INFORMATION accounting;
     ++sp.native_calls;
     switch(op) {
     case O_CLOCK: sp.now=GetTickCount64(); return 1;
     case O_ADMIT: return native_admit();
+    case O_OPERATION_ROOT: return native_operation_root();
+    case O_SCOPE_ADMIT: return native_scope_admit();
+    case O_POLICY_VALIDATE: {
+        unsigned r=sp.current_resource;
+        if(r>=SP_HANDLES||!sp.policy[r].pending||!sp.policy[r].registered) return 0;
+        return identity_check(r,sp.held_path[r],(int)sp.policy[r].directory,(int)sp.policy_initial);
+    }
     case O_RECHECK: return native_recheck();
     case O_JOB:
         sp.resource[R_JOB].life=R_ENTERED; sp.resource[R_JOB].handle=CreateJobObjectW(NULL,NULL);
@@ -786,13 +1055,13 @@ static int native_dispatch(enum OP op) {
     case O_ATTR_JOB:
         sp.jobs[0]=*handle_at(R_JOB);
         return UpdateProcThreadAttribute(sp.startup.lpAttributeList,0,PROC_THREAD_ATTRIBUTE_JOB_LIST,sp.jobs,sizeof(sp.jobs),NULL,NULL)!=0;
-    case O_READY: return write_new(R_READY,sp.manifest.control,"ready.txt",sp.ready,(DWORD)strlen(sp.ready));
+    case O_READY: return require_operation_root()&&write_new(R_READY,sp.manifest.control,"ready.txt",sp.ready,(DWORD)strlen(sp.ready));
     case O_PERMIT: case O_CANCEL:
         if(!join(sp.manifest.control,op==O_PERMIT?"permit.txt":"cancel.txt",sp.control_path)) return 0;
         size=(DWORD)read_small(op==O_PERMIT?R_PERMIT:R_CANCEL,sp.control_path,sp.incoming,sizeof(sp.incoming),1);
         if(size==1) {
             unsigned r=op==O_PERMIT?R_PERMIT:R_CANCEL;
-            if(!identity_check(r,sp.control_path,0,1)||!close_one(r)) return 0;
+            if(!authorize_path(r,sp.control_path,0,0,P_FILE,1)||!close_one(r)) return 0;
         }
         return (int)size;
     case O_PAUSE: Sleep(100); return 1;
@@ -824,6 +1093,7 @@ static int native_dispatch(enum OP op) {
     case O_TERMINATE: return TerminateJobObject(*handle_at(R_JOB),0xE001u)!=0;
     case O_ATTR_DELETE: DeleteProcThreadAttributeList(sp.startup.lpAttributeList); return 1;
     case O_CLOSE: return native_close(sp.current_resource);
+    case O_OUTER_DIAGNOSTIC: return native_outer_diagnostic();
     case O_EMIT: return native_emit();
     default: return 0;
     }
@@ -852,7 +1122,7 @@ int wmain(int argc,WCHAR **argv) {
         if(status<0) { sp.error=(DWORD)status; fail(403); } else sp.algorithm_open=0;
     }
     /* Reopen-free custody receipt formatting no longer needs the crypto provider. */
-    if(sp.manifest.evidence[0]) checked(O_EMIT);
+    finalize_output();
     if(sp.work_end&&!sp.unknown&&(!clock_read()||sp.now>=(sp.stopping?sp.settle_end:sp.work_end))) fail(406);
     if(sp.unknown&&!sp.disposed) {
         /* No retry/relaunch. Retain exact handles for separately directed safe settlement.
