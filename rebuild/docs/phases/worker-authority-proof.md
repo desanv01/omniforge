@@ -1,5 +1,62 @@
 # OF-013-B3C core receiver seam — offline evidence
 
+## Current schema9 source compatibility, actual role proof pending
+
+28 October2026. The worker now requires exactly0009_provider_diagnostics, with no
+0008/0009 allowlist. Database, role, of-core-db:5432 endpoint, seven Run UUID scope,
+explicit configuration and physical connection policy remain unchanged. Source
+compatibility is awaiting independent review and a separately released actual
+disposable SQL proof; it is not worker/native runtime readiness or retained cutover.
+
+Startup explicitly denies effective SELECT/INSERT/UPDATE/REFERENCES columns and
+DELETE/TRUNCATE/TRIGGER/REFERENCES table privileges on both provider_diagnostics
+and provider_diagnostic_rounds. Every required denial is strictly bool false;
+missing/null/nonbool/true fails closed with sanitized error and disposal attempt.
+The existing three locking-column UPDATE grants remain required and unchanged.
+
+Authority proof now expects twenty application tables plus alembic_version, all
+owned by the exact expected owner, and requires nonempty preexisting baselines for
+all twenty. Existing SELECT/INSERT/UPDATE grant columns remain unchanged and both
+journal tables remain absent from all grants. Effective column privilege checks
+cover actual catalog columns; table/column REFERENCES and DELETE/TRUNCATE/TRIGGER
+denials include both journal tables. Catalog/schema/constraint/index/function/
+trigger digests and row hash multiplicities preserve original data independently
+from new seven-Run fixtures and intended role ACL changes. New evidence is named
+baseline20; historical baseline18 receipts remain historical and unchanged.
+
+Eight no-row journal probes, rollback-only with exact42501 expected, deny reads,
+inserts, updates and deletes on both tables. No destructive TRUNCATE probe or
+journal row values are used. First unexpected denial stops later probes/scenarios;
+completed probe IDs, active failed probe and partial receiver results remain in
+the caller-owned evidence. Seven existing completion/authority/input/cancellation
+scenarios remain; synthetic cancellation cleanup grants no normal work or journal
+permission and proves no native termination.
+
+Physical worker bounds remain connect3s, pool2/overflow0/checkout1s and server
+statement/lock/idle-transaction5000ms. Owner proof transactions independently use
+statement5000ms, lock1000ms and idle5000ms; there is no1000ms physical worker-lock
+claim. Independent pool inspection/disposal, confirmed-created role NOLOGIN and
+twenty-table/schema preservation are attempted after failure/control interruption.
+Unknown provisioning/disable commits stay unconfirmed; no reset/reprovision/delete
+is performed. NOLOGIN is not session termination and disposal is not service stop.
+
+Fresh disposable CI controller/harness and actual execution remain separately
+gated. A proposed fresh trusted job may compare a separately recorded SQL service
+identity observation with the proof's second SQL observation, preserving the first
+on mismatch. That is two observations in fresh GitHub job provenance, not an
+independent retained-volume/control-file or external-capture attestation. Retained
+credential-creating authority, migration/cutover, capture/logging/config/channel and
+native operations retain their separate gates; external capture remains UNKNOWN.
+Journal producers/capability capture/publisher/bridge remain unavailable by default.
+
+Focused source verification passed64 inert tests across worker settings/startup,
+authority/projection/denial/failure contracts and journal migration contracts. All
+engines, transactions, role/probe calls and receipts were injected; no SQL role,
+database, service, secret store or native operation ran. Actual twenty-table
+permission/projection/session evidence and controller durability remain unproved.
+
+## Historical schema8 offline seam and preparation
+
 25 October2026. Implemented and fake-tested; frozen for independent review. This
 is not role provisioning, database connectivity, Linux receiver execution or native
 scheduler readiness.

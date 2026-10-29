@@ -34,6 +34,18 @@ has_column_privilege(current_user,'public.artifact_associations','revision','UPD
 has_column_privilege(current_user,'public.artifacts','bytes','UPDATE') AS artifact_lock_update,
 has_database_privilege(current_user,current_database(),'TEMP') AS temporary_allowed"""
 
+JOURNAL_TABLES = ("provider_diagnostics", "provider_diagnostic_rounds")
+JOURNAL_DENIALS = {
+    f"{table}_{kind}_{privilege.lower()}":
+        f"{function}(current_user,'public.{table}','{privilege}')"
+    for table in JOURNAL_TABLES
+    for function, kind, privileges in (
+        ("has_any_column_privilege", "column", ("SELECT", "INSERT", "UPDATE", "REFERENCES")),
+        ("has_table_privilege", "table", ("DELETE", "TRUNCATE", "TRIGGER", "REFERENCES")))
+    for privilege in privileges
+}
+PRIVILEGE_SQL += "," + ",".join(f"{expression} AS {name}" for name, expression in JOURNAL_DENIALS.items())
+
 
 @dataclass(frozen=True)
 class WorkerStartup:
@@ -112,6 +124,8 @@ def validate_worker_startup(engine, settings):
             privileges = conn.execute(text(PRIVILEGE_SQL)).mappings().one()
             if any(privileges[key] is not False for key in ("schema_create", "principal_read", "case_read",
                      "idempotency_read", "profile_read", "enrollment_read")):
+                raise ValueError()
+            if any(privileges.get(key) is not False for key in JOURNAL_DENIALS):
                 raise ValueError()
             if any(privileges[key] is not True for key in ("grant_lock_update", "association_lock_update", "artifact_lock_update")):
                 raise ValueError()

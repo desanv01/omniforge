@@ -274,3 +274,49 @@ jobs:
       - name: Record unavailable receipt after configuration failure
         if: always() && steps.journal-config.outcome != 'success'
         run: echo "Journal receipt unavailable because isolated configuration was not prepared."
+  postgres-worker-authority9:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: python@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+    services:
+      of-core-db:
+        image: postgres@sha256:32ebb7185baf2c9d38f91684417d140c0745aeff5082dfbb62edb330c2af6197
+        env:
+          POSTGRES_USER: omniforge_worker_schema9_ci_owner
+          POSTGRES_DB: omniforge_rebuild
+          POSTGRES_PASSWORD: ephemeral-worker-owner-ci-only
+        options: >-
+          --health-cmd "pg_isready -U omniforge_worker_schema9_ci_owner -d omniforge_rebuild"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: rebuild
+    env:
+      PYTHONPATH: .
+      PYTHONDONTWRITEBYTECODE: '1'
+      UV_PYTHON_DOWNLOADS: never
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: '0.11.25'
+          enable-cache: false
+      - name: Install locked dependencies using the pinned container Python
+        run: uv sync --locked --python /usr/local/bin/python
+      - name: Check the isolated authority harness with injected resources
+        run: uv run --locked --no-sync python -B -m unittest tests.contracts.worker.test_worker_authority_ci -v
+      - name: Prepare fresh synthetic authority context
+        id: worker-context
+        run: uv run --locked --no-sync python -B ../scripts/rebuild-ci-worker-authority-config.py prepare
+      - name: Run one bounded authority proof and independent settlement
+        id: worker-proof
+        timeout-minutes: 6
+        run: uv run --locked --no-sync python -B ../scripts/rebuild-ci-worker-authority-config.py control
+      - name: Validate and export the bounded synthetic proof summary
+        if: always() && steps.worker-context.outcome == 'success'
+        run: uv run --locked --no-sync python -B ../scripts/rebuild-ci-worker-authority-config.py export
+      - name: Record unavailable proof after preparation failure
+        if: always() && steps.worker-context.outcome != 'success'
+        run: echo "Worker authority proof unavailable because context preparation did not succeed."
