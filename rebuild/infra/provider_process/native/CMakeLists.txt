@@ -63,4 +63,22 @@ target_compile_definitions(owned_slot_inert PRIVATE _WIN32_WINNT=0x0A00 UNICODE 
 target_compile_options(owned_slot_inert PRIVATE /W4 /WX /guard:cf)
 enable_testing()
 add_test(NAME owned_slot_inert COMMAND owned_slot_inert)
-# Intentionally no DLL, real Win32 symbol table, loader, install or runtime target.
+# Explicit inert source targets only; default retains the accepted EXE alone.
+option(OF_BUILD_INERT_DLL "Build reviewed C-fake export DLL/harness; separate operation release required" OFF)
+if(OF_BUILD_INERT_DLL)
+  add_library(owned_slot_inert_exports SHARED owned_slot.c slot_inert_exports.c)
+  target_compile_definitions(owned_slot_inert_exports PRIVATE OF_INERT_BUILD)
+  # Harness includes the export TU to inspect its PRIVATE guard without test exports.
+  add_executable(owned_slot_export_harness owned_slot.c
+    ../../../tests/contracts/providers/native/test_slot_inert_exports.c)
+  foreach(_slot_target IN ITEMS owned_slot_inert_exports owned_slot_export_harness)
+    target_include_directories(${_slot_target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_property(TARGET ${_slot_target} PROPERTY C_STANDARD 11)
+    set_property(TARGET ${_slot_target} PROPERTY C_STANDARD_REQUIRED ON)
+    set_property(TARGET ${_slot_target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_definitions(${_slot_target} PRIVATE _WIN32_WINNT=0x0A00 UNICODE _UNICODE)
+    target_compile_options(${_slot_target} PRIVATE /W4 /WX /guard:cf)
+  endforeach()
+  add_test(NAME owned_slot_export_harness COMMAND owned_slot_export_harness)
+endif()
+# No real Win32 table, default loader, install or native ownership runtime target.
