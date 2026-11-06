@@ -52,6 +52,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/secrets -v
       - name: Check offline detection metrics and split contracts
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/detection -p 'test_metrics.py' -v
+      - name: Check bounded text JSON CSV import core
+        run: uv run --locked --no-sync python -B -m unittest -f tests.contracts.evidence.test_import_core -v
       - name: Check standalone provider contracts without network or OS credentials
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/providers -v
       - name: Check provider journal contracts without database or migration execution
@@ -94,6 +96,8 @@ jobs:
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/worker -v
       - name: Check offline detection metrics and split contracts
         run: uv run --locked --no-sync python -B -m unittest discover -s tests/contracts/detection -p 'test_metrics.py' -v
+      - name: Check bounded text JSON CSV import core
+        run: uv run --locked --no-sync python -B -m unittest -f tests.contracts.evidence.test_import_core -v
       - name: Check portable evidence and provenance contracts
         env:
           OMNIFORGE_EVIDENCE_PROOF_ROOT: ${{ runner.temp }}/omniforge-evidence-proof
